@@ -18,6 +18,11 @@ import { userService } from "@/server/services/UserService";
 
 import { OpsSidebar } from "./OpsSidebar";
 
+// The CRM is auth-gated and reads per-request state (cookies, headers) plus the
+// DB on every render. It must never be statically prerendered at build time
+// (no DB is reachable during `next build` / on Vercel), so force dynamic.
+export const dynamic = "force-dynamic";
+
 export default async function CrmLayout({
   children,
 }: {

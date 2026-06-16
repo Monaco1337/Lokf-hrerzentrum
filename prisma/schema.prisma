@@ -1,12 +1,12 @@
 // Prisma schema for Fairtrain Lead Funnel
 //
-// Provider: sqlite for local dev. SQLite does not support native Prisma enums.
-// All enum-like columns are stored as String and validated via zod + TypeScript
-// enums at every application boundary (Repository read, Service input, Action input).
+// Provider: postgresql (Vercel / production). All enum-like columns are stored
+// as String and validated via zod + TypeScript enums at every application
+// boundary (Repository read, Service input, Action input).
 // See src/features/fairtrain-funnel/types.ts for the source of truth of every enum.
 //
-// Postgres-ready: switching `provider` to "postgresql" works as-is. A later
-// optional migration can convert these String columns to native Postgres enums.
+// A later optional migration can convert these String columns to native
+// Postgres enums.
 
 generator client {
   provider      = "prisma-client-js"
@@ -17,7 +17,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
