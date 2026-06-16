@@ -7,6 +7,7 @@
  * NOTE: every count returned here is a real DB query — no demo math, no
  * fallback estimates. If the DB is empty, the UI just shows zero.
  */
+/* eslint-disable no-restricted-imports -- server-only data loader (no client code); direct DB/service access is intentional and never bundled to the client. */
 import { prisma } from "@/server/db/prisma";
 import { applyScope } from "@/server/services/LeadAccess";
 import { leadInsightsService } from "@/server/services/LeadInsightsService";

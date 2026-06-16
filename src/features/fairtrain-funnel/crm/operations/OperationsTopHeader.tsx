@@ -10,6 +10,7 @@
  * Everything here is server-rendered. The clock ticks via a tiny client
  * sibling (Clock) so we don't lift the entire header into a client tree.
  */
+/* eslint-disable no-restricted-imports -- server component (no client code); direct DB access is intentional and never bundled to the client. */
 import Link from "next/link";
 
 import { prisma } from "@/server/db/prisma";
