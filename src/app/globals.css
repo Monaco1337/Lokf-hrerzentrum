@@ -119,159 +119,269 @@
   }
 
   /* ------------------------------------------------------------------- */
-  /* Operations Center — Dark Executive surface for /crm. Scoped via the */
-  /* `data-ops` attribute on the CRM layout root. Everything outside that */
-  /* attribute keeps the light marketing/funnel look unchanged.          */
+  /* Operations Center — Premium LIGHT CRM surface for /crm. Scoped via   */
+  /* the `data-ops` attribute on the CRM layout root. The global remap   */
+  /* layer rewrites every legacy dark utility class (`bg-[#0a0a0b]`,     */
+  /* `text-zinc-300`, `border-white/[0.06]`, …) to the light premium     */
+  /* palette so the existing component tree renders correctly without   */
+  /* any per-file edits. Tokens follow the brief:                       */
+  /*   App bg #F6F7F9 · Surface #FFFFFF · Border #E5E7EB · Soft #EEF0F3 */
+  /*   Ink #111827 · Muted #6B7280 · Subtle #9CA3AF · Accent #16A34A.    */
   /* ------------------------------------------------------------------- */
+
+  /* === Semantic ops-* utility classes (light variant) ================= */
   .ops-canvas {
-    background: #050505;
-    color: #f5f5f5;
+    background: #f6f7f9;
+    color: #111827;
   }
   .ops-card {
-    @apply rounded-xl border;
-    background: #0d0d0f;
-    border-color: rgba(255, 255, 255, 0.08);
+    @apply rounded-2xl border;
+    background: #ffffff;
+    border-color: #e5e7eb;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   }
   .ops-card-elevated {
-    @apply rounded-xl border;
-    background: #161618;
-    border-color: rgba(255, 255, 255, 0.10);
+    @apply rounded-2xl border;
+    background: #ffffff;
+    border-color: #e5e7eb;
+    box-shadow: 0 6px 18px -10px rgba(15, 23, 42, 0.08),
+      0 2px 4px -2px rgba(15, 23, 42, 0.05);
   }
   .ops-hairline {
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: #eef0f3;
   }
   .ops-text-primary {
-    color: #f5f5f5;
+    color: #111827;
   }
   .ops-text-muted {
-    color: #a1a1aa;
+    color: #6b7280;
   }
   .ops-text-dim {
-    color: #71717a;
+    color: #9ca3af;
   }
   .ops-eyebrow {
-    color: #71717a;
-    font-size: 10.5px;
+    color: #6b7280;
+    font-size: 11px;
     font-weight: 600;
-    letter-spacing: 0.10em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
   }
   .ops-input {
     @apply w-full rounded-lg border px-3 py-2 text-sm transition;
-    background: #161618;
-    border-color: rgba(255, 255, 255, 0.10);
-    color: #f5f5f5;
+    background: #ffffff;
+    border-color: #e5e7eb;
+    color: #111827;
   }
   .ops-input::placeholder {
-    color: #71717a;
+    color: #9ca3af;
   }
   .ops-input:focus {
     @apply outline-none;
-    border-color: rgba(249, 115, 22, 0.5);
-    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.12);
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
   }
   .ops-btn-primary {
     @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition;
-    background: #f97316;
-    color: #0a0a0a;
+    background: #16a34a;
+    color: #ffffff;
+    box-shadow: 0 1px 2px rgba(22, 163, 74, 0.20);
   }
   .ops-btn-primary:hover {
-    background: #fb923c;
+    background: #15803d;
   }
   .ops-btn-ghost {
     @apply inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium transition;
-    background: transparent;
-    border-color: rgba(255, 255, 255, 0.10);
-    color: #f5f5f5;
+    background: #ffffff;
+    border-color: #e5e7eb;
+    color: #111827;
   }
   .ops-btn-ghost:hover {
-    background: rgba(255, 255, 255, 0.04);
-    border-color: rgba(255, 255, 255, 0.18);
+    background: #f9fafb;
+    border-color: #d1d5db;
   }
   .ops-chip {
-    @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10.5px] font-semibold uppercase tracking-wider;
+    @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-normal;
   }
   .ops-chip-green {
-    background: rgba(34, 197, 94, 0.12);
-    color: #4ade80;
-    border: 1px solid rgba(34, 197, 94, 0.30);
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
   }
   .ops-chip-amber {
-    background: rgba(245, 158, 11, 0.12);
-    color: #fbbf24;
-    border: 1px solid rgba(245, 158, 11, 0.30);
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
   }
   .ops-chip-orange {
-    background: rgba(249, 115, 22, 0.12);
-    color: #fb923c;
-    border: 1px solid rgba(249, 115, 22, 0.30);
+    background: #ffedd5;
+    color: #9a3412;
+    border: 1px solid #fed7aa;
   }
   .ops-chip-red {
-    background: rgba(239, 68, 68, 0.12);
-    color: #f87171;
-    border: 1px solid rgba(239, 68, 68, 0.30);
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
   }
   .ops-chip-blue {
-    background: rgba(59, 130, 246, 0.12);
-    color: #60a5fa;
-    border: 1px solid rgba(59, 130, 246, 0.30);
+    background: #eff6ff;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
   }
   .ops-chip-violet {
-    background: rgba(167, 139, 250, 0.12);
-    color: #c4b5fd;
-    border: 1px solid rgba(167, 139, 250, 0.30);
+    background: #f5f3ff;
+    color: #5b21b6;
+    border: 1px solid #ddd6fe;
   }
   .ops-chip-slate {
-    background: rgba(255, 255, 255, 0.05);
-    color: #a1a1aa;
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    background: #f3f4f6;
+    color: #4b5563;
+    border: 1px solid #e5e7eb;
   }
   .ops-dot {
     @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full;
   }
   .ops-link {
-    color: #fb923c;
+    color: #0f766e;
     transition: color 0.15s ease;
   }
   .ops-link:hover {
-    color: #fdba74;
+    color: #115e59;
   }
-  /* Apply ops typography by default once a parent declares data-ops. */
+
+  /* === Canvas + base typography for the data-ops scope ================ */
   [data-ops] {
-    background: #050505;
-    color: #f5f5f5;
+    background: #f6f7f9 !important;
+    color: #111827;
   }
   [data-ops] h1,
   [data-ops] h2,
   [data-ops] h3,
   [data-ops] h4 {
-    color: #f5f5f5;
+    color: #111827;
   }
   [data-ops] hr {
-    border-color: rgba(255, 255, 255, 0.08);
+    border-color: #eef0f3;
   }
-  /* ---- Operations-scope reskin of existing light-theme cards. -------- */
-  /* The existing CRM components were authored against a light surface.   */
-  /* Rather than rewrite every component, we surgically remap the common  */
-  /* "bg-white" / "text-ink" / border classes inside `[data-ops]`. This    */
-  /* keeps the entire CRM tree dark without touching component code.      */
+
+  /* === Remap inline dark surface utilities to light premium ========== */
+  /* Canvas / app body                                                   */
+  [data-ops].bg-\[\#050505\],
+  [data-ops] .bg-\[\#050505\] {
+    background-color: #f6f7f9 !important;
+  }
+  /* Sidebar / sticky header                                             */
+  [data-ops] .bg-\[\#0a0a0b\],
+  [data-ops] .bg-\[\#0a0a0b\]\/95 {
+    background-color: #ffffff !important;
+  }
+  /* Cards                                                               */
+  [data-ops] .bg-\[\#0d0d0f\] {
+    background-color: #ffffff !important;
+  }
+  /* Table heads / quiet rails                                           */
+  [data-ops] .bg-\[\#111113\] {
+    background-color: #f9fafb !important;
+  }
+  /* Elevated cards / inputs                                             */
+  [data-ops] .bg-\[\#161618\] {
+    background-color: #ffffff !important;
+  }
+  /* Raised panels                                                       */
+  [data-ops] .bg-\[\#1c1c20\] {
+    background-color: #ffffff !important;
+  }
+  /* Hover bg                                                            */
+  [data-ops] .bg-\[\#212126\] {
+    background-color: #f3f4f6 !important;
+  }
+
+  /* Bare white-overlay backgrounds (used everywhere as soft fills) ==== */
+  [data-ops] .bg-white\/\[0\.02\],
+  [data-ops] .bg-white\/\[0\.03\],
+  [data-ops] .bg-white\/\[0\.04\],
+  [data-ops] .bg-white\/\[0\.05\],
+  [data-ops] .bg-white\/\[0\.06\] {
+    background-color: #f6f7f9 !important;
+  }
+  [data-ops] .hover\:bg-white\/\[0\.04\]:hover,
+  [data-ops] .hover\:bg-white\/\[0\.06\]:hover,
+  [data-ops] .hover\:bg-white\/\[0\.08\]:hover {
+    background-color: #f3f4f6 !important;
+  }
+
+  /* Borders / hairlines built from translucent white ================== */
+  [data-ops] .border-white\/\[0\.04\],
+  [data-ops] .border-white\/\[0\.06\] {
+    border-color: #eef0f3 !important;
+  }
+  [data-ops] .border-white\/\[0\.08\],
+  [data-ops] .border-white\/\[0\.10\],
+  [data-ops] .border-white\/10 {
+    border-color: #e5e7eb !important;
+  }
+  [data-ops] .border-white\/\[0\.14\],
+  [data-ops] .border-white\/\[0\.16\],
+  [data-ops] .border-white\/\[0\.18\] {
+    border-color: #d1d5db !important;
+  }
+  [data-ops] .hover\:border-white\/\[0\.16\]:hover,
+  [data-ops] .hover\:border-white\/\[0\.18\]:hover {
+    border-color: #cbd5e1 !important;
+  }
+  [data-ops] .ring-white\/\[0\.06\],
+  [data-ops] .ring-white\/\[0\.08\],
+  [data-ops] .ring-white\/10 {
+    --tw-ring-color: #e5e7eb !important;
+  }
+  [data-ops] .divide-white\/\[0\.06\] > * + *,
+  [data-ops] .divide-white\/\[0\.08\] > * + * {
+    border-color: #eef0f3 !important;
+  }
+
+  /* Zinc text scale used by the dark chrome ============================ */
+  [data-ops] .text-white,
+  [data-ops] .text-zinc-50,
+  [data-ops] .text-zinc-100 {
+    color: #111827 !important;
+  }
+  [data-ops] .text-zinc-200 {
+    color: #1f2937 !important;
+  }
+  [data-ops] .text-zinc-300 {
+    color: #374151 !important;
+  }
+  [data-ops] .text-zinc-400 {
+    color: #6b7280 !important;
+  }
+  [data-ops] .text-zinc-500,
+  [data-ops] .text-zinc-600 {
+    color: #9ca3af !important;
+  }
+  [data-ops] .hover\:text-zinc-100:hover,
+  [data-ops] .hover\:text-zinc-200:hover,
+  [data-ops] .hover\:text-zinc-300:hover,
+  [data-ops] .hover\:text-white:hover {
+    color: #111827 !important;
+  }
+
+  /* Light theme tokens already used by feature components ============= */
   [data-ops] .bg-white,
+  [data-ops] .bg-surface,
   [data-ops] .bg-surface-subtle,
-  [data-ops] .bg-surface-muted,
-  [data-ops] .bg-surface {
-    background-color: #0d0d0f !important;
+  [data-ops] .bg-surface-muted {
+    background-color: #ffffff !important;
   }
   [data-ops] .text-navy-950,
   [data-ops] .text-navy-900,
   [data-ops] .text-ink,
   [data-ops] .text-ink-default {
-    color: #f5f5f5 !important;
+    color: #111827 !important;
   }
   [data-ops] .text-ink-soft {
-    color: #d4d4d8 !important;
+    color: #6b7280 !important;
   }
   [data-ops] .text-ink-muted {
-    color: #71717a !important;
+    color: #9ca3af !important;
   }
   [data-ops] .border-ink\/10,
   [data-ops] .border-ink\/15,
@@ -286,20 +396,29 @@
   [data-ops] .divide-ink\/10 > * + *,
   [data-ops] .divide-ink\/\[0\.06\] > * + *,
   [data-ops] .divide-ink\/\[0\.07\] > * + * {
-    border-color: rgba(255, 255, 255, 0.08) !important;
+    border-color: #e5e7eb !important;
   }
   [data-ops] .ring-ink\/10,
   [data-ops] .ring-ink\/\[0\.06\],
   [data-ops] .ring-ink\/\[0\.05\],
   [data-ops] .ring-ink\/\[0\.02\] {
-    --tw-ring-color: rgba(255, 255, 255, 0.06) !important;
+    --tw-ring-color: #e5e7eb !important;
   }
-  [data-ops] .shadow-card,
-  [data-ops] .shadow-premium,
+  [data-ops] .shadow-card {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  }
   [data-ops] .shadow-elevated {
-    box-shadow: 0 1px 0 0 rgba(255, 255, 255, 0.04) inset, 0 24px 60px -32px rgba(0, 0, 0, 0.8) !important;
+    box-shadow:
+      0 6px 18px -10px rgba(15, 23, 42, 0.08),
+      0 2px 4px -2px rgba(15, 23, 42, 0.05) !important;
   }
-  /* Inputs / selects */
+  [data-ops] .shadow-premium {
+    box-shadow:
+      0 10px 30px -16px rgba(15, 23, 42, 0.12),
+      0 4px 8px -4px rgba(15, 23, 42, 0.06) !important;
+  }
+
+  /* Inputs / selects / textareas – clean white surface ================ */
   [data-ops] input[type="text"]:not(.ops-input):not([class*="ops-"]),
   [data-ops] input[type="email"]:not(.ops-input):not([class*="ops-"]),
   [data-ops] input[type="tel"]:not(.ops-input):not([class*="ops-"]),
@@ -309,230 +428,195 @@
   [data-ops] input[type="number"]:not(.ops-input):not([class*="ops-"]),
   [data-ops] textarea:not(.ops-input):not([class*="ops-"]),
   [data-ops] select:not(.ops-input):not([class*="ops-"]) {
-    background-color: #161618 !important;
-    color: #f5f5f5 !important;
-    border-color: rgba(255, 255, 255, 0.10) !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    border-color: #e5e7eb !important;
   }
   [data-ops] input::placeholder,
   [data-ops] textarea::placeholder {
-    color: #71717a !important;
+    color: #9ca3af !important;
   }
-  /* Hover variants that bleed light backgrounds */
+  [data-ops] input:focus:not(.ops-input):not([class*="ops-"]),
+  [data-ops] textarea:focus:not(.ops-input):not([class*="ops-"]),
+  [data-ops] select:focus:not(.ops-input):not([class*="ops-"]) {
+    border-color: #16a34a !important;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15) !important;
+    outline: none !important;
+  }
+  /* Hover bleed on light surfaces ===================================== */
   [data-ops] .hover\:bg-surface-muted:hover,
   [data-ops] .hover\:bg-surface-subtle:hover,
   [data-ops] .hover\:bg-white:hover {
-    background-color: rgba(255, 255, 255, 0.04) !important;
+    background-color: #f9fafb !important;
   }
-  /* Tint-50 fills (brand-50, accent-50, etc.) used by status pills become
-     barely-visible coloured glows on dark. */
+
+  /* === Soft status pill backgrounds (kept calm, never neon) =========== */
   [data-ops] .bg-brand-50 {
-    background-color: rgba(59, 130, 246, 0.10) !important;
-    color: #93c5fd !important;
+    background-color: #eff6ff !important;
+    color: #1e40af !important;
   }
   [data-ops] .bg-accent-50 {
-    background-color: rgba(34, 197, 94, 0.10) !important;
-    color: #86efac !important;
+    background-color: #ecfdf5 !important;
+    color: #065f46 !important;
   }
   [data-ops] .bg-amber-50,
   [data-ops] .bg-amber-100 {
-    background-color: rgba(245, 158, 11, 0.10) !important;
-    color: #fbbf24 !important;
+    background-color: #fef3c7 !important;
+    color: #92400e !important;
   }
   [data-ops] .bg-red-50,
   [data-ops] .bg-red-100 {
-    background-color: rgba(239, 68, 68, 0.10) !important;
-    color: #fca5a5 !important;
+    background-color: #fee2e2 !important;
+    color: #991b1b !important;
   }
   [data-ops] .bg-emerald-50,
   [data-ops] .bg-emerald-100 {
-    background-color: rgba(34, 197, 94, 0.10) !important;
-    color: #86efac !important;
+    background-color: #ecfdf5 !important;
+    color: #065f46 !important;
   }
   [data-ops] .bg-indigo-50,
   [data-ops] .bg-indigo-100 {
-    background-color: rgba(99, 102, 241, 0.10) !important;
-    color: #a5b4fc !important;
+    background-color: #eef2ff !important;
+    color: #3730a3 !important;
   }
   [data-ops] .bg-violet-50,
   [data-ops] .bg-violet-100 {
-    background-color: rgba(167, 139, 250, 0.10) !important;
-    color: #c4b5fd !important;
+    background-color: #f5f3ff !important;
+    color: #5b21b6 !important;
   }
   [data-ops] .bg-rose-50,
   [data-ops] .bg-rose-100 {
-    background-color: rgba(244, 63, 94, 0.10) !important;
-    color: #fda4af !important;
+    background-color: #fff1f2 !important;
+    color: #9f1239 !important;
   }
   [data-ops] .bg-sky-50,
   [data-ops] .bg-sky-100 {
-    background-color: rgba(14, 165, 233, 0.10) !important;
-    color: #7dd3fc !important;
+    background-color: #f0f9ff !important;
+    color: #075985 !important;
   }
   [data-ops] .bg-slate-100,
   [data-ops] .bg-slate-200 {
-    background-color: rgba(255, 255, 255, 0.04) !important;
-    color: #d4d4d8 !important;
+    background-color: #f3f4f6 !important;
+    color: #374151 !important;
   }
-  /* Ensure 700/800 dark text used on light pills stays readable.        */
+
+  /* Make 700/800 text colours WCAG-readable on the matching pills ===== */
   [data-ops] .text-brand-700,
   [data-ops] .text-brand-800 {
-    color: #93c5fd !important;
+    color: #1e40af !important;
   }
   [data-ops] .text-accent-700,
   [data-ops] .text-accent-800,
   [data-ops] .text-accent-900 {
-    color: #86efac !important;
+    color: #065f46 !important;
   }
   [data-ops] .text-amber-700,
   [data-ops] .text-amber-800 {
-    color: #fbbf24 !important;
+    color: #92400e !important;
   }
   [data-ops] .text-red-700,
   [data-ops] .text-red-800,
   [data-ops] .text-red-600 {
-    color: #fca5a5 !important;
+    color: #991b1b !important;
   }
   [data-ops] .text-emerald-700,
   [data-ops] .text-emerald-800,
   [data-ops] .text-emerald-600 {
-    color: #86efac !important;
+    color: #065f46 !important;
   }
   [data-ops] .text-indigo-700,
   [data-ops] .text-indigo-800 {
-    color: #a5b4fc !important;
+    color: #3730a3 !important;
   }
   [data-ops] .text-violet-700,
   [data-ops] .text-violet-800 {
-    color: #c4b5fd !important;
+    color: #5b21b6 !important;
   }
   [data-ops] .text-slate-700,
   [data-ops] .text-slate-600 {
-    color: #d4d4d8 !important;
+    color: #374151 !important;
   }
-  /* Marketing gradient backgrounds tucked under `from-white` / `via-…`
-     classes inside CRM headers — flatten to ops elevated surface. */
-  [data-ops] .from-white,
-  [data-ops] .via-surface-subtle\/40,
-  [data-ops] .to-surface-subtle\/60,
-  [data-ops] .to-surface-subtle {
-    --tw-gradient-from: #0d0d0f !important;
-    --tw-gradient-to: #0d0d0f !important;
-    --tw-gradient-via: #161618 !important;
+  /* Decorative orange accents (used by the previous dark theme) become
+     brand-green so the FairTrain identity stays consistent.            */
+  [data-ops] .text-orange-200,
+  [data-ops] .text-orange-300,
+  [data-ops] .text-orange-400 {
+    color: #16a34a !important;
   }
-
-  /* ----- P1 · Eliminate every white table head in the ops scope --------- */
-  /* Every <thead> inside [data-ops] gets the executive-dark treatment      */
-  /* regardless of the original Tailwind classes used. Cells inherit the    */
-  /* muted text colour spec'd in the brief. Rows hover to #161618.          */
-  [data-ops] thead {
-    background-color: #111113 !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  [data-ops] .hover\:text-orange-200:hover,
+  [data-ops] .hover\:text-orange-300:hover {
+    color: #15803d !important;
   }
-  [data-ops] thead tr {
-    background-color: transparent !important;
+  [data-ops] .from-orange-500,
+  [data-ops] .from-orange-400 {
+    --tw-gradient-from: #16a34a !important;
   }
-  [data-ops] thead th {
-    background-color: transparent !important;
-    color: #a1a1aa !important;
-    font-weight: 600 !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
+  [data-ops] .to-orange-600,
+  [data-ops] .to-amber-400,
+  [data-ops] .to-amber-500,
+  [data-ops] .to-orange-400 {
+    --tw-gradient-to: #15803d !important;
   }
-  [data-ops] tbody tr {
-    background-color: transparent !important;
+  [data-ops] .from-orange-700\/70 {
+    --tw-gradient-from: rgba(22, 163, 74, 0.7) !important;
   }
-  [data-ops] tbody tr:hover {
-    background-color: #161618 !important;
+  [data-ops] .from-orange-500.to-amber-400,
+  [data-ops] .bg-gradient-to-br.from-orange-500 {
+    --tw-gradient-from: #16a34a !important;
+    --tw-gradient-to: #22c55e !important;
   }
-  [data-ops] tbody td {
-    border-color: rgba(255, 255, 255, 0.06) !important;
+  [data-ops] .bg-orange-500\/10,
+  [data-ops] .bg-orange-500\/\[0\.10\] {
+    background-color: #ecfdf5 !important;
   }
-  /* Some tables use a divide-* utility instead of borders – cover that. */
-  [data-ops] .divide-y > * + * {
-    border-color: rgba(255, 255, 255, 0.06) !important;
+  [data-ops] .border-orange-500\/30 {
+    border-color: #a7f3d0 !important;
   }
-
-  /* ----- P9 · Switch the Lokführer.de palette to FairTrain Green -------- */
-  /* The previous build leaned on Born-to-Run orange. FairTrain identity    */
-  /* is green; orange/red stay reserved for warnings & escalations.        */
-
-  /* Primary CTA button — emerald instead of orange. */
-  .ops-btn-primary {
-    background: #16a34a !important;
-    color: #ffffff !important;
-  }
-  .ops-btn-primary:hover {
-    background: #22c55e !important;
-  }
-  .ops-link {
-    color: #4ade80 !important;
-  }
-  .ops-link:hover {
-    color: #86efac !important;
-  }
-  /* Input focus ring becomes green. */
-  .ops-input:focus {
-    border-color: rgba(34, 197, 94, 0.5) !important;
-    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.14) !important;
-  }
-  /* Existing brand utilities (brand-700/800) get re-tinted green for ops. */
+  /* Brand-button utility tokens used inside the CRM scope ============= */
   [data-ops] .bg-brand-700 {
     background-color: #16a34a !important;
   }
   [data-ops] .bg-brand-800 {
     background-color: #15803d !important;
   }
-  [data-ops] .text-brand-700,
-  [data-ops] .text-brand-800 {
-    color: #86efac !important;
-  }
-  /* Accessibility helper: ring/border tokens used on green buttons. */
   [data-ops] .ring-brand-200 {
-    --tw-ring-color: rgba(34, 197, 94, 0.30) !important;
+    --tw-ring-color: rgba(22, 163, 74, 0.30) !important;
   }
-  /* Re-tint generic orange brand accents to green. The real warning chips */
-  /* (.ops-chip-orange / .ops-chip-amber) are unaffected because they set  */
-  /* explicit background+color in the class definition.                    */
-  [data-ops] .from-orange-500 {
-    --tw-gradient-from: #16a34a !important;
+
+  /* === Tables: clean enterprise rails ================================ */
+  [data-ops] thead {
+    background-color: #f9fafb !important;
+    border-bottom: 1px solid #e5e7eb !important;
   }
-  [data-ops] .to-orange-600,
-  [data-ops] .to-amber-400,
-  [data-ops] .to-amber-500 {
-    --tw-gradient-to: #15803d !important;
+  [data-ops] thead tr {
+    background-color: transparent !important;
   }
-  [data-ops] .from-orange-700\/70 {
-    --tw-gradient-from: rgba(22, 163, 74, 0.7) !important;
+  [data-ops] thead th {
+    background-color: transparent !important;
+    color: #6b7280 !important;
+    font-weight: 600 !important;
+    border-color: #e5e7eb !important;
   }
-  [data-ops] .from-orange-400,
-  [data-ops] .to-orange-400 {
-    --tw-gradient-to: #16a34a !important;
+  [data-ops] tbody tr {
+    background-color: transparent !important;
   }
-  /* Generic brand text accents (used as decorative highlights). */
-  [data-ops] .text-orange-200 {
-    color: #86efac !important;
+  [data-ops] tbody tr:hover {
+    background-color: #f9fafb !important;
   }
-  [data-ops] .text-orange-300 {
-    color: #4ade80 !important;
+  [data-ops] tbody td {
+    border-color: #eef0f3 !important;
   }
-  [data-ops] .text-orange-400 {
-    color: #22c55e !important;
+  [data-ops] .divide-y > * + * {
+    border-color: #eef0f3 !important;
   }
-  [data-ops] .hover\:text-orange-200:hover,
-  [data-ops] .hover\:text-orange-300:hover {
-    color: #bbf7d0 !important;
-  }
-  /* Active sidebar accents, avatar fills, sparkline bars. */
-  [data-ops] .from-orange-500.to-amber-400,
-  [data-ops] .bg-gradient-to-br.from-orange-500 {
-    --tw-gradient-from: #16a34a !important;
-    --tw-gradient-to: #22c55e !important;
-  }
-  /* Backdrop highlight pills that used orange tint. */
-  [data-ops] .bg-orange-500\/10,
-  [data-ops] .bg-orange-500\/\[0\.10\] {
-    background-color: rgba(34, 197, 94, 0.10) !important;
-  }
-  [data-ops] .border-orange-500\/30 {
-    border-color: rgba(34, 197, 94, 0.35) !important;
+
+  /* Marketing gradient classes occasionally bleed into CRM card heads. */
+  [data-ops] .from-white,
+  [data-ops] .via-surface-subtle\/40,
+  [data-ops] .to-surface-subtle\/60,
+  [data-ops] .to-surface-subtle {
+    --tw-gradient-from: #ffffff !important;
+    --tw-gradient-to: #f9fafb !important;
+    --tw-gradient-via: #ffffff !important;
   }
 }

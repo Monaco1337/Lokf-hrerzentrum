@@ -1,14 +1,15 @@
 /**
- * CRM Operations Center shell — Dark Executive layout.
+ * CRM Operations Center shell — Premium Light layout.
  *
  * Anatomy:
  *  - top header (sticky): brand mark, search, status pill, user menu
  *  - left sidebar (sticky): 17 sections from the operations spec
- *  - main content: dark canvas (#050505), responsive to mobile
+ *  - main content: light canvas (#F6F7F9), responsive to mobile
  *
  * The whole tree carries `data-ops` so the global `.ops-*` utilities in
  * `globals.css` take effect, while the public marketing site keeps its
- * light theme. The /crm/login route renders raw (no chrome) — same as before.
+ * own visual identity. The /crm/login route renders raw (no chrome) —
+ * same as before.
  */
 import { headers } from "next/headers";
 import Link from "next/link";
@@ -36,7 +37,7 @@ export default async function CrmLayout({
   }
 
   return (
-    <div data-ops className="min-h-screen bg-[#050505] text-zinc-100">
+    <div data-ops className="min-h-screen bg-[#F6F7F9] text-[#111827]">
       {/* Sticky top bar */}
       <OperationsTopHeader />
 
@@ -72,13 +73,13 @@ function MobileSectionNav() {
     { href: "/crm/agenturtermine", label: "Termine" },
   ];
   return (
-    <nav className="lg:hidden border-b border-white/[0.06] bg-[#0a0a0b]">
+    <nav className="lg:hidden border-b border-[#EEF0F3] bg-white">
       <ul className="flex gap-1 overflow-x-auto px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {items.map((i) => (
           <li key={i.href} className="shrink-0">
             <Link
               href={i.href as never}
-              className="rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-[12px] font-medium text-zinc-300 transition hover:bg-white/[0.06] hover:text-white"
+              className="rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-[12px] font-medium text-[#374151] transition hover:bg-[#F9FAFB] hover:text-[#111827]"
             >
               {i.label}
             </Link>

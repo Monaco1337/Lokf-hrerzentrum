@@ -184,7 +184,7 @@ export function OpsSidebarClient({
   const pathname = usePathname() ?? "";
 
   return (
-    <aside className="hidden lg:flex h-[calc(100vh-56px)] sticky top-[56px] w-[220px] shrink-0 flex-col border-r border-white/[0.06] bg-[#0a0a0b]">
+    <aside className="hidden lg:flex h-[calc(100vh-56px)] sticky top-[56px] w-[220px] shrink-0 flex-col border-r border-[#EEF0F3] bg-white">
       <nav className="flex-1 overflow-y-auto p-2.5">
         <ul className="space-y-0.5">
           {items.map((item) => {
@@ -196,28 +196,28 @@ export function OpsSidebarClient({
                   className={[
                     "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition",
                     active
-                      ? "bg-white/[0.06] text-white"
-                      : "text-zinc-400 hover:bg-white/[0.04] hover:text-zinc-100",
+                      ? "bg-emerald-50 text-emerald-800"
+                      : "text-[#374151] hover:bg-[#F6F7F9] hover:text-[#111827]",
                   ].join(" ")}
                 >
                   {active && (
                     <span
                       aria-hidden
-                      className="absolute left-0 top-1.5 h-[calc(100%-12px)] w-[2px] rounded-r-full bg-emerald-500"
+                      className="absolute left-0 top-1.5 h-[calc(100%-12px)] w-[2px] rounded-r-full bg-emerald-600"
                     />
                   )}
                   <span
                     className={
                       active
-                        ? "text-emerald-400 transition"
-                        : "text-zinc-500 transition group-hover:text-zinc-300"
+                        ? "text-emerald-700 transition"
+                        : "text-[#9CA3AF] transition group-hover:text-[#6B7280]"
                     }
                   >
                     <Icon name={item.icon} />
                   </span>
                   <span className="flex-1 truncate">{item.label}</span>
                   {item.badge && (
-                    <span className="ops-chip ops-chip-orange text-[9.5px]">
+                    <span className="ops-chip ops-chip-amber text-[9.5px]">
                       {item.badge}
                     </span>
                   )}
@@ -228,16 +228,16 @@ export function OpsSidebarClient({
         </ul>
       </nav>
 
-      <div className="border-t border-white/[0.06] p-2.5">
+      <div className="border-t border-[#EEF0F3] p-2.5">
         <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/[0.06] text-[11px] font-bold text-white ring-1 ring-white/10">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#F6F7F9] text-[11px] font-bold text-[#111827] ring-1 ring-[#E5E7EB]">
             {initials || "U"}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[12.5px] font-semibold text-white">
+            <p className="truncate text-[12.5px] font-semibold text-[#111827]">
               {displayName || "—"}
             </p>
-            <p className="truncate text-[10.5px] text-zinc-500">
+            <p className="truncate text-[10.5px] text-[#9CA3AF]">
               {ROLE_LABEL[role] ?? role}
             </p>
           </div>
@@ -245,7 +245,7 @@ export function OpsSidebarClient({
             <button
               type="submit"
               title="Abmelden"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-zinc-500 transition hover:bg-white/[0.06] hover:text-zinc-200"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#9CA3AF] transition hover:bg-[#F6F7F9] hover:text-[#374151]"
               aria-label="Abmelden"
             >
               <svg

@@ -74,14 +74,14 @@ export async function OperationsTopHeader() {
   const healthMeta = HEALTH[health.level];
 
   return (
-    <header className="sticky top-0 z-40 h-14 border-b border-white/[0.06] bg-[#0a0a0b]/95 backdrop-blur-md">
+    <header className="sticky top-0 z-40 h-14 border-b border-[#EEF0F3] bg-white/95 backdrop-blur-md">
       <div className="flex h-full items-center gap-3 px-4 sm:px-5">
         {/* Brand + system identity */}
         <Link href="/crm" className="flex shrink-0 items-center gap-2.5">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-orange-500/15 ring-1 ring-orange-500/30">
+          <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 ring-1 ring-emerald-100">
             <svg
               viewBox="0 0 24 24"
-              className="h-3.5 w-3.5 text-orange-400"
+              className="h-3.5 w-3.5 text-emerald-600"
               fill="none"
               stroke="currentColor"
               strokeWidth="2.2"
@@ -92,26 +92,26 @@ export async function OperationsTopHeader() {
             </svg>
           </span>
           <span className="hidden flex-col leading-tight sm:flex">
-            <span className="text-[13px] font-bold tracking-tight text-white">
+            <span className="text-[13px] font-bold tracking-tight text-[#111827]">
               Lokführer.de
             </span>
-            <span className="text-[10px] font-medium uppercase tracking-[0.16em] text-zinc-500">
+            <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-[#9CA3AF]">
               Lead-Leitstand
             </span>
           </span>
         </Link>
 
-        <span aria-hidden className="hidden h-6 w-px bg-white/[0.08] sm:inline-block" />
+        <span aria-hidden className="hidden h-6 w-px bg-[#E5E7EB] sm:inline-block" />
 
         {/* System health pill — real data */}
         <span
           className={[
             "hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold sm:inline-flex",
             health.level === "crit"
-              ? "border-red-500/30 bg-red-500/10 text-red-300"
+              ? "border-[#FECACA] bg-[#FEE2E2] text-[#991B1B]"
               : health.level === "warn"
-                ? "border-amber-500/30 bg-amber-500/10 text-amber-300"
-                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+                ? "border-[#FDE68A] bg-[#FEF3C7] text-[#92400E]"
+                : "border-[#A7F3D0] bg-[#ECFDF5] text-[#065F46]",
           ].join(" ")}
           title={`SLA-Verstöße: ${health.slaBreached} · Hot ohne Bearbeiter: ${health.hotUnassigned} · Rückrufe überfällig: ${health.callbacksOverdue}`}
         >
@@ -167,7 +167,7 @@ export async function OperationsTopHeader() {
           href="/eignungs-check"
           target="_blank"
           rel="noopener"
-          className="hidden items-center gap-1 rounded-md border border-white/[0.08] bg-white/[0.03] px-2.5 py-1.5 text-[11.5px] font-medium text-zinc-300 transition hover:border-white/[0.16] hover:bg-white/[0.06] hover:text-white sm:inline-flex"
+          className="hidden items-center gap-1 rounded-md border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-[#374151] transition hover:border-[#D1D5DB] hover:bg-[#F9FAFB] hover:text-[#111827] sm:inline-flex"
           title="Öffentliches Bewerberportal"
         >
           <svg
@@ -187,13 +187,13 @@ export async function OperationsTopHeader() {
         </a>
 
         <span
-          className="inline-flex items-center gap-2 rounded-full bg-white/[0.04] px-2 py-1 text-[11.5px] ring-1 ring-white/[0.08]"
+          className="inline-flex items-center gap-2 rounded-full bg-[#F6F7F9] px-2 py-1 text-[11.5px] ring-1 ring-[#E5E7EB]"
           title={user ? `Angemeldet als ${user.name}` : ""}
         >
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-400 text-[10px] font-bold text-black">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-emerald-600 to-emerald-500 text-[10px] font-bold text-white">
             {initials}
           </span>
-          <span className="hidden text-zinc-100 sm:inline">{user?.name ?? "—"}</span>
+          <span className="hidden text-[#111827] sm:inline">{user?.name ?? "—"}</span>
         </span>
       </div>
     </header>
