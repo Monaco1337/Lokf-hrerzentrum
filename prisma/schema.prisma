@@ -10,7 +10,10 @@
 
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "darwin", "darwin-arm64"]
+  // native covers local dev (darwin/darwin-arm64); rhel-openssl-3.0.x is the
+  // Vercel build & lambda runtime (Amazon Linux 2023 / OpenSSL 3). Keeping the
+  // explicit darwin targets avoids regenerating when the local arch is misdetected.
+  binaryTargets = ["native", "darwin", "darwin-arm64", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
