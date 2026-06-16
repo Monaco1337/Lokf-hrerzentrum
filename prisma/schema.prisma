@@ -1,0 +1,578 @@
+// Prisma schema for Fairtrain Lead Funnel
+//
+// Provider: sqlite for local dev. SQLite does not support native Prisma enums.
+// All enum-like columns are stored as String and validated via zod + TypeScript
+// enums at every application boundary (Repository read, Service input, Action input).
+// See src/features/fairtrain-funnel/types.ts for the source of truth of every enum.
+//
+// Postgres-ready: switching `provider` to "postgresql" works as-is. A later
+// optional migration can convert these String columns to native Postgres enums.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "darwin", "darwin-arm64"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Core entity: Lead
+// ----------------------------------------------------------------------------
+
+model Lead {
+  id String @id @default(cuid())
+
+  // base data
+  firstName String
+  lastName  String
+  email     String
+  phone     String
+  city      String?
+
+  // funnel routing - enum-validated via zod (FunnelPath, EmploymentStatus, PreferredLocation)
+  funnelPath        String
+  employmentStatus  String
+  preferredLocation String
+  acceptsShiftWork  Boolean
+  motivationText    String?
+
+  // extended person data (added 2026-05-19)
+  birthDate   DateTime?
+  birthPlace  String?
+  street      String?
+  houseNumber String?
+  postalCode  String?
+  addressCity String?
+  nationality String?
+
+  // agency data (for arbeitslos/arbeitssuchend funnel)
+  agencyCity           String?
+  agencyCustomerNumber String?
+  agencyCaseWorker     String?
+
+  // CV / live-interview data (used to generate Lebenslauf later)
+  unemployedSince String?
+  careerHistory   String?
+  schoolEducation String?
+  graduationYear  String?
+  languages       String?
+  computerSkills  String?
+  interests       String?
+
+  // K.O. answers (denormalized for fast CRM filtering;
+  // canonical record stays in EligibilityAnswer)
+  acceptsTravelHotel  Boolean?
+  acceptsPsychLoad    Boolean?
+  hasNoKbaDrugEntries Boolean?
+
+  // scoring snapshot (truth lives in EligibilityAnswer/SensitiveAnswers/StatusHistory)
+  score    Int
+  priority String // LeadPriority enum
+  status   String @default("NEW") // LeadStatus enum
+
+  // SLA
+  slaBreachedAt  DateTime?
+  nextFollowUpAt DateTime?
+
+  // ownership — `assignedTo` (legacy free-text) is kept for backward
+  // compatibility. The canonical reference is `assignedToId` → User.
+  assignedTo     String?
+  assignedToId   String?
+  assignedToUser User?     @relation("LeadAssignedTo", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt     DateTime?
+  assignedById   String? // user id who performed the assignment (audit hint)
+
+  // attribution
+  source String?
+  utm    String?
+
+  // soft delete reserve (not used in MVP; DSGVO erasure is a future flow)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // relations
+  sensitive           SensitiveAnswers?
+  eligibilityAnswers  EligibilityAnswer[]
+  statusHistory       StatusHistory[]
+  notes               Note[]
+  documents           Document[]
+  uploadedFiles       UploadedFile[]
+  communicationEvents CommunicationEvent[]
+  magicLinkTokens     MagicLinkToken[]
+  consentRecords      ConsentRecord[]
+  automationLogs      AutomationLog[]
+  callLogs            CallLog[]
+  tasks               Task[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([preferredLocation])
+  @@index([createdAt])
+  @@index([slaBreachedAt])
+  @@index([assignedToId])
+}
+
+// ----------------------------------------------------------------------------
+// User-uploaded files (CV, Zeugnis, etc.). Distinct from generated Documents.
+// Files are stored via StorageAdapter (local disk in dev, S3-compatible in prod).
+// Soft-delete via deletedAt for DSGVO erasure workflow.
+// ----------------------------------------------------------------------------
+
+model UploadedFile {
+  id String @id @default(cuid())
+
+  // Files are uploaded BEFORE the Lead exists. During the draft phase `leadId`
+  // is null and `draftId` carries the wizard's random draft identifier. On
+  // submit, LeadService.attachFilesToLead rewrites `leadId` to the real id.
+  // A janitor can purge orphan rows that still have draftId but no leadId.
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  draftId String?
+
+  kind         String // UploadedFileKind enum: CV | CERTIFICATE | ID | OTHER
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  storageKey   String
+  sha256       String
+
+  uploadedAt DateTime  @default(now())
+  deletedAt  DateTime?
+
+  @@index([leadId])
+  @@index([leadId, deletedAt])
+  @@index([draftId])
+}
+
+// ----------------------------------------------------------------------------
+// Sensitive: MPU/Drogen-Angaben - logisch getrennt, niemals in Listen.
+// 1:1 to Lead.
+// ----------------------------------------------------------------------------
+
+model SensitiveAnswers {
+  id String @id @default(cuid())
+
+  leadId String @unique
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  hasMpuIssue    Boolean
+  hasDrugIssue   Boolean
+  notesSensitive String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ----------------------------------------------------------------------------
+// Eligibility answers: configurable question/answer pairs keyed by questionId
+// from the in-repo configuration (eligibilityQuestions.ts).
+// ----------------------------------------------------------------------------
+
+model EligibilityAnswer {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  questionId String
+  answer     String
+  score      Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+// ----------------------------------------------------------------------------
+// Append-only: StatusHistory
+// Repositories MUST NOT expose update/delete on this table.
+// ----------------------------------------------------------------------------
+
+model StatusHistory {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  fromStatus String? // LeadStatus enum (nullable for initial NEW)
+  toStatus   String // LeadStatus enum
+  changedBy  String
+  reason     String?
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Notes (mutable, but editedAt is tracked)
+// ----------------------------------------------------------------------------
+
+model Note {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  body   String
+  author String
+
+  createdAt DateTime  @default(now())
+  editedAt  DateTime?
+
+  @@index([leadId, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Documents - storageKey is cloud-storage-friendly (S3/MinIO/local).
+// ----------------------------------------------------------------------------
+
+model Document {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  type   String // DocumentType enum
+  status String @default("MISSING_DATA") // DocumentStatus enum
+
+  storageKey  String?
+  generatedAt DateTime?
+  sentAt      DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([leadId, type])
+  @@index([leadId])
+}
+
+// ----------------------------------------------------------------------------
+// Append-only: CommunicationEvent
+// ----------------------------------------------------------------------------
+
+model CommunicationEvent {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  channel           String // CommunicationChannel enum
+  direction         String // CommunicationDirection enum
+  payload           String
+  providerMessageId String?
+  errorCode         String?
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Magic links - only the hash is stored.
+// usedAt is the one mutable field; everything else is immutable after insert.
+// ----------------------------------------------------------------------------
+
+model MagicLinkToken {
+  id String @id @default(cuid())
+
+  tokenHash String @unique
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  scope     String // MagicLinkScope enum
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId])
+}
+
+// ----------------------------------------------------------------------------
+// Append-only: ConsentRecord
+// A revoke creates a new record with action=REVOKE.
+// The prior GRANT record is never modified (DSGVO audit trail).
+// ----------------------------------------------------------------------------
+
+model ConsentRecord {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  type   String // ConsentType enum
+  action String // ConsentAction enum
+
+  source    String?
+  utm       String?
+  ipHash    String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId, type, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// ContactInquiry - lightweight inbox for the public "Noch eine Frage?" form
+// on the landing page. NOT a full Lead — kept intentionally separate so that
+// the funnel scoring pipeline isn't polluted with cold inbound questions.
+// The CRM lists these under /crm/inquiries.
+// ----------------------------------------------------------------------------
+
+model ContactInquiry {
+  id String @id @default(cuid())
+
+  firstName String
+  lastName  String
+  email     String
+  phone     String?
+
+  message String
+
+  status String @default("NEW") // NEW | IN_PROGRESS | DONE | SPAM
+
+  source    String?
+  utm       String?
+  ipHash    String?
+  userAgent String?
+
+  handledBy String?
+  handledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Automation templates - editable in CRM admin. One row per trigger+channel.
+// Body supports {{variable}} placeholders rendered server-side at send time.
+// ----------------------------------------------------------------------------
+
+model AutomationTemplate {
+  id String @id @default(cuid())
+
+  slug String @unique // e.g. "lead.created.email"
+
+  trigger String // AutomationTrigger enum: LEAD_CREATED
+  channel String // CommunicationChannel enum: EMAIL | WHATSAPP
+
+  name    String
+  subject String? // email only
+  body    String
+
+  enabled         Boolean @default(true)
+  requiresConsent String? // ConsentType enum — skip send when not granted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  logs AutomationLog[]
+
+  @@index([trigger, channel])
+  @@index([enabled])
+}
+
+// ----------------------------------------------------------------------------
+// Append-only: AutomationLog — every automation attempt is persisted.
+// Status values: SENT | FAILED | SKIPPED | SKIPPED_MISSING_PROVIDER_CONFIG
+//                | SKIPPED_NO_CONSENT
+// ----------------------------------------------------------------------------
+
+model AutomationLog {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  templateId String?
+  template   AutomationTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+
+  trigger String // AutomationTrigger enum
+  channel String // CommunicationChannel enum
+  status  String // AutomationLogStatus enum
+
+  renderedSubject String?
+  renderedBody    String
+
+  providerMessageId String?
+  errorCode         String?
+  errorMessage      String?
+
+  isTest      Boolean @default(false)
+  triggeredBy String  @default("system")
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([status, createdAt])
+  @@index([trigger, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Append-only: AuditLog
+// Every access to sensitive data, every admin override, every login attempt.
+// `actor` carries the User.id when available; "system" or a legacy string
+// otherwise (kept compatible with pre-RBAC entries).
+// ----------------------------------------------------------------------------
+
+model AuditLog {
+  id String @id @default(cuid())
+
+  actor      String
+  action     String // AuditAction enum
+  entityType String
+  entityId   String
+  details    String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId, createdAt])
+  @@index([action, createdAt])
+  @@index([actor, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// DemoSeedEntry — registry of every entity created by the demo seeder.
+// One row per entity. On "Demo-Daten entfernen" the service deletes every
+// referenced row in dependency order. Production-safe because real data is
+// never registered here.
+// ----------------------------------------------------------------------------
+
+model DemoSeedEntry {
+  id String @id @default(cuid())
+
+  entityType String // e.g. "Lead", "User", "Note", "CallLog", "AuditLog"
+  entityId   String
+
+  /// The seed batch identifier — useful when re-running the seeder.
+  batch String @default("default")
+
+  createdAt DateTime @default(now())
+
+  @@unique([entityType, entityId])
+  @@index([batch])
+  @@index([entityType])
+}
+
+// ----------------------------------------------------------------------------
+// User — operators of the CRM with role-based access control.
+//
+// Roles: SUPER_ADMIN | ADMIN | PARTNER_MANAGER | PARTNER_AGENT | READ_ONLY.
+// `passwordHash` may be null for users created before they have set a
+// password (bootstrap path). Email is the login identifier.
+// ----------------------------------------------------------------------------
+
+model User {
+  id           String  @id @default(cuid())
+  name         String
+  email        String  @unique
+  passwordHash String?
+
+  role     String  @default("PARTNER_AGENT") // Role enum
+  isActive Boolean @default(true)
+
+  /// Optional avatar URL; renders as initials when null.
+  avatar String?
+
+  lastLoginAt DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  // relations
+  assignedLeads  Lead[]    @relation("LeadAssignedTo")
+  callLogs       CallLog[]
+  tasksAssigned  Task[]    @relation("TaskAssignee")
+  tasksCreated   Task[]    @relation("TaskCreatedBy")
+
+  @@index([role])
+  @@index([isActive])
+}
+
+// ----------------------------------------------------------------------------
+// CallLog — append-only documentation of every call attempt or conversation.
+// Drives the Vertriebs-Tracking. One row per call. Notes mutate via append
+// (each correction is a new row), so the audit trail stays intact.
+// ----------------------------------------------------------------------------
+
+model CallLog {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  outcome String // CallOutcome enum: ATTEMPT_NO_ANSWER | TALKED | INTERESTED | NOT_INTERESTED | NOT_ELIGIBLE | CALLBACK_SCHEDULED | APPOINTMENT_SET | CLOSED
+
+  note     String?
+  nextStep String?
+
+  /// Optional scheduled callback / appointment derived from this call.
+  callbackAt DateTime?
+
+  /// Optional duration in seconds (for analytics later).
+  durationSeconds Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// Task — operational to-do that the team has to work off, optionally pinned
+// to a specific Bewerber (Lead). Drives the "Aufgaben" kanban and feeds the
+// Leitstand's "Heutige Prioritäten" with non-call work items.
+//
+// Status values (TaskStatus enum):
+//   OPEN | PLANNED | IN_PROGRESS | WAIT_APPLICANT | WAIT_AGENCY | DONE
+// Priority values (TaskPriority): LOW | NORMAL | HIGH | URGENT
+// ----------------------------------------------------------------------------
+
+model Task {
+  id String @id @default(cuid())
+
+  title       String
+  description String?
+
+  status   String @default("OPEN")
+  priority String @default("NORMAL")
+
+  /// Optional pin to a Bewerber. NULL = standalone task.
+  leadId String?
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  /// Optional owner. NULL = unassigned, anyone may pick it up.
+  assigneeId String?
+  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  /// Person who created the task (immutable, used for audit display).
+  createdById String
+  createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  dueAt       DateTime?
+  completedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, dueAt])
+  @@index([leadId])
+  @@index([assigneeId, status])
+  @@index([createdAt])
+}

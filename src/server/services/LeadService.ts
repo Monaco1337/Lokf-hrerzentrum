@@ -1,0 +1,403 @@
+/**
+ * LeadService - orchestrates lead creation and exposes detail/list queries.
+ *
+ * Lead creation is atomic: lead row, sensitive answers, eligibility answers,
+ * consent records, initial status history and audit log are written in a
+ * single Prisma transaction.
+ */
+import { computeScore } from "@/features/fairtrain-funnel/scoring/scoring";
+import {
+  AuditAction,
+  type ConsentInput,
+  type ConsentType,
+  type EmploymentStatus,
+  type FunnelPath,
+  type LeadFilters,
+  type LeadFullDetail,
+  type LeadKpis,
+  LeadPriority,
+  LeadStatus,
+  type LeadSummary,
+  type NoteEntry,
+  type PreferredLocation,
+  type SensitiveAnswersData,
+} from "@/features/fairtrain-funnel/types";
+
+import { prisma } from "../db/prisma";
+import { NotFoundError } from "../errors";
+import { auditLogRepository } from "../repositories/AuditLogRepository";
+import { automationLogRepository } from "../repositories/AutomationLogRepository";
+import { callLogRepository } from "../repositories/CallLogRepository";
+import { communicationRepository } from "../repositories/CommunicationRepository";
+import { documentRepository } from "../repositories/DocumentRepository";
+import { eligibilityAnswerRepository } from "../repositories/EligibilityAnswerRepository";
+import { leadRepository } from "../repositories/LeadRepository";
+import { noteRepository } from "../repositories/NoteRepository";
+import { sensitiveAnswersRepository } from "../repositories/SensitiveAnswersRepository";
+import { statusHistoryRepository } from "../repositories/StatusHistoryRepository";
+import { uploadedFileRepository } from "../repositories/UploadedFileRepository";
+import { auditLogService } from "./AuditLogService";
+import { automationService } from "./AutomationService";
+import { consentService, type ConsentContext } from "./ConsentService";
+import { fileUploadService } from "./FileUploadService";
+
+// Re-export ConsentInput here for the action layer (avoids cross-feature pulls).
+export type { ConsentInput } from "@/features/fairtrain-funnel/types";
+
+export interface SubmitLeadInput {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  city: string | null;
+  funnelPath: FunnelPath;
+  employmentStatus: EmploymentStatus;
+  preferredLocation: PreferredLocation;
+  acceptsShiftWork: boolean;
+  motivationText: string | null;
+  isInterestedInProgram: boolean;
+  source: string | null;
+  utm: string | null;
+  sensitive: SensitiveAnswersData;
+  eligibilityAnswers: Array<{
+    questionId: string;
+    answer: string;
+    score: number;
+  }>;
+  consents: ReadonlyArray<{ type: ConsentType; granted: boolean }>;
+  uploadedFileIds: ReadonlyArray<string>;
+
+  // extended person data (all optional in MVP - the K.O. step alone can submit)
+  birthDate?: Date | null;
+  birthPlace?: string | null;
+  street?: string | null;
+  houseNumber?: string | null;
+  postalCode?: string | null;
+  addressCity?: string | null;
+  nationality?: string | null;
+
+  // agency data
+  agencyCity?: string | null;
+  agencyCustomerNumber?: string | null;
+  agencyCaseWorker?: string | null;
+
+  // CV / live-interview
+  unemployedSince?: string | null;
+  careerHistory?: string | null;
+  schoolEducation?: string | null;
+  graduationYear?: string | null;
+  languages?: string | null;
+  computerSkills?: string | null;
+  interests?: string | null;
+
+  // K.O. snapshot
+  acceptsTravelHotel?: boolean | null;
+  acceptsPsychLoad?: boolean | null;
+  hasNoKbaDrugEntries?: boolean | null;
+}
+
+export interface SubmitLeadResult {
+  leadId: string;
+  priority: LeadPriority;
+  status: LeadStatus;
+  score: number;
+  blockedReasons: ReadonlyArray<string>;
+}
+
+export type { LeadFullDetail };
+
+function isComplete(input: SubmitLeadInput): boolean {
+  return Boolean(
+    input.firstName.trim() &&
+      input.lastName.trim() &&
+      input.email.trim() &&
+      input.phone.trim() &&
+      input.city &&
+      input.city.trim(),
+  );
+}
+
+export class LeadService {
+  async submit(
+    input: SubmitLeadInput,
+    ctx: ConsentContext,
+  ): Promise<SubmitLeadResult> {
+    const scoring = computeScore({
+      funnelPath: input.funnelPath,
+      preferredLocation: input.preferredLocation,
+      acceptsShiftWork: input.acceptsShiftWork,
+      hasMpuIssue: input.sensitive.hasMpuIssue,
+      hasDrugIssue: input.sensitive.hasDrugIssue,
+      motivationText: input.motivationText,
+      isInterestedInProgram: input.isInterestedInProgram,
+      isProfileComplete: isComplete(input),
+      acceptsTravelHotel: input.acceptsTravelHotel ?? undefined,
+      acceptsPsychLoad: input.acceptsPsychLoad ?? undefined,
+      hasNoKbaDrugEntries: input.hasNoKbaDrugEntries ?? undefined,
+    });
+
+    const initialStatus: LeadStatus =
+      scoring.priority === LeadPriority.BLOCKED
+        ? LeadStatus.BLOCKED
+        : scoring.priority === LeadPriority.HOT
+          ? LeadStatus.HOT
+          : LeadStatus.QUALIFIED;
+
+    const leadId = await prisma.$transaction(async (tx) => {
+      const lead = await leadRepository.create(
+        {
+          firstName: input.firstName,
+          lastName: input.lastName,
+          email: input.email,
+          phone: input.phone,
+          city: input.city,
+          funnelPath: input.funnelPath,
+          employmentStatus: input.employmentStatus,
+          preferredLocation: input.preferredLocation,
+          acceptsShiftWork: input.acceptsShiftWork,
+          motivationText: input.motivationText,
+          score: scoring.score,
+          priority: scoring.priority,
+          status: initialStatus,
+          source: input.source,
+          utm: input.utm,
+          assignedTo: null,
+          birthDate: input.birthDate ?? null,
+          birthPlace: input.birthPlace ?? null,
+          street: input.street ?? null,
+          houseNumber: input.houseNumber ?? null,
+          postalCode: input.postalCode ?? null,
+          addressCity: input.addressCity ?? null,
+          nationality: input.nationality ?? null,
+          agencyCity: input.agencyCity ?? null,
+          agencyCustomerNumber: input.agencyCustomerNumber ?? null,
+          agencyCaseWorker: input.agencyCaseWorker ?? null,
+          unemployedSince: input.unemployedSince ?? null,
+          careerHistory: input.careerHistory ?? null,
+          schoolEducation: input.schoolEducation ?? null,
+          graduationYear: input.graduationYear ?? null,
+          languages: input.languages ?? null,
+          computerSkills: input.computerSkills ?? null,
+          interests: input.interests ?? null,
+          acceptsTravelHotel: input.acceptsTravelHotel ?? null,
+          acceptsPsychLoad: input.acceptsPsychLoad ?? null,
+          hasNoKbaDrugEntries: input.hasNoKbaDrugEntries ?? null,
+        },
+        tx,
+      );
+
+      await sensitiveAnswersRepository.create(
+        {
+          leadId: lead.id,
+          hasMpuIssue: input.sensitive.hasMpuIssue,
+          hasDrugIssue: input.sensitive.hasDrugIssue,
+          notesSensitive: input.sensitive.notesSensitive,
+        },
+        tx,
+      );
+
+      if (input.eligibilityAnswers.length > 0) {
+        await eligibilityAnswerRepository.createMany(
+          { leadId: lead.id, answers: [...input.eligibilityAnswers] },
+          tx,
+        );
+      }
+
+      await consentService.appendBatch(
+        lead.id,
+        input.consents as ReadonlyArray<ConsentInput>,
+        ctx,
+        tx,
+      );
+
+      if (input.uploadedFileIds.length > 0) {
+        await fileUploadService.attachFilesToLead(
+          input.uploadedFileIds,
+          lead.id,
+          tx,
+        );
+      }
+
+      await statusHistoryRepository.append(
+        {
+          leadId: lead.id,
+          fromStatus: null,
+          toStatus: initialStatus,
+          changedBy: "self",
+          reason: "initial submission",
+        },
+        tx,
+      );
+
+      await auditLogRepository.append(
+        {
+          actor: "self",
+          action: AuditAction.LEAD_CREATED,
+          entityType: "Lead",
+          entityId: lead.id,
+          details: JSON.stringify({
+            score: scoring.score,
+            priority: scoring.priority,
+            blockedReasons: scoring.blockedReasons,
+            source: input.source,
+          }),
+        },
+        tx,
+      );
+
+      return lead.id;
+    });
+
+    // Post-commit automation — must not block or fail the public submit path.
+    try {
+      await automationService.onLeadCreated(leadId);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[automation] lead.created failed", { leadId, err });
+    }
+
+    return {
+      leadId,
+      priority: scoring.priority,
+      status: initialStatus,
+      score: scoring.score,
+      blockedReasons: scoring.blockedReasons,
+    };
+  }
+
+  async list(filters: LeadFilters): Promise<LeadSummary[]> {
+    return leadRepository.list(filters);
+  }
+
+  async kpis(): Promise<LeadKpis> {
+    return leadRepository.aggregateKpis();
+  }
+
+  async getFullDetail(leadId: string): Promise<LeadFullDetail> {
+    const lead = await leadRepository.findById(leadId);
+    if (!lead) throw new NotFoundError("Lead", leadId);
+
+    const [
+      statusHistory,
+      notes,
+      documents,
+      uploadedFiles,
+      communications,
+      eligibilityAnswers,
+      consents,
+      automationLogs,
+      callLogs,
+      auditLog,
+    ] = await Promise.all([
+      statusHistoryRepository.list(leadId),
+      noteRepository.list(leadId),
+      documentRepository.list(leadId),
+      uploadedFileRepository.listByLead(leadId),
+      communicationRepository.list(leadId),
+      eligibilityAnswerRepository.listForLead(leadId),
+      consentService.currentStates(leadId),
+      automationLogRepository.listForLead(leadId),
+      callLogRepository.listForLead(leadId),
+      auditLogRepository.listForEntity("Lead", leadId),
+    ]);
+
+    return {
+      lead,
+      statusHistory,
+      notes,
+      documents,
+      uploadedFiles,
+      communications,
+      eligibilityAnswers,
+      consents,
+      automationLogs,
+      callLogs,
+      auditLog,
+    };
+  }
+
+  /**
+   * Reveal sensitive answers WITH audit. Caller must pass the admin actor.
+   */
+  async revealSensitive(
+    leadId: string,
+    actor: string,
+  ): Promise<SensitiveAnswersData | null> {
+    const lead = await leadRepository.findById(leadId);
+    if (!lead) throw new NotFoundError("Lead", leadId);
+    const data = await sensitiveAnswersRepository.getForLead(leadId);
+    await auditLogService.append({
+      actor,
+      action: AuditAction.SENSITIVE_REVEAL,
+      entityType: "Lead",
+      entityId: leadId,
+      details: { revealed: Boolean(data) },
+    });
+    return data;
+  }
+
+  async addNote(
+    leadId: string,
+    body: string,
+    actor: string,
+  ): Promise<NoteEntry> {
+    const lead = await leadRepository.findById(leadId);
+    if (!lead) throw new NotFoundError("Lead", leadId);
+    const note = await noteRepository.create({
+      leadId,
+      body,
+      author: actor,
+    });
+    await auditLogService.append({
+      actor,
+      action: AuditAction.NOTE_ADDED,
+      entityType: "Lead",
+      entityId: leadId,
+      details: { noteId: note.id },
+    });
+    return note;
+  }
+
+  async scheduleFollowUp(
+    leadId: string,
+    when: Date | null,
+    actor: string,
+  ): Promise<void> {
+    const lead = await leadRepository.findById(leadId);
+    if (!lead) throw new NotFoundError("Lead", leadId);
+    await leadRepository.update(leadId, { nextFollowUpAt: when });
+    await auditLogService.append({
+      actor,
+      action: AuditAction.FOLLOW_UP_SCHEDULED,
+      entityType: "Lead",
+      entityId: leadId,
+      details: { when: when?.toISOString() ?? null },
+    });
+  }
+
+  /**
+   * Permanently delete a lead and everything attached to it. Physical uploaded
+   * files are purged from storage first, then the DB rows cascade away. The
+   * append-only audit entry is the only trace that remains.
+   */
+  async delete(leadId: string, actor: string): Promise<void> {
+    const lead = await leadRepository.findById(leadId);
+    if (!lead) throw new NotFoundError("Lead", leadId);
+
+    const files = await uploadedFileRepository.listByLead(leadId);
+    for (const file of files) {
+      await fileUploadService.deleteFile(file.id, actor);
+    }
+
+    await leadRepository.hardDelete(leadId);
+    await auditLogService.append({
+      actor,
+      action: AuditAction.LEAD_DELETED,
+      entityType: "Lead",
+      entityId: leadId,
+      details: { email: lead.email },
+    });
+  }
+}
+
+export const leadService = new LeadService();

@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 96" role="img" aria-label="Lokf�hrerzentrum.de  Dein Einstieg. Deine Zukunft. Dein Weg." fill="none">
+  <style>
+    .wm { font-family: 'Montserrat', 'Arial Black', system-ui, sans-serif; font-weight: 900; font-stretch: condensed; letter-spacing: -0.6px; }
+    .wm-nav { fill: #0F1B3D; }
+    .wm-red { fill: #DC2626; }
+    .wm-mute { fill: #6B7280; }
+    .tag { font-family: 'Montserrat', system-ui, sans-serif; font-weight: 600; letter-spacing: 2.6px; fill: #0F1B3D; }
+  </style>
+
+  <!-- Mark (larger) -->
+  <g transform="translate(0,8)">
+    <circle cx="40" cy="40" r="38" fill="#0F1B3D"/>
+    <circle cx="40" cy="40" r="37" fill="none" stroke="#DC2626" stroke-width="2.4"/>
+    <path d="M18 32 H42 a8 8 0 0 1 8 8 v6 H18 z" fill="#FFFFFF"/>
+    <path d="M23 35 H40 a5 5 0 0 1 5 5 v1 H23 z" fill="#0F1B3D"/>
+    <rect x="16" y="48.5" width="36" height="3" rx="1.5" fill="#DC2626"/>
+    <circle cx="24" cy="56" r="2.6" fill="#FFFFFF"/>
+    <circle cx="44" cy="56" r="2.6" fill="#FFFFFF"/>
+    <path d="M55 34 l8 0 M55 40 l11 0 M55 46 l6 0" stroke="#DC2626" stroke-width="2.6" stroke-linecap="round"/>
+  </g>
+
+  <!-- Wordmark line 1 -->
+  <text class="wm wm-nav" x="98" y="40" font-size="30">LOKF�HRER</text>
+  <!-- Red arrow bar -->
+  <g transform="translate(98,44)">
+    <rect x="0" y="0" width="170" height="3" rx="1.5" fill="#DC2626"/>
+    <path d="M170 -1 l8 2.5 -8 2.5 z" fill="#DC2626"/>
+  </g>
+  <!-- Wordmark line 2 -->
+  <text class="wm wm-red" x="98" y="76" font-size="30">ZENTRUM</text>
+  <text class="wm wm-mute" x="231" y="76" font-size="18">.de</text>
+  <!-- Tagline -->
+  <text class="tag" x="98" y="92" font-size="8">DEIN EINSTIEG. DEINE ZUKUNFT. DEIN WEG.</text>
+</svg>

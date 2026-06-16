@@ -1,0 +1,70 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "plugins": ["boundaries", "@typescript-eslint"],
+  "settings": {
+    "boundaries/elements": [
+      { "type": "server", "pattern": "src/server/**" },
+      { "type": "actions", "pattern": "src/server/actions/**" },
+      { "type": "api", "pattern": "src/app/api/**" },
+      { "type": "pages", "pattern": "src/app/**" },
+      { "type": "feature-pure", "pattern": "src/features/**/!(components|crm)/**" },
+      { "type": "feature-components", "pattern": "src/features/**/components/**" },
+      { "type": "feature-crm", "pattern": "src/features/**/crm/**" }
+    ]
+  },
+  "rules": {
+    "@typescript-eslint/no-explicit-any": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@prisma/client",
+            "message": "Import @prisma/client only from src/server/**. UI must go through Server Actions or API."
+          }
+        ]
+      }
+    ],
+    "max-lines": ["warn", { "max": 400, "skipBlankLines": true, "skipComments": true }],
+    "import/no-cycle": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/server/repositories/**/*.ts", "src/server/db/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": "off"
+      }
+    },
+    {
+      "files": ["src/features/**/components/**/*.{ts,tsx}", "src/features/**/crm/**/*.{ts,tsx}"],
+      "rules": {
+        "max-lines": ["warn", { "max": 300, "skipBlankLines": true, "skipComments": true }],
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "@/server/db/*",
+                  "@/server/db/**",
+                  "@/server/repositories/*",
+                  "@/server/repositories/**",
+                  "@/server/services/*",
+                  "@/server/services/**",
+                  "@/server/storage/*",
+                  "@/server/storage/**",
+                  "@/server/env"
+                ],
+                "message": "UI may only import from @/server/actions. Repositories, services and DB are server-only."
+              },
+              {
+                "group": ["@prisma/client"],
+                "message": "Prisma client is server-only."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
