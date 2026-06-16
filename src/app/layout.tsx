@@ -11,8 +11,24 @@ const montserrat = Montserrat({
   preload: true,
 });
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://lokfuehrerzentrum.de";
+const FALLBACK_SITE_URL = "https://lokfuehrerzentrum.de";
+
+/**
+ * Resolve the canonical site URL from env, tolerating a missing or malformed
+ * NEXT_PUBLIC_SITE_URL. A bad value (e.g. an unreplaced "<placeholder>") must
+ * never crash `new URL()` during the build's metadata collection.
+ */
+function resolveSiteUrl(): string {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL;
+  if (!raw) return FALLBACK_SITE_URL;
+  try {
+    return new URL(raw).toString();
+  } catch {
+    return FALLBACK_SITE_URL;
+  }
+}
+
+const SITE_URL = resolveSiteUrl();
 const SITE_NAME = "Lokführerzentrum.de";
 const TITLE_DEFAULT =
   "Lokführerzentrum.de — Geförderte Lokführer-Weiterbildung & Eignungscheck";
