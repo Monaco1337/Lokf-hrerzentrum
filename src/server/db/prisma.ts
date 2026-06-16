@@ -24,8 +24,36 @@ function makeClient(): PrismaClient {
   });
 }
 
-export const prisma: PrismaClient = global.__prismaClient ?? makeClient();
+let client: PrismaClient | undefined;
 
-if (process.env.NODE_ENV !== "production") {
-  global.__prismaClient = prisma;
+/**
+ * Lazily construct the client on first real access. This is crucial for the
+ * build: Next.js imports every route module during "Collecting page data",
+ * and constructing PrismaClient at module load would try to resolve the query
+ * engine at build time (which fails on platforms where the engine for the
+ * build host isn't present). Deferring construction keeps imports side-effect
+ * free, so the client (and its engine) is only needed at request time.
+ */
+function getClient(): PrismaClient {
+  if (client) return client;
+  client = global.__prismaClient ?? makeClient();
+  if (process.env.NODE_ENV !== "production") {
+    global.__prismaClient = client;
+  }
+  return client;
 }
+
+/**
+ * Proxy that forwards every access to the lazily-created client. Top-level
+ * client methods ($transaction, $queryRaw, …) are bound; model delegates
+ * (prisma.lead, …) are returned as-is since Prisma binds their methods.
+ */
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    const instance = getClient();
+    const value = Reflect.get(instance as object, prop, receiver);
+    return typeof value === "function"
+      ? (value as (...args: unknown[]) => unknown).bind(instance)
+      : value;
+  },
+});
