@@ -14,8 +14,9 @@ prisma/*.db-journal
 .DS_Store
 
 # uploaded user files (must never be committed)
-storage/
-uploads/
+# anchored to repo root so source dirs like src/server/storage are NOT ignored
+/storage/
+/uploads/
 
 # build artifacts & local tooling
 tsconfig.tsbuildinfo
