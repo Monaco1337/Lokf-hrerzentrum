@@ -3,7 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { resetDemoData, seedDemoData } from "@/server/actions/demoData";
+import {
+  reseedDemoData,
+  resetDemoData,
+  seedDemoData,
+} from "@/server/actions/demoData";
 
 interface Props {
   isSeeded: boolean;
@@ -17,10 +21,15 @@ const LABELS: Record<string, string> = {
   CallLog: "Anruf-Einträge",
   Note: "Notizen",
   Document: "Dokumente",
-  CommunicationEvent: "Kommunikationsereignisse",
+  UploadedFile: "Hochgeladene Dateien",
+  CommunicationEvent: "Nachrichten (E-Mail/WhatsApp)",
   StatusHistory: "Statusänderungen",
   AuditLog: "Audit-Einträge",
   ContactInquiry: "Kontaktanfragen",
+  Task: "Aufgaben",
+  AutomationTemplate: "Nachrichtenvorlagen",
+  AutomationLog: "Automations-Protokolle",
+  MagicLinkToken: "Bewerberlinks",
 };
 
 export function DemoDataPanel({ isSeeded, counts, totalEntries }: Props) {
@@ -40,7 +49,7 @@ export function DemoDataPanel({ isSeeded, counts, totalEntries }: Props) {
           kind: "ok",
           text: res.data.reused
             ? `Demo-Daten bereits aktiv (${res.data.created} Einträge).`
-            : `Demo-Daten erzeugt — ${res.data.created} Einträge registriert.`,
+            : `Demo-Daten geladen — ${res.data.created} Einträge registriert.`,
         });
         router.refresh();
       } else {
@@ -49,7 +58,29 @@ export function DemoDataPanel({ isSeeded, counts, totalEntries }: Props) {
     });
   };
 
-  const runReset = () => {
+  const runReseed = () => {
+    if (
+      !window.confirm(
+        "Demo-Daten werden auf den Ausgangszustand zurückgesetzt: alle vorhandenen Demo-Einträge werden entfernt und frisch neu erzeugt. Echte Daten bleiben unberührt. Fortfahren?",
+      )
+    ) {
+      return;
+    }
+    startTransition(async () => {
+      const res = await reseedDemoData();
+      if (res.ok) {
+        setFeedback({
+          kind: "ok",
+          text: `Demo-Daten zurückgesetzt — ${res.data.created} Einträge neu erzeugt.`,
+        });
+        router.refresh();
+      } else {
+        setFeedback({ kind: "err", text: res.message });
+      }
+    });
+  };
+
+  const runRemove = () => {
     if (
       !window.confirm(
         "Alle Demo-Daten werden unwiderruflich entfernt. Echte Leads, Mitarbeiter und Einstellungen bleiben unberührt. Fortfahren?",
@@ -78,11 +109,13 @@ export function DemoDataPanel({ isSeeded, counts, totalEntries }: Props) {
           <h2 className="text-[15px] font-semibold text-navy-950">Demo-Modus</h2>
           <p className="mt-1 max-w-xl text-[13px] text-ink-soft">
             Erzeugt eine realistische Beispielwelt aus Leads, Mitarbeitern,
-            Aktivitäten und Dokumenten — ausschließlich zum Testen der UI und
-            Workflows. Alle Demo-Daten sind eindeutig markiert
-            (<code className="rounded bg-surface-muted px-1 py-0.5 text-[11.5px]">[DEMO]</code>)
-            und können mit einem Klick komplett entfernt werden, ohne reale
-            Daten zu berühren.
+            Aufgaben, Nachrichten, Vorlagen, Automationen, Terminen, Uploads und
+            Dokumenten — sodass jede CRM-Seite befüllt ist. Alle Demo-Daten sind
+            eindeutig markiert
+            (<code className="rounded bg-surface-muted px-1 py-0.5 text-[11.5px]">[DEMO]</code>,{" "}
+            <code className="rounded bg-surface-muted px-1 py-0.5 text-[11.5px]">isDemo</code>)
+            und werden separat registriert. Echte Bewerberdaten werden niemals
+            berührt und können nicht mit Demo-Daten vermischt werden.
           </p>
         </div>
         <span
@@ -121,14 +154,22 @@ export function DemoDataPanel({ isSeeded, counts, totalEntries }: Props) {
         <button
           type="button"
           onClick={runSeed}
-          disabled={pending}
+          disabled={pending || isSeeded}
           className="btn-primary disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {pending ? "Wird ausgeführt…" : isSeeded ? "Demo-Daten neu prüfen" : "Demo-Daten erzeugen"}
+          {pending ? "Wird ausgeführt…" : "Demo-Daten laden"}
         </button>
         <button
           type="button"
-          onClick={runReset}
+          onClick={runReseed}
+          disabled={pending || !isSeeded}
+          className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3.5 py-1.5 text-[13px] font-medium text-ink-soft shadow-sm transition hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Demo-Daten zurücksetzen
+        </button>
+        <button
+          type="button"
+          onClick={runRemove}
           disabled={pending || !isSeeded}
           className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3.5 py-1.5 text-[13px] font-medium text-ink-soft shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
         >

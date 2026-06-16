@@ -20,7 +20,7 @@ export function LiveClock() {
     return () => clearInterval(id);
   }, []);
   return (
-    <span className="hidden items-center gap-1.5 text-[11.5px] tabular-nums text-zinc-400 lg:inline-flex">
+    <span className="hidden items-center gap-1.5 text-[12px] tabular-nums text-[#9CA3AF] lg:inline-flex">
       <svg
         viewBox="0 0 24 24"
         className="h-3.5 w-3.5"

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Route } from "next";
 
+import { useOpsShell } from "@/app/crm/OpsShellProvider";
 import type { Role } from "@/features/fairtrain-funnel/types";
 import { ROLE_LABEL } from "@/features/fairtrain-funnel/types";
 import { crmLogout } from "@/server/actions/crmAuth";
@@ -182,10 +183,19 @@ export function OpsSidebarClient({
   initials: string;
 }) {
   const pathname = usePathname() ?? "";
+  const { sidebarCollapsed, sidebarReady } = useOpsShell();
+  const collapsed = sidebarReady && sidebarCollapsed;
 
   return (
-    <aside className="hidden lg:flex h-[calc(100vh-56px)] sticky top-[56px] w-[220px] shrink-0 flex-col border-r border-[#EEF0F3] bg-white">
-      <nav className="flex-1 overflow-y-auto p-2.5">
+    <aside
+      className={[
+        "hidden lg:flex sticky top-[60px] shrink-0 flex-col border-r border-[#EEF0F3] bg-white overflow-hidden",
+        "h-[calc(100vh-60px)]",
+        sidebarReady ? "transition-[width] duration-300 ease-in-out" : "",
+        collapsed ? "w-[72px]" : "w-[240px]",
+      ].join(" ")}
+    >
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden p-2.5 [-ms-overflow-style:none] [scrollbar-width:thin]">
         <ul className="space-y-0.5">
           {items.map((item) => {
             const active = isActive(item.href, pathname);
@@ -193,17 +203,25 @@ export function OpsSidebarClient({
               <li key={item.href}>
                 <Link
                   href={item.href as Route}
+                  title={collapsed ? item.label : undefined}
                   className={[
-                    "group relative flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition",
+                    "group relative flex items-center rounded-xl text-[13px] font-medium transition",
+                    collapsed ? "justify-center px-2 py-2.5" : "gap-2.5 px-2.5 py-2",
                     active
-                      ? "bg-emerald-50 text-emerald-800"
+                      ? "bg-emerald-50 text-emerald-800 shadow-[inset_0_0_0_1px_rgba(16,185,129,0.12)]"
                       : "text-[#374151] hover:bg-[#F6F7F9] hover:text-[#111827]",
                   ].join(" ")}
                 >
-                  {active && (
+                  {active && !collapsed && (
                     <span
                       aria-hidden
                       className="absolute left-0 top-1.5 h-[calc(100%-12px)] w-[2px] rounded-r-full bg-emerald-600"
+                    />
+                  )}
+                  {active && collapsed && (
+                    <span
+                      aria-hidden
+                      className="absolute bottom-1 left-1/2 h-[2px] w-5 -translate-x-1/2 rounded-full bg-emerald-600"
                     />
                   )}
                   <span
@@ -215,11 +233,15 @@ export function OpsSidebarClient({
                   >
                     <Icon name={item.icon} />
                   </span>
-                  <span className="flex-1 truncate">{item.label}</span>
-                  {item.badge && (
-                    <span className="ops-chip ops-chip-amber text-[9.5px]">
-                      {item.badge}
-                    </span>
+                  {!collapsed && (
+                    <>
+                      <span className="flex-1 truncate">{item.label}</span>
+                      {item.badge && (
+                        <span className="ops-chip ops-chip-amber text-[9.5px]">
+                          {item.badge}
+                        </span>
+                      )}
+                    </>
                   )}
                 </Link>
               </li>
@@ -229,23 +251,35 @@ export function OpsSidebarClient({
       </nav>
 
       <div className="border-t border-[#EEF0F3] p-2.5">
-        <div className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#F6F7F9] text-[11px] font-bold text-[#111827] ring-1 ring-[#E5E7EB]">
+        <div
+          className={[
+            "rounded-xl bg-[#FAFBFC] ring-1 ring-[#EEF0F3]",
+            collapsed
+              ? "flex flex-col items-center gap-2 px-2 py-2.5"
+              : "flex items-center gap-2.5 px-2 py-2",
+          ].join(" ")}
+        >
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-[11px] font-bold text-[#111827] ring-1 ring-[#E5E7EB]"
+            title={displayName || undefined}
+          >
             {initials || "U"}
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[12.5px] font-semibold text-[#111827]">
-              {displayName || "—"}
-            </p>
-            <p className="truncate text-[10.5px] text-[#9CA3AF]">
-              {ROLE_LABEL[role] ?? role}
-            </p>
-          </div>
-          <form action={crmLogout} className="shrink-0">
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12.5px] font-semibold text-[#111827]">
+                {displayName || "—"}
+              </p>
+              <p className="truncate text-[10.5px] text-[#9CA3AF]">
+                {ROLE_LABEL[role] ?? role}
+              </p>
+            </div>
+          )}
+          <form action={crmLogout} className={collapsed ? "" : "shrink-0"}>
             <button
               type="submit"
               title="Abmelden"
-              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#9CA3AF] transition hover:bg-[#F6F7F9] hover:text-[#374151]"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#9CA3AF] transition hover:bg-white hover:text-[#374151] hover:ring-1 hover:ring-[#E5E7EB]"
               aria-label="Abmelden"
             >
               <svg

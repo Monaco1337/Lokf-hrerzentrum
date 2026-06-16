@@ -5,7 +5,10 @@ import { revalidatePath } from "next/cache";
 import { requirePermission, runAction, type Result } from "./_helpers";
 import { demoDataService } from "../services/DemoDataService";
 
-/** Seed the demo dataset. Idempotent — re-running returns the existing count. */
+/**
+ * "Demo-Daten laden" — seed the demo dataset. Idempotent: re-running returns
+ * the existing count instead of duplicating rows.
+ */
 export async function seedDemoData(): Promise<
   Result<{ created: number; reused: boolean }>
 > {
@@ -17,11 +20,24 @@ export async function seedDemoData(): Promise<
   });
 }
 
-/** Hard-delete every demo-created entity. Real data is untouched. */
+/**
+ * "Demo-Daten zurücksetzen" — remove all demo rows and seed a fresh pristine
+ * dataset. Used to revert a demo to its initial state after UI edits.
+ */
+export async function reseedDemoData(): Promise<Result<{ created: number }>> {
+  return runAction(async () => {
+    await requirePermission("canManageSettings");
+    const result = await demoDataService.reseed();
+    revalidatePath("/crm", "layout");
+    return result;
+  });
+}
+
+/** "Demo-Daten entfernen" — hard-delete every demo row. Real data untouched. */
 export async function resetDemoData(): Promise<Result<{ removed: number }>> {
   return runAction(async () => {
     await requirePermission("canManageSettings");
-    const result = await demoDataService.reset();
+    const result = await demoDataService.remove();
     revalidatePath("/crm", "layout");
     return result;
   });

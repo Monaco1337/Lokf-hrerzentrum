@@ -17,6 +17,7 @@ import Link from "next/link";
 import { OperationsTopHeader } from "@/features/fairtrain-funnel/crm/operations/OperationsTopHeader";
 import { userService } from "@/server/services/UserService";
 
+import { OpsShellProvider } from "./OpsShellProvider";
 import { OpsSidebar } from "./OpsSidebar";
 
 // The CRM is auth-gated and reads per-request state (cookies, headers) plus the
@@ -37,22 +38,24 @@ export default async function CrmLayout({
   }
 
   return (
-    <div data-ops className="min-h-screen bg-[#F6F7F9] text-[#111827]">
-      {/* Sticky top bar */}
-      <OperationsTopHeader />
+    <OpsShellProvider>
+      <div data-ops className="min-h-screen bg-[#F6F7F9] text-[#111827]">
+        {/* Sticky top bar */}
+        <OperationsTopHeader />
 
-      {/* Layout body: sidebar + content */}
-      <div className="flex">
-        <OpsSidebar />
-        <main className="min-w-0 flex-1">
-          {/* Mobile section nav */}
-          <MobileSectionNav />
-          <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
-            {children}
-          </div>
-        </main>
+        {/* Layout body: sidebar + content */}
+        <div className="flex">
+          <OpsSidebar />
+          <main className="min-w-0 flex-1">
+            {/* Mobile section nav */}
+            <MobileSectionNav />
+            <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
+              {children}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </OpsShellProvider>
   );
 }
 

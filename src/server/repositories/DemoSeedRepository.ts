@@ -17,7 +17,11 @@ export type DemoEntityType =
   | "CommunicationEvent"
   | "AuditLog"
   | "StatusHistory"
-  | "ContactInquiry";
+  | "ContactInquiry"
+  | "Task"
+  | "AutomationTemplate"
+  | "AutomationLog"
+  | "MagicLinkToken";
 
 export interface DemoSeedRow {
   id: string;
