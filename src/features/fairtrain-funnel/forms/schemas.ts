@@ -319,15 +319,26 @@ export const RevokeConsentSchema = z.object({
   type: ConsentTypeSchema,
 });
 
+/**
+ * Local login identifier for the seeded admin namespace. A bare username like
+ * `admin` is auto-completed to `admin@fairtrain.local`, so operators don't have
+ * to type the internal domain in the form.
+ */
+const LOGIN_USERNAME_DOMAIN = "fairtrain.local";
+
 export const CrmLoginSchema = z.object({
   password: z.string().min(1).max(200),
   email: z
     .string()
     .trim()
     .toLowerCase()
-    .email()
-    .optional()
-    .or(z.literal("").transform(() => undefined)),
+    .transform((v) => {
+      if (!v) return undefined;
+      // Plain username (no "@") -> append the local admin domain.
+      return v.includes("@") ? v : `${v}@${LOGIN_USERNAME_DOMAIN}`;
+    })
+    .pipe(z.string().email().optional())
+    .optional(),
 });
 
 export const LeadFilterSchema = z.object({

@@ -32,14 +32,14 @@ export default async function CrmLoginPage({
         </p>
         <form action={crmLogin} className="mt-6 space-y-4">
           <div>
-            <label className="label" htmlFor="email">E-Mail</label>
+            <label className="label" htmlFor="email">Benutzername oder E-Mail</label>
             <input
               id="email"
               name="email"
-              type="email"
+              type="text"
               className="input"
               autoComplete="username"
-              placeholder="dennis@fairtrain.local"
+              placeholder="admin"
               spellCheck={false}
             />
           </div>
@@ -64,9 +64,9 @@ export default async function CrmLoginPage({
           <button type="submit" className="btn-primary w-full">Anmelden</button>
         </form>
         <p className="mt-6 text-xs text-ink-muted">
-          Initiale Super-Admins: <strong>dennis@fairtrain.local</strong> und{" "}
-          <strong>admin@fairtrain.local</strong>. Im Dev-Modus ohne
-          konfiguriertes Passwort genügt &quot;dev&quot; mit leerer E-Mail.
+          Tipp: Bei einem reinen Benutzernamen (z. B. <strong>admin</strong>) wird
+          intern automatisch <strong>@fairtrain.local</strong> ergänzt. E-Mails von
+          neu angelegten Benutzern bleiben wie eingegeben.
         </p>
       </div>
     </div>
