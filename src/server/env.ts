@@ -12,7 +12,10 @@ const RawEnvSchema = z.object({
     .enum(["development", "test", "production"])
     .default("development"),
   DATABASE_URL: z.string().min(1),
-  APP_BASE_URL: z.string().url().default("http://localhost:3000"),
+  // Tolerate a missing OR malformed value (e.g. an unreplaced "<placeholder>"
+  // pasted into the env): fall back instead of crashing env validation, which
+  // would otherwise break the whole build for every server route.
+  APP_BASE_URL: z.string().url().catch("http://localhost:3000"),
 
   CRM_PASSWORD_HASH: z.string().default(""),
   CRM_SESSION_SECRET: z.string().default(""),
