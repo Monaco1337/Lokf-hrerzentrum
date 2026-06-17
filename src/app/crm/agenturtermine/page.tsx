@@ -8,11 +8,21 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { LeadStatus, type LeadSummary } from "@/features/fairtrain-funnel/types";
+import { FollowUpDateControl } from "@/features/fairtrain-funnel/crm/operations/FollowUpDateControl";
+import {
+  LeadStageSelect,
+  type StageOption,
+} from "@/features/fairtrain-funnel/crm/operations/LeadStageSelect";
 import { requireCrmUser } from "@/server/actions/_helpers";
 import { leadRepository } from "@/server/repositories/LeadRepository";
 import { applyScope } from "@/server/services/LeadAccess";
 
 export const dynamic = "force-dynamic";
+
+const APPOINTMENT_STAGES: ReadonlyArray<StageOption> = [
+  { value: LeadStatus.AA_APPOINTMENT_PENDING, label: "Termin geplant" },
+  { value: LeadStatus.AA_APPOINTMENT_DONE, label: "Termin bestätigt/erledigt" },
+];
 
 const DATE_TIME = new Intl.DateTimeFormat("de-DE", {
   weekday: "short",
@@ -160,20 +170,33 @@ export default async function AgenturtermineePage() {
                   <p className="px-4 py-6 text-center text-[11px] text-zinc-600">—</p>
                 )}
                 {items.slice(0, 15).map((entry) => (
-                  <Link
+                  <div
                     key={entry.lead.id}
-                    href={`/crm/leads/${entry.lead.id}` as Route}
-                    className="block px-4 py-2 transition hover:bg-white/[0.03]"
+                    className="px-4 py-2 transition hover:bg-white/[0.03]"
                   >
-                    <p className="truncate text-[12.5px] font-semibold text-white">
-                      {entry.lead.firstName} {entry.lead.lastName}
-                    </p>
-                    <p className="text-[10.5px] tabular-nums text-zinc-400">
-                      {entry.when
-                        ? DATE_TIME.format(entry.when)
-                        : `Letzte Aktualisierung ${DATE_ONLY.format(entry.lead.updatedAt)}`}
-                    </p>
-                  </Link>
+                    <Link
+                      href={`/crm/leads/${entry.lead.id}` as Route}
+                      className="block"
+                    >
+                      <p className="truncate text-[12.5px] font-semibold text-white">
+                        {entry.lead.firstName} {entry.lead.lastName}
+                      </p>
+                      <p className="text-[10.5px] tabular-nums text-zinc-400">
+                        {entry.when
+                          ? DATE_TIME.format(entry.when)
+                          : `Letzte Aktualisierung ${DATE_ONLY.format(entry.lead.updatedAt)}`}
+                      </p>
+                    </Link>
+                    <div className="mt-1.5">
+                      <LeadStageSelect
+                        leadId={entry.lead.id}
+                        current={entry.lead.status}
+                        options={APPOINTMENT_STAGES}
+                        reason="Agenturtermin-Status aktualisiert"
+                      />
+                    </div>
+                    <FollowUpDateControl leadId={entry.lead.id} current={entry.when} />
+                  </div>
                 ))}
               </div>
             </section>

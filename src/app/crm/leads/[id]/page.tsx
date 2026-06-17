@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { LeadDetail } from "@/features/fairtrain-funnel/crm/LeadDetail";
 import { requireCrmUser } from "@/server/actions/_helpers";
 import { ForbiddenError, NotFoundError } from "@/server/errors";
+import { taskRepository } from "@/server/repositories/TaskRepository";
 import { automationService } from "@/server/services/AutomationService";
 import { assertCanAccessLead } from "@/server/services/LeadAccess";
 import { leadService } from "@/server/services/LeadService";
@@ -19,10 +20,11 @@ export default async function LeadDetailPage({
   const currentUser = await requireCrmUser();
   try {
     await assertCanAccessLead(currentUser, id);
-    const [data, automationTemplates, assignees] = await Promise.all([
+    const [data, automationTemplates, assignees, tasks] = await Promise.all([
       leadService.getFullDetail(id),
       automationService.listTemplates(),
       userService.list({ includeInactive: false }),
+      taskRepository.list({ leadId: id, includeDone: true }),
     ]);
     return (
       <LeadDetail
@@ -30,6 +32,7 @@ export default async function LeadDetailPage({
         automationTemplates={automationTemplates}
         currentUser={currentUser}
         assignees={assignees}
+        tasks={tasks}
       />
     );
   } catch (err) {

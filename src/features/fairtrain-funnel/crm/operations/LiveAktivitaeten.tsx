@@ -35,6 +35,7 @@ function relTime(d: Date): string {
 
 const ACTION_PHRASE: Record<AuditAction, { verb: string; tint: string; dot: string }> = {
   LEAD_CREATED: { verb: "Neuer Lead", tint: "text-emerald-300", dot: "bg-emerald-500" },
+  LEAD_UPDATED: { verb: "Lead bearbeitet", tint: "text-blue-300", dot: "bg-blue-500" },
   LEAD_DELETED: { verb: "Lead gelöscht", tint: "text-red-300", dot: "bg-red-500" },
   LEAD_OPENED: { verb: "Lead geöffnet", tint: "text-zinc-300", dot: "bg-zinc-500" },
   LEAD_ASSIGNED: { verb: "Lead zugewiesen", tint: "text-blue-300", dot: "bg-blue-500" },

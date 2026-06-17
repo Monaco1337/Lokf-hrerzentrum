@@ -9,6 +9,7 @@ import { z } from "zod";
 
 export const AuditAction = {
   LEAD_CREATED: "LEAD_CREATED",
+  LEAD_UPDATED: "LEAD_UPDATED",
   LEAD_DELETED: "LEAD_DELETED",
   LEAD_OPENED: "LEAD_OPENED",
   LEAD_ASSIGNED: "LEAD_ASSIGNED",

@@ -9,6 +9,7 @@ import {
   type LeadFilters,
 } from "@/features/fairtrain-funnel/types";
 import { requireCrmUser } from "@/server/actions/_helpers";
+import { userRepository } from "@/server/repositories/UserRepository";
 import { leadInsightsService } from "@/server/services/LeadInsightsService";
 import { applyScope } from "@/server/services/LeadAccess";
 import { leadService } from "@/server/services/LeadService";
@@ -76,7 +77,11 @@ export default async function LeadsPage({
 
   const currentUser = await requireCrmUser();
   const filters = applyScope(baseFilters, currentUser);
-  const leads = await leadService.list(filters);
+  const [leads, userRows] = await Promise.all([
+    leadService.list(filters),
+    userRepository.list({ includeInactive: false }),
+  ]);
   const enriched = await leadInsightsService.enrich(leads);
-  return <LeadList leads={enriched} filters={baseFilters} />;
+  const users = userRows.map((u) => ({ id: u.id, name: u.name }));
+  return <LeadList leads={enriched} filters={baseFilters} users={users} />;
 }

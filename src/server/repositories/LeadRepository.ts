@@ -101,6 +101,15 @@ export interface UpdateLeadFields {
   assignedAt?: Date | null;
   slaBreachedAt?: Date | null;
   nextFollowUpAt?: Date | null;
+  // Editable core contact fields (CRM operator edits via the lead edit modal).
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  city?: string | null;
+  source?: string | null;
+  /** Soft archive: hides the lead from active lists without deleting data. */
+  deletedAt?: Date | null;
 }
 
 function rowToSummary(row: LeadRowWithAssignee): LeadSummary {
@@ -246,6 +255,13 @@ export class LeadRepository {
       data.slaBreachedAt = fields.slaBreachedAt;
     if (fields.nextFollowUpAt !== undefined)
       data.nextFollowUpAt = fields.nextFollowUpAt;
+    if (fields.firstName !== undefined) data.firstName = fields.firstName;
+    if (fields.lastName !== undefined) data.lastName = fields.lastName;
+    if (fields.email !== undefined) data.email = fields.email;
+    if (fields.phone !== undefined) data.phone = fields.phone;
+    if (fields.city !== undefined) data.city = fields.city;
+    if (fields.source !== undefined) data.source = fields.source;
+    if (fields.deletedAt !== undefined) data.deletedAt = fields.deletedAt;
 
     const row = await client.lead.update({
       where: { id },

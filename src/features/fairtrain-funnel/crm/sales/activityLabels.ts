@@ -20,6 +20,7 @@ export interface ActivityVisual {
 
 export const ACTIVITY_LABEL: Record<AuditAction, ActivityVisual> = {
   LEAD_CREATED: { label: "Lead erstellt", icon: "user-plus", tint: "accent" },
+  LEAD_UPDATED: { label: "Lead bearbeitet", icon: "edit", tint: "brand" },
   LEAD_DELETED: { label: "Lead gelöscht", icon: "trash", tint: "rose" },
   LEAD_OPENED: { label: "Lead geöffnet", icon: "eye", tint: "slate" },
   LEAD_ASSIGNED: { label: "Lead zugewiesen", icon: "users", tint: "brand" },

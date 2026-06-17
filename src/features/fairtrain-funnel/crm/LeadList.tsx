@@ -8,12 +8,19 @@ import {
   type LeadFilters,
   LeadStatus,
 } from "../types";
-import { STATUS_TONE } from "./leadLabels";
+import { humanizeSource, STATUS_TONE } from "./leadLabels";
+import { LeadFormModal, type LeadEditValues } from "./LeadFormModal";
 import { LeadListRow, type SortKey } from "./LeadListRow";
+
+interface LeadUser {
+  id: string;
+  name: string;
+}
 
 interface LeadListProps {
   leads: ReadonlyArray<EnrichedLeadSummary>;
   filters: LeadFilters;
+  users: ReadonlyArray<LeadUser>;
 }
 
 const STATUS_OPTIONS: ReadonlyArray<string> = [
@@ -38,9 +45,10 @@ const SORT_OPTIONS: ReadonlyArray<{ value: SortKey; label: string }> = [
   { value: "urgency", label: "Dringlichkeit" },
   { value: "createdAt", label: "Eingang" },
   { value: "lastContact", label: "Letzter Kontakt" },
+  { value: "nextAction", label: "Nächste Aktion" },
 ];
 
-export function LeadList({ leads, filters }: LeadListProps) {
+export function LeadList({ leads, filters, users }: LeadListProps) {
   const router = useRouter();
   const [rows, setRows] = useState<EnrichedLeadSummary[]>([...leads]);
   const [pending, startTransition] = useTransition();
@@ -48,7 +56,45 @@ export function LeadList({ leads, filters }: LeadListProps) {
   const [error, setError] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<SortKey>("score");
 
-  const sortedRows = useMemo(() => sortRows(rows, sortKey), [rows, sortKey]);
+  const [query, setQuery] = useState("");
+  const [ownerFilter, setOwnerFilter] = useState("");
+  const [sourceFilter, setSourceFilter] = useState("");
+
+  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<LeadEditValues | null>(null);
+
+  const sourceOptions = useMemo(() => {
+    const set = new Map<string, string>();
+    for (const e of rows) {
+      const raw = e.lead.source ?? "";
+      if (raw) set.set(raw, humanizeSource(raw));
+    }
+    return [...set.entries()].sort((a, b) => a[1].localeCompare(b[1]));
+  }, [rows]);
+
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return rows.filter((e) => {
+      const l = e.lead;
+      if (ownerFilter && (l.assignedToId ?? "") !== ownerFilter) return false;
+      if (sourceFilter && (l.source ?? "") !== sourceFilter) return false;
+      if (q) {
+        const hay = [
+          l.firstName,
+          l.lastName,
+          l.email,
+          l.phone,
+          l.city ?? "",
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [rows, query, ownerFilter, sourceFilter]);
+
+  const sortedRows = useMemo(() => sortRows(filteredRows, sortKey), [filteredRows, sortKey]);
 
   function remove(id: string) {
     setError(null);
@@ -64,18 +110,18 @@ export function LeadList({ leads, filters }: LeadListProps) {
     });
   }
 
-  const overdue = rows.filter((e) => e.insights.urgency === "overdue").length;
-  const hot = rows.filter((e) => e.insights.score >= 90).length;
+  const overdue = sortedRows.filter((e) => e.insights.urgency === "overdue").length;
+  const hot = sortedRows.filter((e) => e.insights.score >= 90).length;
 
   return (
     <div className="space-y-6">
-      <header className="flex items-end justify-between gap-4">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950">
             Leads
           </h1>
           <p className="text-sm text-ink-soft">
-            {rows.length} Treffer
+            {sortedRows.length} Treffer
             {overdue > 0 ? (
               <>
                 <span className="mx-1.5 text-ink-muted">·</span>
@@ -90,8 +136,8 @@ export function LeadList({ leads, filters }: LeadListProps) {
             ) : null}
           </p>
         </div>
-        <div className="hidden items-center gap-2 sm:flex">
-          <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
+        <div className="flex items-center gap-2">
+          <label className="hidden text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted sm:inline">
             Sortieren
           </label>
           <select
@@ -105,8 +151,53 @@ export function LeadList({ leads, filters }: LeadListProps) {
               </option>
             ))}
           </select>
+          <button type="button" className="btn-primary h-9" onClick={() => setCreating(true)}>
+            + Neuer Lead
+          </button>
         </div>
       </header>
+
+      <div className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="lg:col-span-2">
+          <label className="label" htmlFor="lead-search">Suche</label>
+          <input
+            id="lead-search"
+            type="search"
+            className="input"
+            placeholder="Name, Telefon, E-Mail oder Stadt…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="label" htmlFor="owner-filter">Bearbeiter</label>
+          <select
+            id="owner-filter"
+            className="input"
+            value={ownerFilter}
+            onChange={(e) => setOwnerFilter(e.target.value)}
+          >
+            <option value="">Alle</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="label" htmlFor="source-filter">Quelle</label>
+          <select
+            id="source-filter"
+            className="input"
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+          >
+            <option value="">Alle</option>
+            {sourceOptions.map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
 
       <form className="card grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-5">
         <Select name="status" label="Status" value={asString(filters.status)} options={STATUS_OPTIONS} />
@@ -148,8 +239,18 @@ export function LeadList({ leads, filters }: LeadListProps) {
             <tbody className="divide-y divide-ink/[0.06]">
               {sortedRows.length === 0 ? (
                 <tr>
-                  <td className="px-4 py-10 text-center text-ink-muted" colSpan={9}>
-                    Keine Leads für diese Filter.
+                  <td className="px-4 py-12 text-center" colSpan={9}>
+                    <p className="text-sm font-medium text-ink">Keine Leads gefunden</p>
+                    <p className="mt-1 text-[13px] text-ink-muted">
+                      Passe Suche und Filter an oder lege einen neuen Lead an.
+                    </p>
+                    <button
+                      type="button"
+                      className="btn-primary mt-4"
+                      onClick={() => setCreating(true)}
+                    >
+                      + Neuer Lead
+                    </button>
                   </td>
                 </tr>
               ) : (
@@ -159,9 +260,21 @@ export function LeadList({ leads, filters }: LeadListProps) {
                     entry={entry}
                     confirming={confirmId === entry.lead.id}
                     pending={pending}
+                    users={users}
                     onAsk={() => setConfirmId(entry.lead.id)}
                     onCancel={() => setConfirmId(null)}
                     onConfirm={() => remove(entry.lead.id)}
+                    onEdit={() =>
+                      setEditing({
+                        id: entry.lead.id,
+                        firstName: entry.lead.firstName,
+                        lastName: entry.lead.lastName,
+                        email: entry.lead.email,
+                        phone: entry.lead.phone,
+                        city: entry.lead.city,
+                        source: entry.lead.source,
+                      })
+                    }
                   />
                 ))
               )}
@@ -169,6 +282,21 @@ export function LeadList({ leads, filters }: LeadListProps) {
           </table>
         </div>
       </div>
+
+      <LeadFormModal
+        open={creating}
+        mode="create"
+        users={users}
+        onClose={() => setCreating(false)}
+      />
+      <LeadFormModal
+        key={editing?.id ?? "edit"}
+        open={editing !== null}
+        mode="edit"
+        users={users}
+        initial={editing ?? undefined}
+        onClose={() => setEditing(null)}
+      />
     </div>
   );
 }
@@ -209,6 +337,12 @@ function sortRows(
         const bT = b.insights.lastContactAt?.getTime() ?? 0;
         return bT - aT;
       }
+      case "nextAction": {
+        // Soonest scheduled action first; leads without a date sort last.
+        const aT = a.lead.nextFollowUpAt?.getTime() ?? Number.POSITIVE_INFINITY;
+        const bT = b.lead.nextFollowUpAt?.getTime() ?? Number.POSITIVE_INFINITY;
+        return aT - bT;
+      }
     }
   });
   return copy;
@@ -238,4 +372,3 @@ function Select({
     </div>
   );
 }
-

@@ -8,6 +8,7 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { LeadStatus, type LeadSummary } from "@/features/fairtrain-funnel/types";
+import { FollowUpDateControl } from "@/features/fairtrain-funnel/crm/operations/FollowUpDateControl";
 import { requireCrmUser } from "@/server/actions/_helpers";
 import { leadRepository } from "@/server/repositories/LeadRepository";
 import { applyScope } from "@/server/services/LeadAccess";
@@ -169,26 +170,28 @@ export default async function FollowUpsPage() {
                     </p>
                   )}
                   {cards.map((c) => (
-                    <Link
+                    <div
                       key={c.lead.id}
-                      href={`/crm/leads/${c.lead.id}` as Route}
-                      className="rounded-lg border border-white/[0.06] bg-[#161618] p-3 transition hover:border-white/[0.16] hover:bg-[#1c1c20]"
+                      className="rounded-lg border border-white/[0.06] bg-[#161618] p-3 transition hover:border-white/[0.16]"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="truncate text-[12.5px] font-semibold text-white">
-                          {c.lead.firstName} {c.lead.lastName}
+                      <Link href={`/crm/leads/${c.lead.id}` as Route} className="block">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="truncate text-[12.5px] font-semibold text-white">
+                            {c.lead.firstName} {c.lead.lastName}
+                          </p>
+                          {c.lead.priority === "HOT" && (
+                            <span className="ops-chip ops-chip-orange">HOT</span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-[10.5px] tabular-nums text-zinc-400">
+                          {c.when ? TIME_FMT.format(c.when) : "kein Termin gesetzt"}
                         </p>
-                        {c.lead.priority === "HOT" && (
-                          <span className="ops-chip ops-chip-orange">HOT</span>
-                        )}
-                      </div>
-                      <p className="mt-1 text-[10.5px] tabular-nums text-zinc-400">
-                        {c.when ? TIME_FMT.format(c.when) : "kein Termin gesetzt"}
-                      </p>
-                      <p className="mt-1 text-[10.5px] text-zinc-500">
-                        Score {c.lead.score} · {c.lead.city ?? "—"}
-                      </p>
-                    </Link>
+                        <p className="mt-1 text-[10.5px] text-zinc-500">
+                          Score {c.lead.score} · {c.lead.city ?? "—"}
+                        </p>
+                      </Link>
+                      <FollowUpDateControl leadId={c.lead.id} current={c.when} />
+                    </div>
                   ))}
                 </div>
               </section>

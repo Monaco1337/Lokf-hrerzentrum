@@ -16,11 +16,17 @@ import {
   type NextBestAction,
 } from "../types";
 import { InlineDeleteControl } from "./InlineDeleteControl";
+import { LeadRowActions } from "./LeadRowActions";
 import { STATUS_TONE } from "./leadLabels";
 import { OpenIcon, PhoneIcon, WhatsappIcon } from "./LeadListIcons";
 import { PriorityBadge } from "./PriorityBadge";
 
-export type SortKey = "score" | "urgency" | "createdAt" | "lastContact";
+export type SortKey =
+  | "score"
+  | "urgency"
+  | "createdAt"
+  | "lastContact"
+  | "nextAction";
 
 const URGENCY_RAIL: Record<LeadUrgency, string> = {
   overdue: "bg-red-500",
@@ -98,18 +104,22 @@ interface LeadListRowProps {
   entry: EnrichedLeadSummary;
   confirming: boolean;
   pending: boolean;
+  users: ReadonlyArray<{ id: string; name: string }>;
   onAsk: () => void;
   onCancel: () => void;
   onConfirm: () => void;
+  onEdit: () => void;
 }
 
 export function LeadListRow({
   entry,
   confirming,
   pending,
+  users,
   onAsk,
   onCancel,
   onConfirm,
+  onEdit,
 }: LeadListRowProps) {
   const { lead, insights } = entry;
   const status = STATUS_TONE[lead.status];
@@ -199,13 +209,16 @@ export function LeadListRow({
       </td>
 
       <td className="px-3 py-3 text-right">
-        <InlineDeleteControl
-          confirming={confirming}
-          pending={pending}
-          onAsk={onAsk}
-          onCancel={onCancel}
-          onConfirm={onConfirm}
-        />
+        <div className="inline-flex items-center gap-1.5">
+          <LeadRowActions lead={lead} users={users} onEdit={onEdit} />
+          <InlineDeleteControl
+            confirming={confirming}
+            pending={pending}
+            onAsk={onAsk}
+            onCancel={onCancel}
+            onConfirm={onConfirm}
+          />
+        </div>
       </td>
     </tr>
   );

@@ -17,7 +17,7 @@ import {
   type StatusHistoryEntry,
 } from "../../types";
 
-interface TimelineEvent {
+export interface TimelineEvent {
   id: string;
   kind: "audit" | "call" | "status";
   label: string;
@@ -38,6 +38,7 @@ const TONE_DOT: Record<TimelineEvent["tone"], string> = {
 
 const ACTION_LABEL: Record<AuditAction, { label: string; tone: TimelineEvent["tone"] }> = {
   LEAD_CREATED: { label: "Lead angelegt", tone: "info" },
+  LEAD_UPDATED: { label: "Lead bearbeitet", tone: "info" },
   LEAD_DELETED: { label: "Lead gelöscht", tone: "danger" },
   LEAD_OPENED: { label: "Lead geöffnet", tone: "neutral" },
   LEAD_ASSIGNED: { label: "Lead zugewiesen", tone: "magic" },

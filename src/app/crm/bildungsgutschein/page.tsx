@@ -10,11 +10,22 @@ import Link from "next/link";
 import type { Route } from "next";
 
 import { LeadStatus, type LeadSummary } from "@/features/fairtrain-funnel/types";
+import { LeadStageSelect, type StageOption } from "@/features/fairtrain-funnel/crm/operations/LeadStageSelect";
 import { requireCrmUser } from "@/server/actions/_helpers";
 import { leadRepository } from "@/server/repositories/LeadRepository";
 import { applyScope } from "@/server/services/LeadAccess";
 
 export const dynamic = "force-dynamic";
+
+/** Förder-Stufen → repräsentativer LeadStatus (treibt die Bucket-Zuordnung). */
+const FUNDING_STAGES: ReadonlyArray<StageOption> = [
+  { value: LeadStatus.CONTACTED, label: "Nicht besprochen" },
+  { value: LeadStatus.QUALIFIED, label: "Geeignet" },
+  { value: LeadStatus.DOC_READY, label: "Antrag vorbereitet" },
+  { value: LeadStatus.AA_APPOINTMENT_PENDING, label: "Agenturtermin offen" },
+  { value: LeadStatus.GUTSCHEIN_PENDING, label: "Beantragt" },
+  { value: LeadStatus.GUTSCHEIN_APPROVED, label: "Bewilligt" },
+];
 
 interface Bucket {
   key: string;
@@ -174,23 +185,28 @@ export default async function BildungsgutscheinPage() {
                   </p>
                 )}
                 {leads.slice(0, 12).map((l) => (
-                  <Link
+                  <div
                     key={l.id}
-                    href={`/crm/leads/${l.id}` as Route}
                     className="flex items-center justify-between gap-2 px-4 py-2 transition hover:bg-white/[0.03]"
                   >
-                    <div className="min-w-0">
+                    <Link href={`/crm/leads/${l.id}` as Route} className="min-w-0 flex-1">
                       <p className="truncate text-[12.5px] font-semibold text-white">
                         {l.firstName} {l.lastName}
                       </p>
                       <p className="text-[10.5px] text-zinc-500">
                         {STATUS_LABEL[l.status]} · aktualisiert {DATE.format(l.updatedAt)}
                       </p>
-                    </div>
+                    </Link>
                     {l.slaBreachedAt && (
                       <span className="ops-chip ops-chip-red shrink-0">SLA</span>
                     )}
-                  </Link>
+                    <LeadStageSelect
+                      leadId={l.id}
+                      current={l.status}
+                      options={FUNDING_STAGES}
+                      reason="Förderstatus aktualisiert"
+                    />
+                  </div>
                 ))}
                 {leads.length > 12 && (
                   <p className="px-4 py-2 text-[10.5px] text-zinc-500">
