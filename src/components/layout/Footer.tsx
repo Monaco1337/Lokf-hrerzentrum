@@ -12,7 +12,10 @@
  *   - Hairline ink/10 dividers between every region.
  *   - Ink/navy typography; the red CTA stays as the single warm accent.
  */
+import type { Route } from "next";
 import Link from "next/link";
+
+import { KNOWLEDGE_NAV } from "@/features/knowledge/routes";
 
 import { Logo } from "../ui/Logo";
 import { NAV_LINKS, PRIMARY_CTA_HREF } from "./navConfig";
@@ -21,6 +24,11 @@ interface FooterLinkItem {
   href: string;
   label: string;
 }
+
+/** Knowledge hubs surfaced in the footer for crawlable internal linking. */
+const KNOWLEDGE_FOOTER_LINKS: ReadonlyArray<FooterLinkItem> = KNOWLEDGE_NAV.map(
+  (r) => ({ href: r.path, label: r.navLabel ?? r.path }),
+);
 
 const LEGAL_LINKS: ReadonlyArray<FooterLinkItem> = [
   { href: "/datenschutz", label: "Datenschutz" },
@@ -157,6 +165,16 @@ function SitemapGrid() {
               Eignungscheck
             </Link>
           </li>
+          {KNOWLEDGE_FOOTER_LINKS.map((l) => (
+            <li key={l.href}>
+              <Link
+                href={l.href as Route}
+                className="inline-flex items-center text-[13.5px] text-ink-soft transition hover:text-navy-950"
+              >
+                {l.label}
+              </Link>
+            </li>
+          ))}
         </FooterColumn>
 
         {/* Standorte */}
