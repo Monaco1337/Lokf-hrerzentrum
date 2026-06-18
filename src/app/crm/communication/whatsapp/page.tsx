@@ -65,64 +65,74 @@ export default async function WhatsAppInboxPage() {
   return (
     <div className="space-y-5">
       <header>
-        <p className="ops-eyebrow">Kommunikation · WhatsApp</p>
-        <h1 className="mt-1 text-[26px] font-bold tracking-tight text-white sm:text-[28px]">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-muted">
+          Kommunikation · WhatsApp
+        </p>
+        <h1 className="mt-1 font-display text-[28px] font-bold tracking-tight text-navy-950">
           Postfach
         </h1>
-        <p className="mt-1 text-[12.5px] text-zinc-400">
+        <p className="mt-1 text-[13px] text-ink-muted">
           {list.length} Threads · Antworten direkt im Lead Command Center.
         </p>
       </header>
 
       {list.length === 0 ? (
-        <div className="rounded-xl border border-white/[0.06] bg-[#0d0d0f] p-10 text-center text-[13px] text-zinc-500">
-          Noch keine WhatsApp-Nachrichten.
+        <div className="rounded-2xl border border-dashed border-ink/15 bg-white/80 px-6 py-10 text-center backdrop-blur-xl">
+          <p className="text-[13px] font-semibold text-navy-950">
+            Noch keine WhatsApp-Nachrichten
+          </p>
         </div>
       ) : (
-        <ul className="overflow-hidden rounded-xl border border-white/[0.06] bg-[#0d0d0f] divide-y divide-white/[0.05]">
-          {list.map((t) => (
-            <li key={t.leadId}>
-              <Link
-                href={`/crm/leads/${t.leadId}` as Route}
-                className="flex items-start gap-3 px-4 py-3 transition hover:bg-white/[0.04]"
-              >
-                <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-emerald-500 to-green-600 text-[12px] font-bold text-black">
-                  {t.leadName
-                    .split(/\s+/)
-                    .map((p) => p[0])
-                    .filter(Boolean)
-                    .slice(0, 2)
-                    .join("")
-                    .toUpperCase()}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-[13px] font-semibold text-white">
-                      {t.leadName}
+        <ul className="space-y-2.5">
+          {list.map((t) => {
+            const initials = t.leadName
+              .split(/\s+/)
+              .map((p) => p[0])
+              .filter(Boolean)
+              .slice(0, 2)
+              .join("")
+              .toUpperCase();
+            return (
+              <li key={t.leadId}>
+                <Link
+                  href={`/crm/leads/${t.leadId}` as Route}
+                  className="group flex items-start gap-3.5 rounded-2xl border border-ink/[0.07] bg-white/80 px-4 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl transition duration-200 hover:-translate-y-0.5 hover:border-ink/15 hover:bg-white hover:shadow-[0_8px_24px_-12px_rgba(15,23,42,0.12)] sm:gap-4"
+                >
+                  <span
+                    aria-hidden
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[13px] bg-gradient-to-br from-white via-white to-surface-subtle text-[12px] font-bold tracking-tight text-navy-950 ring-1 ring-inset ring-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(15,23,42,0.06)]"
+                  >
+                    {initials}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <p className="truncate text-[13.5px] font-bold tracking-tight text-navy-950 transition group-hover:text-brand-700">
+                        {t.leadName}
+                      </p>
+                      <p className="shrink-0 text-[10.5px] tabular-nums text-ink-muted">
+                        {DT_FMT.format(t.lastAt)}
+                      </p>
+                    </div>
+                    <p className="mt-0.5 line-clamp-1 text-[12px] text-ink-muted">
+                      <span
+                        className={
+                          t.lastDirection === "IN"
+                            ? "font-semibold text-emerald-700"
+                            : "font-semibold text-blue-700"
+                        }
+                      >
+                        {t.lastDirection === "IN" ? "↘ " : "↗ "}
+                      </span>
+                      {t.lastPayload.slice(0, 160)}
                     </p>
-                    <p className="shrink-0 text-[10.5px] tabular-nums text-zinc-500">
-                      {DT_FMT.format(t.lastAt)}
+                    <p className="mt-1.5 text-[10.5px] text-ink-muted">
+                      {t.inboundCount} ein · {t.outboundCount} aus
                     </p>
                   </div>
-                  <p className="mt-0.5 line-clamp-1 text-[11.5px] text-zinc-400">
-                    <span
-                      className={
-                        t.lastDirection === "IN"
-                          ? "text-emerald-300"
-                          : "text-blue-300"
-                      }
-                    >
-                      {t.lastDirection === "IN" ? "↘ " : "↗ "}
-                    </span>
-                    {t.lastPayload.slice(0, 160)}
-                  </p>
-                  <p className="mt-1 text-[10px] text-zinc-600">
-                    {t.inboundCount} ein · {t.outboundCount} aus
-                  </p>
-                </div>
-              </Link>
-            </li>
-          ))}
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
