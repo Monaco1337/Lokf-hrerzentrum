@@ -71,6 +71,12 @@ model Lead {
   acceptsPsychLoad    Boolean?
   hasNoKbaDrugEntries Boolean?
 
+  // applicant self-service portal fields (added 2026-06-18)
+  availability        String?
+  agencyStatus        String? // funding/agency situation as stated in the portal
+  hasEducationVoucher Boolean? // Bildungsgutschein vorhanden?
+  hasDrivingLicense   Boolean?
+
   // scoring snapshot (truth lives in EligibilityAnswer/SensitiveAnswers/StatusHistory)
   score    Int
   priority String // LeadPriority enum
@@ -111,6 +117,8 @@ model Lead {
   automationLogs      AutomationLog[]
   callLogs            CallLog[]
   tasks               Task[]
+  portalLinks         PortalLink[]
+  portalDocuments     PortalDocument[]
 
   @@index([status])
   @@index([priority])
@@ -297,6 +305,71 @@ model MagicLinkToken {
   createdAt DateTime @default(now())
 
   @@index([leadId])
+}
+
+// ----------------------------------------------------------------------------
+// PortalLink — long-lived, multi-open applicant self-service token.
+//
+// Distinct from MagicLinkToken (single-use). The URL carries only an opaque
+// plaintext token; the DB stores `sha256(token + pepper)`. The lead id is never
+// part of the URL, so the portal is not guessable from a lead id.
+// ----------------------------------------------------------------------------
+
+model PortalLink {
+  id String @id @default(cuid())
+
+  tokenHash String @unique
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  status String @default("ACTIVE") // PortalLinkStatus: ACTIVE | OPENED | COMPLETED | DISABLED
+
+  expiresAt   DateTime
+  openedAt    DateTime?
+  submittedAt DateTime?
+  completedAt DateTime?
+
+  /// Snapshot of the structured answers the applicant submitted (JSON).
+  formData String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([leadId])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// PortalDocument — per-lead document checklist with review workflow.
+// Status lifecycle: MISSING → REQUESTED → UPLOADED → APPROVED | REJECTED.
+// In demo mode uploads carry placeholder metadata (no binary required).
+// ----------------------------------------------------------------------------
+
+model PortalDocument {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  kind   String // PortalDocumentKind
+  status String @default("MISSING") // PortalDocumentStatus
+
+  fileName       String? // uploaded/placeholder file name
+  uploadedFileId String? // optional FK to a real UploadedFile (future storage)
+  reviewerNote   String?
+  reviewerId     String?
+
+  requestedAt DateTime?
+  uploadedAt  DateTime?
+  reviewedAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([leadId, kind])
+  @@index([leadId])
+  @@index([status])
 }
 
 // ----------------------------------------------------------------------------

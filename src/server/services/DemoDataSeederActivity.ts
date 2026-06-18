@@ -12,6 +12,10 @@ import {
   DocumentType,
   LeadStatus,
   MagicLinkScope,
+  PORTAL_DOCUMENT_ORDER,
+  type PortalDocumentKind,
+  type PortalDocumentStatus,
+  type PortalLinkStatus,
   UploadedFileKind,
 } from "@/features/fairtrain-funnel/types";
 
@@ -249,6 +253,71 @@ async function seedMagicLink(lead: SeededLead): Promise<void> {
   await demoSeedRepository.track("MagicLinkToken", row.id, DEMO_BATCH);
 }
 
+function portalDocStatus(
+  kind: PortalDocumentKind,
+  rank: number,
+): PortalDocumentStatus {
+  switch (kind) {
+    case "LEBENSLAUF":
+    case "AUSWEIS":
+      return rank >= 1 ? "UPLOADED" : "REQUESTED";
+    case "FUEHRERSCHEIN":
+      return rank >= 2 ? "UPLOADED" : rank >= 1 ? "REQUESTED" : "MISSING";
+    case "ZEUGNISSE":
+      return rank >= 2 ? "UPLOADED" : "MISSING";
+    case "BILDUNGSGUTSCHEIN":
+      return rank >= 4 ? "APPROVED" : rank >= 2 ? "UPLOADED" : rank >= 1 ? "REQUESTED" : "MISSING";
+    default:
+      return "MISSING";
+  }
+}
+
+async function seedPortal(lead: SeededLead): Promise<void> {
+  const rank = rankOf(lead.status);
+
+  for (const kind of PORTAL_DOCUMENT_ORDER) {
+    const status = portalDocStatus(kind, rank);
+    const uploaded = status === "UPLOADED" || status === "APPROVED";
+    const row = await prisma.portalDocument.create({
+      data: {
+        leadId: lead.id,
+        kind,
+        status,
+        fileName: uploaded ? `${kind}_Bewerber.pdf` : null,
+        requestedAt: status === "REQUESTED" ? minutesAfter(lead.createdAt, 60) : null,
+        uploadedAt: uploaded ? minutesAfter(lead.createdAt, 400) : null,
+        reviewedAt: status === "APPROVED" ? minutesAfter(lead.createdAt, 500) : null,
+        createdAt: lead.createdAt,
+        updatedAt: lead.createdAt,
+      },
+    });
+    await demoSeedRepository.track("PortalDocument", row.id, DEMO_BATCH);
+  }
+
+  const status: PortalLinkStatus =
+    rank >= 4 ? "COMPLETED" : rank >= 1 ? "OPENED" : "ACTIVE";
+  const link = await prisma.portalLink.create({
+    data: {
+      tokenHash: fakeHex(`portal:${lead.id}`),
+      leadId: lead.id,
+      status,
+      expiresAt: hoursFromNow(72 * 7),
+      openedAt: rank >= 1 ? minutesAfter(lead.createdAt, 30) : null,
+      submittedAt: rank >= 2 ? minutesAfter(lead.createdAt, 410) : null,
+      completedAt: rank >= 4 ? minutesAfter(lead.createdAt, 520) : null,
+      formData: JSON.stringify({
+        availability: "ab sofort",
+        agencyStatus: "Agentur für Arbeit",
+        hasEducationVoucher: rank >= 3,
+        hasDrivingLicense: true,
+      }),
+      createdAt: minutesAfter(lead.createdAt, 20),
+      updatedAt: lead.createdAt,
+    },
+  });
+  await demoSeedRepository.track("PortalLink", link.id, DEMO_BATCH);
+}
+
 export async function seedDemoActivity(leads: SeededLead[]): Promise<void> {
   let idx = 0;
   for (const lead of leads) {
@@ -258,6 +327,7 @@ export async function seedDemoActivity(leads: SeededLead[]): Promise<void> {
     await seedDocuments(lead);
     await seedUploads(lead);
     await seedMagicLink(lead);
+    await seedPortal(lead);
     idx += 1;
   }
 

@@ -62,6 +62,17 @@ export const ACTIVITY_LABEL: Record<AuditAction, ActivityVisual> = {
   TASK_UPDATED: { label: "Aufgabe aktualisiert", icon: "edit", tint: "indigo" },
   TASK_DELETED: { label: "Aufgabe gelöscht", icon: "trash", tint: "rose" },
   DOCUMENT_REQUESTED: { label: "Unterlagen angefordert", icon: "doc", tint: "amber" },
+  DOCUMENT_UPLOADED: { label: "Dokument hochgeladen", icon: "upload", tint: "brand" },
+  DOCUMENT_APPROVED: { label: "Dokument freigegeben", icon: "check", tint: "emerald" },
+  DOCUMENT_REJECTED: { label: "Dokument abgelehnt", icon: "x", tint: "rose" },
+  PORTAL_LINK_CREATED: { label: "Portal-Link erstellt", icon: "link", tint: "brand" },
+  PORTAL_LINK_UPDATED: { label: "Portal-Link aktualisiert", icon: "link", tint: "indigo" },
+  PORTAL_OPENED: { label: "Portal geöffnet", icon: "eye", tint: "accent" },
+  PORTAL_FORM_STARTED: { label: "Formular begonnen", icon: "edit", tint: "slate" },
+  PORTAL_FORM_SAVED: { label: "Formular gespeichert", icon: "note", tint: "slate" },
+  PORTAL_FORM_SUBMITTED: { label: "Formular abgeschickt", icon: "send", tint: "accent" },
+  PORTAL_UPLOAD_ADDED: { label: "Upload im Portal", icon: "upload", tint: "brand" },
+  PORTAL_DOCS_COMPLETE: { label: "Unterlagen vollständig", icon: "check", tint: "emerald" },
   WORKFLOW_AUTOMATION: { label: "Automatische Aktion", icon: "spark", tint: "indigo" },
 };
 

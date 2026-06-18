@@ -7,8 +7,14 @@
 import Link from "next/link";
 import type { Route } from "next";
 
+import {
+  PORTAL_LINK_STATUS_LABEL,
+  PORTAL_REQUIRED_DOCUMENTS,
+} from "@/features/fairtrain-funnel/types";
 import { requireCrmUser } from "@/server/actions/_helpers";
 import { prisma } from "@/server/db/prisma";
+import { deriveDisplayStatus } from "@/server/repositories/PortalLinkRepository";
+import type { PortalLinkStatus } from "@/features/fairtrain-funnel/types";
 
 export const dynamic = "force-dynamic";
 
@@ -56,6 +62,41 @@ export default async function BewerberportalPage() {
   const usedTokenCount = activeTokens.filter((t) => t.usedAt).length;
   const unusedTokenCount = activeTokens.length - usedTokenCount;
 
+  // Self-service portal (PortalLink) overview with document completion.
+  const portalLinks = await prisma.portalLink.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    include: {
+      lead: {
+        select: { id: true, firstName: true, lastName: true, city: true, status: true },
+      },
+    },
+  });
+  const portalLeadIds = portalLinks.map((l) => l.leadId);
+  const portalDocs = portalLeadIds.length
+    ? await prisma.portalDocument.findMany({
+        where: { leadId: { in: portalLeadIds } },
+      })
+    : [];
+  const completionByLead = new Map<string, number>();
+  for (const id of portalLeadIds) {
+    const done = PORTAL_REQUIRED_DOCUMENTS.filter((k) =>
+      portalDocs.some(
+        (d) =>
+          d.leadId === id &&
+          d.kind === k &&
+          (d.status === "UPLOADED" || d.status === "APPROVED"),
+      ),
+    ).length;
+    completionByLead.set(
+      id,
+      Math.round((done / PORTAL_REQUIRED_DOCUMENTS.length) * 100),
+    );
+  }
+  const completedPortals = portalLinks.filter(
+    (l) => l.status === "COMPLETED",
+  ).length;
+
   return (
     <div className="space-y-5">
       <header>
@@ -79,6 +120,60 @@ export default async function BewerberportalPage() {
           tone={unusedTokenCount > 0 ? "amber" : "slate"}
         />
       </ul>
+
+      <section className="rounded-xl border border-white/[0.06] bg-[#0d0d0f] p-4">
+        <header className="mb-2 flex items-end justify-between">
+          <div>
+            <p className="ops-eyebrow">Bewerberportal-Self-Service</p>
+            <p className="text-[12.5px] text-zinc-400">
+              {portalLinks.length} Portal-Links · {completedPortals} abgeschlossen
+            </p>
+          </div>
+        </header>
+        {portalLinks.length === 0 ? (
+          <p className="py-6 text-center text-[12px] text-zinc-500">
+            Noch keine Bewerberportal-Links erzeugt. Lege im Lead-Detail einen Link an.
+          </p>
+        ) : (
+          <ul className="divide-y divide-white/[0.05]">
+            {portalLinks.map((l) => {
+              const display = deriveDisplayStatus(
+                l.status as PortalLinkStatus,
+                l.expiresAt,
+              );
+              const pct = completionByLead.get(l.leadId) ?? 0;
+              return (
+                <li key={l.id}>
+                  <Link
+                    href={`/crm/leads/${l.lead.id}` as Route}
+                    className="flex items-center gap-3 px-1 py-2.5 transition hover:bg-white/[0.04]"
+                  >
+                    <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-400 text-[11px] font-bold text-black">
+                      {`${l.lead.firstName[0] ?? ""}${l.lead.lastName[0] ?? ""}`.toUpperCase()}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="truncate text-[12.5px] font-semibold text-white">
+                          {l.lead.firstName} {l.lead.lastName}
+                        </p>
+                        <p className="shrink-0 text-[10.5px] tabular-nums text-zinc-500">
+                          Unterlagen {pct}%
+                        </p>
+                      </div>
+                      <p className="mt-0.5 text-[10.5px] text-zinc-500">
+                        {l.lead.city ?? "—"} · {l.lead.status}
+                      </p>
+                    </div>
+                    <span className="ml-2 shrink-0 rounded-full bg-white/[0.06] px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-zinc-300">
+                      {PORTAL_LINK_STATUS_LABEL[display]}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
 
       <section className="rounded-xl border border-white/[0.06] bg-[#0d0d0f] p-4">
         <header className="mb-2 flex items-end justify-between">

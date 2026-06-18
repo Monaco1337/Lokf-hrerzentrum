@@ -108,6 +108,12 @@ export interface UpdateLeadFields {
   phone?: string;
   city?: string | null;
   source?: string | null;
+  employmentStatus?: EmploymentStatus;
+  // Applicant self-service portal fields.
+  availability?: string | null;
+  agencyStatus?: string | null;
+  hasEducationVoucher?: boolean | null;
+  hasDrivingLicense?: boolean | null;
   /** Soft archive: hides the lead from active lists without deleting data. */
   deletedAt?: Date | null;
 }
@@ -164,6 +170,10 @@ function rowToDetail(row: LeadRowWithAssignee): LeadDetail {
     acceptsTravelHotel: row.acceptsTravelHotel,
     acceptsPsychLoad: row.acceptsPsychLoad,
     hasNoKbaDrugEntries: row.hasNoKbaDrugEntries,
+    availability: row.availability,
+    agencyStatus: row.agencyStatus,
+    hasEducationVoucher: row.hasEducationVoucher,
+    hasDrivingLicense: row.hasDrivingLicense,
   };
 }
 
@@ -261,6 +271,14 @@ export class LeadRepository {
     if (fields.phone !== undefined) data.phone = fields.phone;
     if (fields.city !== undefined) data.city = fields.city;
     if (fields.source !== undefined) data.source = fields.source;
+    if (fields.employmentStatus !== undefined)
+      data.employmentStatus = fields.employmentStatus;
+    if (fields.availability !== undefined) data.availability = fields.availability;
+    if (fields.agencyStatus !== undefined) data.agencyStatus = fields.agencyStatus;
+    if (fields.hasEducationVoucher !== undefined)
+      data.hasEducationVoucher = fields.hasEducationVoucher;
+    if (fields.hasDrivingLicense !== undefined)
+      data.hasDrivingLicense = fields.hasDrivingLicense;
     if (fields.deletedAt !== undefined) data.deletedAt = fields.deletedAt;
 
     const row = await client.lead.update({

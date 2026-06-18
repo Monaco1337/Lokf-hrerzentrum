@@ -8,6 +8,8 @@ import type {
   EligibilityAnswerEntry,
   LeadDetail,
   NoteEntry,
+  PortalDocumentEntry,
+  PortalLinkEntry,
   StatusHistoryEntry,
   UploadedFileEntry,
 } from "./types";
@@ -25,4 +27,8 @@ export interface LeadFullDetail {
   callLogs: CallLogEntry[];
   /** Recent audit entries scoped to this lead — drives the activity timeline. */
   auditLog: AuditLogEntry[];
+  /** Latest applicant-portal link, if one was ever created. */
+  portalLink: PortalLinkEntry | null;
+  /** Document checklist with review workflow (always six entries). */
+  portalDocuments: PortalDocumentEntry[];
 }

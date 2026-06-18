@@ -36,6 +36,8 @@ import { ProcessingPanel } from "./sales/ProcessingPanel";
 import { SensitiveRevealToggle } from "./SensitiveRevealToggle";
 import { LeadCommunicationLedger } from "./workspace/LeadCommunicationLedger";
 import { LeadDocumentChecklist } from "./workspace/LeadDocumentChecklist";
+import { PortalDocumentReview } from "./workspace/PortalDocumentReview";
+import { PortalLinkPanel } from "./workspace/PortalLinkPanel";
 import { LeadTasksPanel } from "./workspace/LeadTasksPanel";
 import { LeadTimelinePanel } from "./workspace/LeadTimelinePanel";
 import { LeadWorkspace, type WorkspaceTab } from "./workspace/LeadWorkspace";
@@ -185,7 +187,13 @@ export function LeadDetail({
       label: "Unterlagen",
       content: (
         <div className="grid gap-6 xl:grid-cols-12">
-          <div className="xl:col-span-7">
+          <div className="space-y-6 xl:col-span-7">
+            <SectionCard title="Bewerberportal – Unterlagenprüfung">
+              <PortalDocumentReview
+                leadId={lead.id}
+                documents={data.portalDocuments}
+              />
+            </SectionCard>
             <SectionCard title="Dokumenten-Checkliste">
               <LeadDocumentChecklist
                 uploadedFiles={data.uploadedFiles}
@@ -194,10 +202,13 @@ export function LeadDetail({
             </SectionCard>
           </div>
           <aside className="space-y-6 xl:col-span-5">
+            <SectionCard title="Bewerberportal-Link">
+              <PortalLinkPanel leadId={lead.id} link={data.portalLink} />
+            </SectionCard>
             <SectionCard title="Hochgeladene Dateien">
               <LeadUploadedFiles files={data.uploadedFiles} />
             </SectionCard>
-            <SectionCard title="Unterlagen anfordern">
+            <SectionCard title="Vorlage senden / Magic-Link">
               <MagicLinkPanel leadId={lead.id} />
             </SectionCard>
             <NextStep

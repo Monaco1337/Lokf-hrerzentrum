@@ -450,6 +450,10 @@ export class AutomationService {
       acceptsTravelHotel: null,
       acceptsPsychLoad: null,
       hasNoKbaDrugEntries: null,
+      availability: null,
+      agencyStatus: null,
+      hasEducationVoucher: null,
+      hasDrivingLicense: null,
     };
     return base;
   }

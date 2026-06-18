@@ -80,6 +80,17 @@ const ACTION_LABEL: Record<AuditAction, { label: string; tone: TimelineEvent["to
   TASK_UPDATED: { label: "Aufgabe aktualisiert", tone: "neutral" },
   TASK_DELETED: { label: "Aufgabe gelöscht", tone: "warning" },
   DOCUMENT_REQUESTED: { label: "Unterlagen angefordert", tone: "warning" },
+  DOCUMENT_UPLOADED: { label: "Dokument hochgeladen", tone: "info" },
+  DOCUMENT_APPROVED: { label: "Dokument freigegeben", tone: "positive" },
+  DOCUMENT_REJECTED: { label: "Dokument abgelehnt", tone: "danger" },
+  PORTAL_LINK_CREATED: { label: "Portal-Link erstellt", tone: "info" },
+  PORTAL_LINK_UPDATED: { label: "Portal-Link aktualisiert", tone: "neutral" },
+  PORTAL_OPENED: { label: "Portal geöffnet", tone: "info" },
+  PORTAL_FORM_STARTED: { label: "Formular begonnen", tone: "neutral" },
+  PORTAL_FORM_SAVED: { label: "Formular gespeichert", tone: "neutral" },
+  PORTAL_FORM_SUBMITTED: { label: "Formular abgeschickt", tone: "info" },
+  PORTAL_UPLOAD_ADDED: { label: "Upload im Portal", tone: "info" },
+  PORTAL_DOCS_COMPLETE: { label: "Unterlagen vollständig", tone: "positive" },
   WORKFLOW_AUTOMATION: { label: "Automatische Aktion", tone: "info" },
 };
 

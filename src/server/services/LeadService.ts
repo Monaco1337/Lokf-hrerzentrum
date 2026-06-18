@@ -33,6 +33,8 @@ import { documentRepository } from "../repositories/DocumentRepository";
 import { eligibilityAnswerRepository } from "../repositories/EligibilityAnswerRepository";
 import { leadRepository } from "../repositories/LeadRepository";
 import { noteRepository } from "../repositories/NoteRepository";
+import { portalDocumentRepository } from "../repositories/PortalDocumentRepository";
+import { portalLinkRepository } from "../repositories/PortalLinkRepository";
 import { sensitiveAnswersRepository } from "../repositories/SensitiveAnswersRepository";
 import { statusHistoryRepository } from "../repositories/StatusHistoryRepository";
 import { uploadedFileRepository } from "../repositories/UploadedFileRepository";
@@ -288,6 +290,8 @@ export class LeadService {
       automationLogs,
       callLogs,
       auditLog,
+      portalLink,
+      portalDocuments,
     ] = await Promise.all([
       statusHistoryRepository.list(leadId),
       noteRepository.list(leadId),
@@ -299,6 +303,8 @@ export class LeadService {
       automationLogRepository.listForLead(leadId),
       callLogRepository.listForLead(leadId),
       auditLogRepository.listForEntity("Lead", leadId),
+      portalLinkRepository.findLatestForLead(leadId),
+      portalDocumentRepository.list(leadId),
     ]);
 
     return {
@@ -313,6 +319,8 @@ export class LeadService {
       automationLogs,
       callLogs,
       auditLog,
+      portalLink,
+      portalDocuments,
     };
   }
 

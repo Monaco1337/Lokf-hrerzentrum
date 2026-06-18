@@ -32,6 +32,8 @@ const LABELS: Record<string, string> = {
   AutomationRule: "Automationsregeln",
   AutomationRunLog: "Automations-Ausführungen",
   MagicLinkToken: "Bewerberlinks",
+  PortalLink: "Bewerberportal-Links",
+  PortalDocument: "Portal-Dokumente",
 };
 
 export function DemoDataPanel({ isSeeded, counts, totalEntries }: Props) {

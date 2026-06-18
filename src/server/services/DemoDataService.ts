@@ -106,6 +106,14 @@ class DemoDataService {
         del: (id) => prisma.magicLinkToken.delete({ where: { id } }),
       },
       {
+        type: "PortalDocument",
+        del: (id) => prisma.portalDocument.delete({ where: { id } }),
+      },
+      {
+        type: "PortalLink",
+        del: (id) => prisma.portalLink.delete({ where: { id } }),
+      },
+      {
         type: "AutomationLog",
         del: (id) => prisma.automationLog.delete({ where: { id } }),
       },

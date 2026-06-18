@@ -259,6 +259,9 @@ export type {
   TemplateRenderContext,
 } from "./automation/types";
 
+// Applicant portal — link lifecycle, document checklist, form contract.
+export * from "./portal/types";
+
 // ---------------------------------------------------------------------------
 // ConsentType + ConsentAction
 // ---------------------------------------------------------------------------
@@ -418,6 +421,12 @@ export interface LeadDetail extends LeadSummary {
   acceptsTravelHotel: boolean | null;
   acceptsPsychLoad: boolean | null;
   hasNoKbaDrugEntries: boolean | null;
+
+  // applicant self-service portal fields
+  availability: string | null;
+  agencyStatus: string | null;
+  hasEducationVoucher: boolean | null;
+  hasDrivingLicense: boolean | null;
 }
 
 export interface UploadedFileEntry {

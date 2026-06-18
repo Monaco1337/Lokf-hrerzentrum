@@ -77,6 +77,17 @@ const ACTION_PHRASE: Record<AuditAction, { verb: string; tint: string; dot: stri
   TASK_UPDATED: { verb: "Aufgabe aktualisiert", tint: "text-violet-300", dot: "bg-violet-500" },
   TASK_DELETED: { verb: "Aufgabe entfernt", tint: "text-red-300", dot: "bg-red-500" },
   DOCUMENT_REQUESTED: { verb: "Unterlagen angefordert", tint: "text-amber-300", dot: "bg-amber-500" },
+  DOCUMENT_UPLOADED: { verb: "Dokument hochgeladen", tint: "text-blue-300", dot: "bg-blue-500" },
+  DOCUMENT_APPROVED: { verb: "Dokument freigegeben", tint: "text-emerald-300", dot: "bg-emerald-500" },
+  DOCUMENT_REJECTED: { verb: "Dokument abgelehnt", tint: "text-red-300", dot: "bg-red-500" },
+  PORTAL_LINK_CREATED: { verb: "Portal-Link erstellt", tint: "text-blue-300", dot: "bg-blue-500" },
+  PORTAL_LINK_UPDATED: { verb: "Portal-Link aktualisiert", tint: "text-violet-300", dot: "bg-violet-500" },
+  PORTAL_OPENED: { verb: "Portal geöffnet", tint: "text-emerald-300", dot: "bg-emerald-500" },
+  PORTAL_FORM_STARTED: { verb: "Formular begonnen", tint: "text-zinc-300", dot: "bg-zinc-500" },
+  PORTAL_FORM_SAVED: { verb: "Formular gespeichert", tint: "text-zinc-300", dot: "bg-zinc-500" },
+  PORTAL_FORM_SUBMITTED: { verb: "Formular abgeschickt", tint: "text-blue-300", dot: "bg-blue-500" },
+  PORTAL_UPLOAD_ADDED: { verb: "Upload im Portal", tint: "text-blue-300", dot: "bg-blue-500" },
+  PORTAL_DOCS_COMPLETE: { verb: "Unterlagen vollständig", tint: "text-emerald-300", dot: "bg-emerald-500" },
   WORKFLOW_AUTOMATION: { verb: "Automatische Aktion", tint: "text-emerald-300", dot: "bg-emerald-500" },
 };
 

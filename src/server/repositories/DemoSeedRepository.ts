@@ -23,7 +23,9 @@ export type DemoEntityType =
   | "AutomationLog"
   | "AutomationRule"
   | "AutomationRunLog"
-  | "MagicLinkToken";
+  | "MagicLinkToken"
+  | "PortalLink"
+  | "PortalDocument";
 
 export interface DemoSeedRow {
   id: string;
