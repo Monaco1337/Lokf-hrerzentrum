@@ -1,18 +1,6 @@
 "use client";
 /**
  * LeadWorkspace — the Lead Command Center shell (Bewerberakte).
- *
- * Layout (desktop):
- *   ┌──────────────── Header: identity + global actions + progress ────────────┐
- *   ├── Profil (left) ──┬────── Tabs + content (middle) ──────┬── KI/Next (right) ┤
- *
- * The middle column hosts the 8 section tabs (each a server-rendered node that
- * reuses the existing, persisting CRM components). The left rail (profile) and
- * right rail (KI Operator + next action) stay visible at all times so the
- * operator always sees "where is the applicant?" and "what is the next action?".
- *
- * This component only owns presentation + active section. Every mutation still
- * flows through the existing server actions inside the panels.
  */
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
@@ -100,171 +88,130 @@ export function LeadWorkspace({ lead, tabs, leftRail, rightRail, progress }: Pro
         </svg>
       ),
     },
-    {
-      label: "Termin",
-      tab: "termine",
-      icon: (
-        <svg className={ACT_ICON} {...ai}>
-          <rect x="3" y="5" width="18" height="16" rx="2" />
-          <path d="M3 10h18M8 3v4M16 3v4" />
-        </svg>
-      ),
-    },
-    {
-      label: "Aufgabe",
-      tab: "aufgaben",
-      icon: (
-        <svg className={ACT_ICON} {...ai}>
-          <rect x="3" y="3" width="18" height="18" rx="2.5" />
-          <path d="m8 12 3 3 5-6" />
-        </svg>
-      ),
-    },
-    {
-      label: "Dokument anfordern",
-      tab: "unterlagen",
-      icon: (
-        <svg className={ACT_ICON} {...ai}>
-          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
-          <path d="M14 3v5h5M9 13h6M9 17h6" />
-        </svg>
-      ),
-    },
-    {
-      label: "Notiz",
-      tab: "notizen",
-      icon: (
-        <svg className={ACT_ICON} {...ai}>
-          <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-        </svg>
-      ),
-    },
+    { label: "Termin", tab: "termine", icon: <CalendarIcon /> },
+    { label: "Aufgabe", tab: "aufgaben", icon: <CheckIcon /> },
+    { label: "Dokumente", tab: "unterlagen", icon: <DocIcon /> },
+    { label: "Notiz", tab: "notizen", icon: <NoteIcon /> },
   ];
 
   const activeTab = tabs.find((t) => t.id === active) ?? tabs[0];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <Link
         href="/crm/leads"
-        className="inline-flex items-center gap-1.5 text-sm font-medium text-ink-soft transition hover:text-ink"
+        className="inline-flex items-center gap-1.5 rounded-lg px-1 py-0.5 text-[13px] font-medium text-ink-soft transition hover:text-brand-700"
       >
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
-          <path d="m15 18-6-6 6-6" />
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+          <path d="m15 18-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-        Alle Leads
+        Zurück zu Leads
       </Link>
 
-      {/* Header zone: identity + global actions */}
-      <div className="overflow-hidden rounded-2xl bg-white shadow-premium ring-1 ring-ink/[0.06]">
-        <div className="flex flex-col gap-4 p-5">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-navy-900 to-brand-700 font-display text-lg font-bold text-white">
-                {initials || "?"}
-              </span>
-              <div>
-                <h1 className="font-display text-2xl font-bold tracking-tight text-navy-950">
-                  {lead.firstName} {lead.lastName}
-                </h1>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <Chip pill={status.pill} dot={status.dot} label={status.label} />
-                  <Chip pill={priority.pill} dot={priority.dot} label={`Prio: ${priority.label}`} />
-                  {slaBreached ? (
-                    <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700 ring-1 ring-red-100">
-                      SLA überschritten
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100">
-                      SLA ok
-                    </span>
-                  )}
-                </div>
+      {/* Identity header */}
+      <div className="overflow-hidden rounded-2xl border border-ink/[0.06] bg-white shadow-card">
+        <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-4">
+            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-navy-900 to-brand-700 text-lg font-bold text-white shadow-sm">
+              {initials || "?"}
+            </span>
+            <div>
+              <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+                Bewerberakte
+              </p>
+              <h1 className="font-display text-[26px] font-bold tracking-tight text-navy-950">
+                {lead.firstName} {lead.lastName}
+              </h1>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <Chip pill={status.pill} dot={status.dot} label={status.label} />
+                <Chip pill={priority.pill} dot={priority.dot} label={priority.label} />
+                {slaBreached ? (
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700 ring-1 ring-red-100">
+                    SLA überschritten
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-100">
+                    SLA ok
+                  </span>
+                )}
               </div>
             </div>
-            <div className="flex flex-col items-end">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
-                Lead Score
-              </span>
-              <span className="text-3xl font-bold tabular-nums text-navy-950">{lead.score}</span>
-            </div>
           </div>
+          <div className="flex items-center gap-3 sm:flex-col sm:items-end">
+            <span className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+              Lead Score
+            </span>
+            <span className="text-[36px] font-bold leading-none tabular-nums text-navy-950">
+              {lead.score}
+            </span>
+          </div>
+        </div>
 
-          {/* Global action system — always visible */}
-          <div className="flex flex-wrap gap-2 border-t border-ink/[0.06] pt-3">
-            {actions.map((a) =>
-              "href" in a ? (
-                <a
-                  key={a.label}
-                  href={a.href}
-                  {...(a.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                  className={[
-                    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition",
-                    a.tone === "wa"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                      : "border-ink/10 bg-white text-ink hover:border-ink/20 hover:bg-surface-subtle",
-                  ].join(" ")}
-                >
-                  {a.icon}
-                  {a.label}
-                </a>
-              ) : (
-                <button
-                  key={a.label}
-                  type="button"
-                  onClick={() => goTo(a.tab)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 bg-white px-3 py-1.5 text-[12.5px] font-semibold text-ink transition hover:border-ink/20 hover:bg-surface-subtle"
-                >
-                  {a.icon}
-                  {a.label}
-                </button>
-              ),
-            )}
-          </div>
+        <div className="flex gap-2 overflow-x-auto border-t border-ink/[0.05] px-4 py-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {actions.map((a) =>
+            "href" in a ? (
+              <a
+                key={a.label}
+                href={a.href}
+                {...(a.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                className={[
+                  "inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-[12.5px] font-semibold transition",
+                  a.tone === "wa"
+                    ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100 hover:bg-emerald-100"
+                    : "bg-surface-subtle text-ink ring-1 ring-ink/10 hover:bg-white hover:ring-ink/15",
+                ].join(" ")}
+              >
+                {a.icon}
+                {a.label}
+              </a>
+            ) : (
+              <button
+                key={a.label}
+                type="button"
+                onClick={() => goTo(a.tab)}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-surface-subtle px-3 py-2 text-[12.5px] font-semibold text-ink ring-1 ring-ink/10 transition hover:bg-white hover:ring-ink/15"
+              >
+                {a.icon}
+                {a.label}
+              </button>
+            ),
+          )}
         </div>
       </div>
 
-      {/* Progress engine — always visible */}
       {progress}
 
-      {/* 3-column command center */}
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[300px_minmax(0,1fr)_344px]">
-        {/* Left: profile (first on desktop, after KI on mobile) */}
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[272px_minmax(0,1fr)_320px] xl:gap-5">
         <div className="order-2 xl:order-1 xl:sticky xl:top-4 xl:self-start">
           {leftRail}
         </div>
 
-        {/* Middle: tabs + content */}
         <div className="order-3 min-w-0 xl:order-2">
-          <div className="sticky top-2 z-10 -mx-1 mb-4 rounded-xl bg-white/95 px-1 shadow-sm ring-1 ring-ink/[0.06] backdrop-blur">
-            <nav className="flex gap-1 overflow-x-auto px-1">
-              {tabs.map((t) => (
-                <button
-                  key={t.id}
-                  type="button"
-                  onClick={() => setActive(t.id)}
-                  className={[
-                    "relative shrink-0 px-3.5 py-2.5 text-[13px] font-semibold transition",
-                    active === t.id ? "text-brand-700" : "text-ink-muted hover:text-ink",
-                  ].join(" ")}
-                >
-                  {t.label}
-                  {t.badge ? (
-                    <span className="ml-1.5 rounded-full bg-ink/10 px-1.5 text-[10px] tabular-nums text-ink-soft">
-                      {t.badge}
-                    </span>
-                  ) : null}
-                  {active === t.id ? (
-                    <span aria-hidden className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-brand-600" />
-                  ) : null}
-                </button>
-              ))}
-            </nav>
-          </div>
-          <div>{activeTab?.content}</div>
+          <nav className="mb-4 flex gap-1 overflow-x-auto rounded-xl border border-ink/[0.06] bg-surface-subtle/80 p-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setActive(t.id)}
+                className={[
+                  "relative shrink-0 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition",
+                  active === t.id
+                    ? "bg-white text-brand-700 shadow-sm ring-1 ring-ink/[0.06]"
+                    : "text-ink-muted hover:text-ink",
+                ].join(" ")}
+              >
+                {t.label}
+                {t.badge ? (
+                  <span className="ml-1.5 rounded-full bg-brand-100 px-1.5 text-[10px] font-bold tabular-nums text-brand-700">
+                    {t.badge}
+                  </span>
+                ) : null}
+              </button>
+            ))}
+          </nav>
+          <div className="space-y-4">{activeTab?.content}</div>
         </div>
 
-        {/* Right: KI Operator + next action (first on mobile) */}
         <div className="order-1 space-y-4 xl:order-3 xl:sticky xl:top-4 xl:self-start">
           {rightRail}
         </div>
@@ -279,5 +226,37 @@ function Chip({ pill, dot, label }: { pill: string; dot: string; label: string }
       <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {label}
     </span>
+  );
+}
+
+function CalendarIcon() {
+  return (
+    <svg className={ACT_ICON} {...ai}>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+function CheckIcon() {
+  return (
+    <svg className={ACT_ICON} {...ai}>
+      <rect x="3" y="3" width="18" height="18" rx="2.5" />
+      <path d="m8 12 3 3 5-6" />
+    </svg>
+  );
+}
+function DocIcon() {
+  return (
+    <svg className={ACT_ICON} {...ai}>
+      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 3v5h5" />
+    </svg>
+  );
+}
+function NoteIcon() {
+  return (
+    <svg className={ACT_ICON} {...ai}>
+      <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+    </svg>
   );
 }
