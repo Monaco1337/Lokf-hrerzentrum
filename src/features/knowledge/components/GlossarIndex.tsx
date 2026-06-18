@@ -11,9 +11,16 @@ const CATEGORY_ORDER: ReadonlyArray<GlossaryTerm["category"]> = [
   "Beruf",
   "Qualifikation",
   "Technik",
+  "Signal",
+  "Fahrzeug",
+  "Bremse",
+  "Betrieb",
+  "Vorschrift",
+  "Infrastruktur",
   "Förderung",
   "Karriere",
   "Behörde",
+  "Arbeitgeber",
 ];
 
 export function GlossarIndex({ terms }: { terms: ReadonlyArray<GlossaryTerm> }) {

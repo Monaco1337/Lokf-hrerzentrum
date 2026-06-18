@@ -12,7 +12,20 @@ export interface GlossaryTerm {
   /** Abbreviation, if the term is commonly abbreviated (e.g. "PZB"). */
   abbr?: string;
   /** Coarse category for grouping in the index. */
-  category: "Beruf" | "Technik" | "Qualifikation" | "Förderung" | "Behörde" | "Karriere";
+  category:
+    | "Beruf"
+    | "Technik"
+    | "Qualifikation"
+    | "Förderung"
+    | "Behörde"
+    | "Karriere"
+    | "Vorschrift"
+    | "Signal"
+    | "Fahrzeug"
+    | "Betrieb"
+    | "Bremse"
+    | "Infrastruktur"
+    | "Arbeitgeber";
   /** One- to two-sentence answer-first definition (snippet/LLM friendly). */
   short: string;
   /** Full body, one string per paragraph. */
@@ -68,4 +81,68 @@ export interface SalarySegment {
   median: number;
   /** Monthly gross, high end incl. typical allowances (EUR). */
   max: number;
+}
+
+/** A federal state (Bundesland) hub entity. */
+export interface RegionData {
+  slug: string;
+  name: string;
+  /** KFZ / short tag, e.g. "NRW". */
+  kfz?: string;
+  capital?: string;
+  intro: string[];
+  /** Regional labour-market characterisation (unique per state). */
+  arbeitsmarkt: string[];
+  /** Regional specifics (network, hubs, particularities). */
+  besonderheiten: string[];
+  /** Funding notes specific to the state / its agencies. */
+  foerderung: string[];
+  /** Short qualitative salary tendency for the region. */
+  salaryNote: string;
+  /** Employers operating in this state (slugs into EMPLOYERS). */
+  employerSlugs: string[];
+  /** Cities in this state that have their own page (slugs into CITIES). */
+  citySlugs: string[];
+  keyFacts: KeyFact[];
+  faq: QA[];
+}
+
+/** A priority city hub entity. */
+export interface CityData {
+  slug: string;
+  name: string;
+  bundeslandSlug: string;
+  bundeslandName: string;
+  intro: string[];
+  lokfuehrerWerden: string[];
+  umschulung: string[];
+  bildungsgutschein: string[];
+  gehalt: string[];
+  /** Local employers (slugs into EMPLOYERS). */
+  employerSlugs: string[];
+  keyFacts: KeyFact[];
+  faq: QA[];
+}
+
+/** A railway employer hub entity. */
+export interface EmployerData {
+  slug: string;
+  name: string;
+  /** Combined classification label, e.g. "DB-Konzern · Nahverkehr". */
+  kind: string;
+  /** Verkehrsart for the comparison table. */
+  verkehrsart: string;
+  /** Short coverage label, e.g. "bundesweit" or "Schwerpunkt NRW". */
+  coverage: string;
+  profile: string[];
+  einsatzgebiete: string[];
+  standorte: string[];
+  gehalt: string[];
+  arbeitsbedingungen: string[];
+  karrierewege: string[];
+  bewerbungsprozess: string[];
+  /** States this employer operates in (slugs into REGIONS). */
+  regionSlugs: string[];
+  keyFacts: KeyFact[];
+  faq: QA[];
 }

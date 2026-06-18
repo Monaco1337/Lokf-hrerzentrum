@@ -190,6 +190,29 @@ export function howToSchema(args: HowToArgs): JsonLdNode {
   };
 }
 
+interface EmployerOrgArgs {
+  name: string;
+  description: string;
+  /** e.g. "Deutschland" or a region label. */
+  areaServed: string;
+}
+
+/**
+ * Organization node describing an *employer* entity (a separate company, not the
+ * publishing org). Used on employer hub pages so the company is a first-class
+ * entity in the graph.
+ */
+export function employerOrganizationSchema(args: EmployerOrgArgs): JsonLdNode {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: args.name,
+    description: args.description,
+    areaServed: args.areaServed,
+    industry: "Eisenbahnverkehr",
+  };
+}
+
 interface DefinedTermArgs {
   name: string;
   description: string;

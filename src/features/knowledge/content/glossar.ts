@@ -9,7 +9,9 @@
  */
 import type { GlossaryTerm } from "../types";
 
-export const GLOSSARY: ReadonlyArray<GlossaryTerm> = [
+import { GLOSSARY_EXTENDED } from "./glossarExtended";
+
+const GLOSSARY_CORE: ReadonlyArray<GlossaryTerm> = [
   {
     slug: "triebfahrzeugfuehrer",
     term: "Triebfahrzeugführer",
@@ -158,6 +160,22 @@ export const GLOSSARY: ReadonlyArray<GlossaryTerm> = [
     related: ["triebfahrzeugfuehrer", "tfv", "eba"],
   },
 ];
+
+/**
+ * Full glossary = curated core entities + the extended railway entity set.
+ * De-duplicated by slug (core wins) so cross-references stay stable.
+ */
+export const GLOSSARY: ReadonlyArray<GlossaryTerm> = (() => {
+  const seen = new Set(GLOSSARY_CORE.map((t) => t.slug));
+  const merged = [...GLOSSARY_CORE];
+  for (const term of GLOSSARY_EXTENDED) {
+    if (!seen.has(term.slug)) {
+      seen.add(term.slug);
+      merged.push(term);
+    }
+  }
+  return merged;
+})();
 
 /** Look up a single glossary term by slug. */
 export function getGlossaryTerm(slug: string): GlossaryTerm | undefined {
