@@ -12,7 +12,9 @@ import { prisma } from "@/server/db/prisma";
 import { applyScope } from "@/server/services/LeadAccess";
 import { leadInsightsService } from "@/server/services/LeadInsightsService";
 import { leadService } from "@/server/services/LeadService";
+import { salesAnalyticsService } from "@/server/services/SalesAnalyticsService";
 import { auditLogRepository } from "@/server/repositories/AuditLogRepository";
+import { statusHistoryRepository } from "@/server/repositories/StatusHistoryRepository";
 import { userRepository } from "@/server/repositories/UserRepository";
 
 import type {
@@ -26,6 +28,14 @@ import { LeadStatus } from "../../types";
 import { buildFunnel, type FunnelData } from "./LeitstandFunnel";
 import type { AlarmCounts } from "./LeitstandAlarme";
 
+/** Today's live throughput — read-only counts for the performance strip. */
+export interface LivePerformance {
+  leadsToday: number;
+  contactsToday: number;
+  appointmentsToday: number;
+  closesToday: number;
+}
+
 export interface LeitstandData {
   user: UserSummary;
   kpis: LeadKpis;
@@ -34,6 +44,7 @@ export interface LeitstandData {
   priorities: ReadonlyArray<EnrichedLeadSummary>;
   activity: ReadonlyArray<AuditLogEntry>;
   actors: Record<string, string>;
+  livePerformance: LivePerformance;
 }
 
 const ACTIVE_STATUSES: ReadonlyArray<LeadStatus> = Object.values(LeadStatus).filter(
@@ -128,13 +139,22 @@ export async function loadLeitstand(
 ): Promise<LeitstandData> {
   const scopeAll = applyScope({}, user);
   const scopeActive = applyScope({ status: ACTIVE_STATUSES }, user);
-  const [kpis, alarms, activeRaw, recentEvents, allUsers] = await Promise.all([
-    leadService.kpis(),
-    loadAlarms(),
-    leadService.list(scopeActive),
-    auditLogRepository.listRecent({ limit: 25 }),
-    userRepository.list({ includeInactive: true }),
-  ]);
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const [kpis, alarms, activeRaw, recentEvents, allUsers, sales, closesToday] =
+    await Promise.all([
+      leadService.kpis(),
+      loadAlarms(),
+      leadService.list(scopeActive),
+      auditLogRepository.listRecent({ limit: 25 }),
+      userRepository.list({ includeInactive: true }),
+      salesAnalyticsService.snapshot(),
+      statusHistoryRepository.countTransitionsTo(
+        LeadStatus.GUTSCHEIN_APPROVED,
+        startOfToday,
+      ),
+    ]);
   // Quiet the no-unused-vars guard while keeping the scope around for future
   // owner-filtering on the global feed (we currently show org-wide activity).
   void scopeAll;
@@ -152,5 +172,11 @@ export async function loadLeitstand(
     priorities,
     activity: recentEvents,
     actors,
+    livePerformance: {
+      leadsToday: kpis.newToday,
+      contactsToday: sales.callsToday,
+      appointmentsToday: alarms.appointmentsToday,
+      closesToday,
+    },
   };
 }

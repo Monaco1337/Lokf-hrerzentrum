@@ -126,19 +126,19 @@ export default async function ReportingPage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="ops-eyebrow">Reporting</p>
+          <p className="ops-eyebrow">Executive Control Center</p>
           <h1 className="mt-1 text-[26px] font-bold tracking-tight text-white sm:text-[28px]">
             Geschäftsübersicht
           </h1>
           <p className="mt-1 max-w-2xl text-[12.5px] text-zinc-400">
-            Abschlussquote, Förderquote, Reaktionszeit und Quellenqualität auf
-            einen Blick. Klicke ein Modul für Detail-Analyse.
+            Pipeline, Fördervolumen, Ausbildungsstarts, Reaktionszeit und
+            Quellenqualität auf einen Blick. Klicke ein Modul für Detail-Analyse.
           </p>
         </div>
       </header>
 
       {/* TOP KPIs */}
-      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         <KpiCard
           label="Abschlussquote"
           value={PERCENT.format(kpis.conversionRate)}
@@ -166,6 +166,12 @@ export default async function ReportingPage() {
           hint={`${kpis.unassigned} ohne Bearbeiter`}
           href={"/crm/reporting/pipeline" as Route}
           tone="blue"
+        />
+        <KpiCard
+          label="Ausbildungsstarts"
+          value={String(kpis.ausbildungsstartsMonth)}
+          hint="diesen Monat"
+          tone="emerald"
         />
         <KpiCard
           label="Ø Bearb.-Zeit"

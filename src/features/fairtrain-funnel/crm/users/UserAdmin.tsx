@@ -129,8 +129,11 @@ export function UserAdmin({
     <div className="space-y-8">
       {/* Header + stats */}
       <header className="flex flex-col gap-1">
+        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-muted">
+          Team Control Center
+        </p>
         <h1 className="text-2xl font-semibold text-navy-950">
-          Benutzer &amp; Rollen
+          Mitarbeiter, Rollen &amp; Rechte
         </h1>
         <p className="text-[13.5px] text-ink-soft">
           Verwalte das Vertriebs- und Adminteam. Rollen werden zentral

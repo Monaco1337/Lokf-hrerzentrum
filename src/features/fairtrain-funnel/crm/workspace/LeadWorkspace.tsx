@@ -1,19 +1,24 @@
 "use client";
 /**
- * LeadWorkspace — the central applicant case-file shell (Bewerberakte).
+ * LeadWorkspace — the Lead Command Center shell (Bewerberakte).
  *
- * Renders a sticky identity header with all key facts + quick actions and an
- * 8-tab operating surface. Tab panels are server-rendered nodes passed in as
- * props (each reuses existing, persisting CRM components), so all mutations
- * keep flowing through the central repository + ActivityLog. This component
- * only owns presentation + which tab is active.
+ * Layout (desktop):
+ *   ┌──────────────── Header: identity + global actions + progress ────────────┐
+ *   ├── Profil (left) ──┬────── Tabs + content (middle) ──────┬── KI/Next (right) ┤
+ *
+ * The middle column hosts the 8 section tabs (each a server-rendered node that
+ * reuses the existing, persisting CRM components). The left rail (profile) and
+ * right rail (KI Operator + next action) stay visible at all times so the
+ * operator always sees "where is the applicant?" and "what is the next action?".
+ *
+ * This component only owns presentation + active section. Every mutation still
+ * flows through the existing server actions inside the panels.
  */
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
 import type { LeadDetail } from "../../types";
-import { LeadStatus } from "../../types";
-import { PRIORITY_TONE, STATUS_TONE, humanizeSource } from "../leadLabels";
+import { PRIORITY_TONE, STATUS_TONE } from "../leadLabels";
 
 export interface WorkspaceTab {
   id: string;
@@ -24,60 +29,10 @@ export interface WorkspaceTab {
 
 interface Props {
   lead: LeadDetail;
-  ownerName: string | null;
-  lastContactAt: Date | null;
   tabs: ReadonlyArray<WorkspaceTab>;
-}
-
-const DATE = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-const DATE_TIME = new Intl.DateTimeFormat("de-DE", {
-  day: "2-digit",
-  month: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-// Coarse funnel stage derived from the granular status.
-function funnelStage(status: LeadStatus): string {
-  const map: Partial<Record<LeadStatus, string>> = {
-    NEW: "Eingang",
-    CONTACT_PENDING: "Kontakt",
-    CONTACTED: "Kontakt",
-    CALL_SCHEDULED: "Kontakt",
-    QUALIFIED: "Qualifizierung",
-    HOT: "Qualifizierung",
-    BRIEFING_SENT: "Qualifizierung",
-    DOC_PENDING: "Unterlagen",
-    DOC_READY: "Unterlagen",
-    AA_APPOINTMENT_PENDING: "Agentur",
-    AA_APPOINTMENT_DONE: "Agentur",
-    GUTSCHEIN_PENDING: "Förderung",
-    GUTSCHEIN_APPROVED: "Förderung",
-    ENROLLED: "Abschluss",
-    STARTED: "Abschluss",
-    CLOSED: "Abschluss",
-  };
-  return map[status] ?? "—";
-}
-
-function fundingStatus(status: LeadStatus): string {
-  switch (status) {
-    case LeadStatus.GUTSCHEIN_APPROVED:
-      return "Bewilligt";
-    case LeadStatus.GUTSCHEIN_PENDING:
-      return "Beantragt";
-    case LeadStatus.AA_APPOINTMENT_PENDING:
-    case LeadStatus.AA_APPOINTMENT_DONE:
-      return "Agenturtermin";
-    case LeadStatus.DOC_READY:
-      return "Antrag vorbereitet";
-    case LeadStatus.QUALIFIED:
-    case LeadStatus.HOT:
-    case LeadStatus.BRIEFING_SENT:
-      return "Geeignet";
-    default:
-      return "Nicht besprochen";
-  }
+  leftRail: ReactNode;
+  rightRail: ReactNode;
+  progress: ReactNode;
 }
 
 function waLink(phone: string): string {
@@ -90,8 +45,22 @@ function waLink(phone: string): string {
   return `https://wa.me/${e164}`;
 }
 
-export function LeadWorkspace({ lead, ownerName, lastContactAt, tabs }: Props) {
-  const [active, setActive] = useState<string>(tabs[0]?.id ?? "overview");
+const ACT_ICON = "h-4 w-4";
+const ai = {
+  fill: "none" as const,
+  stroke: "currentColor",
+  strokeWidth: 1.7,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  viewBox: "0 0 24 24",
+};
+
+type Action =
+  | { label: string; icon: ReactNode; href: string; external?: boolean; tone?: "wa" }
+  | { label: string; icon: ReactNode; tab: string };
+
+export function LeadWorkspace({ lead, tabs, leftRail, rightRail, progress }: Props) {
+  const [active, setActive] = useState<string>(tabs[0]?.id ?? "uebersicht");
   const status = STATUS_TONE[lead.status];
   const priority = PRIORITY_TONE[lead.priority];
   const initials = `${lead.firstName[0] ?? ""}${lead.lastName[0] ?? ""}`.toUpperCase();
@@ -99,16 +68,77 @@ export function LeadWorkspace({ lead, ownerName, lastContactAt, tabs }: Props) {
 
   const goTo = (id: string) => setActive(id);
 
-  const QUICK: ReadonlyArray<{ label: string; href?: string; external?: boolean; tab?: string; tone?: "wa" }> = [
-    { label: "WhatsApp", href: waLink(lead.phone), external: true, tone: "wa" },
-    { label: "E-Mail", href: `mailto:${lead.email}`, external: true },
-    { label: "Anruf protokollieren", tab: "kommunikation" },
-    { label: "Aufgabe erstellen", tab: "aufgaben" },
-    { label: "Follow-up planen", tab: "termine" },
-    { label: "Termin planen", tab: "termine" },
-    { label: "Unterlagen anfordern", tab: "unterlagen" },
-    { label: "Status ändern", tab: "uebersicht" },
-    { label: "Bearbeiter zuweisen", tab: "uebersicht" },
+  const actions: ReadonlyArray<Action> = [
+    {
+      label: "Anrufen",
+      tab: "kommunikation",
+      icon: (
+        <svg className={ACT_ICON} {...ai}>
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.71 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.71A2 2 0 0 1 22 16.92Z" />
+        </svg>
+      ),
+    },
+    {
+      label: "WhatsApp",
+      href: waLink(lead.phone),
+      external: true,
+      tone: "wa",
+      icon: (
+        <svg className={ACT_ICON} {...ai}>
+          <path d="M21 12c0 4.4-4 8-9 8-1.4 0-2.7-.3-3.9-.8L3 21l1.6-4.5C3.6 15.2 3 13.7 3 12c0-4.4 4-8 9-8s9 3.6 9 8Z" />
+        </svg>
+      ),
+    },
+    {
+      label: "E-Mail",
+      href: `mailto:${lead.email}`,
+      external: true,
+      icon: (
+        <svg className={ACT_ICON} {...ai}>
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path d="m3 7 9 6 9-6" />
+        </svg>
+      ),
+    },
+    {
+      label: "Termin",
+      tab: "termine",
+      icon: (
+        <svg className={ACT_ICON} {...ai}>
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 10h18M8 3v4M16 3v4" />
+        </svg>
+      ),
+    },
+    {
+      label: "Aufgabe",
+      tab: "aufgaben",
+      icon: (
+        <svg className={ACT_ICON} {...ai}>
+          <rect x="3" y="3" width="18" height="18" rx="2.5" />
+          <path d="m8 12 3 3 5-6" />
+        </svg>
+      ),
+    },
+    {
+      label: "Dokument anfordern",
+      tab: "unterlagen",
+      icon: (
+        <svg className={ACT_ICON} {...ai}>
+          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+          <path d="M14 3v5h5M9 13h6M9 17h6" />
+        </svg>
+      ),
+    },
+    {
+      label: "Notiz",
+      tab: "notizen",
+      icon: (
+        <svg className={ACT_ICON} {...ai}>
+          <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+      ),
+    },
   ];
 
   const activeTab = tabs.find((t) => t.id === active) ?? tabs[0];
@@ -125,7 +155,8 @@ export function LeadWorkspace({ lead, ownerName, lastContactAt, tabs }: Props) {
         Alle Leads
       </Link>
 
-      <div className="sticky top-2 z-20 overflow-hidden rounded-2xl bg-white/95 shadow-premium ring-1 ring-ink/[0.06] backdrop-blur">
+      {/* Header zone: identity + global actions */}
+      <div className="overflow-hidden rounded-2xl bg-white shadow-premium ring-1 ring-ink/[0.06]">
         <div className="flex flex-col gap-4 p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -139,12 +170,6 @@ export function LeadWorkspace({ lead, ownerName, lastContactAt, tabs }: Props) {
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <Chip pill={status.pill} dot={status.dot} label={status.label} />
                   <Chip pill={priority.pill} dot={priority.dot} label={`Prio: ${priority.label}`} />
-                  <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200">
-                    {funnelStage(lead.status)}
-                  </span>
-                  <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100">
-                    Förderung: {fundingStatus(lead.status)}
-                  </span>
                   {slaBreached ? (
                     <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-[11px] font-semibold text-red-700 ring-1 ring-red-100">
                       SLA überschritten
@@ -158,78 +183,92 @@ export function LeadWorkspace({ lead, ownerName, lastContactAt, tabs }: Props) {
               </div>
             </div>
             <div className="flex flex-col items-end">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">Lead Score</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
+                Lead Score
+              </span>
               <span className="text-3xl font-bold tabular-nums text-navy-950">{lead.score}</span>
             </div>
           </div>
 
-          <dl className="grid grid-cols-2 gap-x-6 gap-y-2 border-t border-ink/[0.06] pt-3 text-[12.5px] sm:grid-cols-3 lg:grid-cols-6">
-            <Meta label="Bearbeiter" value={ownerName ?? "Nicht zugewiesen"} />
-            <Meta label="Quelle" value={humanizeSource(lead.source)} />
-            <Meta label="Erstellt" value={DATE.format(lead.createdAt)} />
-            <Meta label="Letzter Kontakt" value={lastContactAt ? DATE_TIME.format(lastContactAt) : "—"} />
-            <Meta label="Nächste Aktion" value={lead.nextFollowUpAt ? DATE_TIME.format(lead.nextFollowUpAt) : "—"} />
-            <Meta label="Telefon" value={lead.phone} />
-          </dl>
-
+          {/* Global action system — always visible */}
           <div className="flex flex-wrap gap-2 border-t border-ink/[0.06] pt-3">
-            {QUICK.map((q) =>
-              q.href ? (
+            {actions.map((a) =>
+              "href" in a ? (
                 <a
-                  key={q.label}
-                  href={q.href}
-                  {...(q.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                  key={a.label}
+                  href={a.href}
+                  {...(a.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className={[
-                    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium transition",
-                    q.tone === "wa"
+                    "inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition",
+                    a.tone === "wa"
                       ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                       : "border-ink/10 bg-white text-ink hover:border-ink/20 hover:bg-surface-subtle",
                   ].join(" ")}
                 >
-                  {q.label}
+                  {a.icon}
+                  {a.label}
                 </a>
               ) : (
                 <button
-                  key={q.label}
+                  key={a.label}
                   type="button"
-                  onClick={() => q.tab && goTo(q.tab)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 bg-white px-3 py-1.5 text-[12.5px] font-medium text-ink transition hover:border-ink/20 hover:bg-surface-subtle"
+                  onClick={() => goTo(a.tab)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink/10 bg-white px-3 py-1.5 text-[12.5px] font-semibold text-ink transition hover:border-ink/20 hover:bg-surface-subtle"
                 >
-                  {q.label}
+                  {a.icon}
+                  {a.label}
                 </button>
               ),
             )}
           </div>
         </div>
-
-        <nav className="flex gap-1 overflow-x-auto border-t border-ink/[0.06] bg-surface-subtle/50 px-3">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => setActive(t.id)}
-              className={[
-                "relative shrink-0 px-3.5 py-2.5 text-[13px] font-semibold transition",
-                active === t.id
-                  ? "text-brand-700"
-                  : "text-ink-muted hover:text-ink",
-              ].join(" ")}
-            >
-              {t.label}
-              {t.badge ? (
-                <span className="ml-1.5 rounded-full bg-ink/10 px-1.5 text-[10px] tabular-nums text-ink-soft">
-                  {t.badge}
-                </span>
-              ) : null}
-              {active === t.id ? (
-                <span aria-hidden className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-brand-600" />
-              ) : null}
-            </button>
-          ))}
-        </nav>
       </div>
 
-      <div>{activeTab?.content}</div>
+      {/* Progress engine — always visible */}
+      {progress}
+
+      {/* 3-column command center */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[300px_minmax(0,1fr)_344px]">
+        {/* Left: profile (first on desktop, after KI on mobile) */}
+        <div className="order-2 xl:order-1 xl:sticky xl:top-4 xl:self-start">
+          {leftRail}
+        </div>
+
+        {/* Middle: tabs + content */}
+        <div className="order-3 min-w-0 xl:order-2">
+          <div className="sticky top-2 z-10 -mx-1 mb-4 rounded-xl bg-white/95 px-1 shadow-sm ring-1 ring-ink/[0.06] backdrop-blur">
+            <nav className="flex gap-1 overflow-x-auto px-1">
+              {tabs.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => setActive(t.id)}
+                  className={[
+                    "relative shrink-0 px-3.5 py-2.5 text-[13px] font-semibold transition",
+                    active === t.id ? "text-brand-700" : "text-ink-muted hover:text-ink",
+                  ].join(" ")}
+                >
+                  {t.label}
+                  {t.badge ? (
+                    <span className="ml-1.5 rounded-full bg-ink/10 px-1.5 text-[10px] tabular-nums text-ink-soft">
+                      {t.badge}
+                    </span>
+                  ) : null}
+                  {active === t.id ? (
+                    <span aria-hidden className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-brand-600" />
+                  ) : null}
+                </button>
+              ))}
+            </nav>
+          </div>
+          <div>{activeTab?.content}</div>
+        </div>
+
+        {/* Right: KI Operator + next action (first on mobile) */}
+        <div className="order-1 space-y-4 xl:order-3 xl:sticky xl:top-4 xl:self-start">
+          {rightRail}
+        </div>
+      </div>
     </div>
   );
 }
@@ -240,14 +279,5 @@ function Chip({ pill, dot, label }: { pill: string; dot: string; label: string }
       <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {label}
     </span>
-  );
-}
-
-function Meta({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-muted">{label}</dt>
-      <dd className="truncate font-medium text-ink">{value}</dd>
-    </div>
   );
 }

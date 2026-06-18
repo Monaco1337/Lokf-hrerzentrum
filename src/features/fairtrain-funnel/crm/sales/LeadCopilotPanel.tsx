@@ -83,11 +83,17 @@ export function LeadCopilotPanel({ rec }: { rec: CopilotRecommendation }) {
             KI
           </span>
           <h3 className="text-[13.5px] font-semibold text-navy-950">
-            KI Co-Pilot
+            KI Operator
           </h3>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-surface-muted px-1.5 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider text-ink-muted ring-1 ring-inset ring-ink/10">
-          Beta
+        <span
+          className={[
+            "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ring-1 ring-inset",
+            u.pill,
+          ].join(" ")}
+        >
+          <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${u.dot}`} />
+          {rec.urgencyLabel}
         </span>
       </header>
 
@@ -102,18 +108,6 @@ export function LeadCopilotPanel({ rec }: { rec: CopilotRecommendation }) {
           label="Abschluss­wahrsch."
           tone="brand"
         />
-      </div>
-
-      <div
-        className={[
-          "mt-4 inline-flex w-full items-center justify-between gap-2 rounded-full px-3 py-1.5 text-[11.5px] font-semibold ring-1 ring-inset",
-          u.pill,
-        ].join(" ")}
-      >
-        <span className="inline-flex items-center gap-1.5">
-          <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${u.dot}`} />
-          {rec.urgencyLabel}
-        </span>
       </div>
 
       {rec.risks.length > 0 && (

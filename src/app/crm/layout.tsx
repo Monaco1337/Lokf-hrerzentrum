@@ -69,10 +69,12 @@ function MobileSectionNav() {
     { href: "/crm", label: "Leitstand" },
     { href: "/crm/leads", label: "Leads" },
     { href: "/crm/pipeline", label: "Pipeline" },
-    { href: "/crm/sales/dialer", label: "Anrufcenter" },
+    { href: "/crm/sales/dialer", label: "Kontaktcenter" },
+    { href: "/crm/sales/followups", label: "Follow-Ups" },
     { href: "/crm/tasks", label: "Aufgaben" },
+    { href: "/crm/communication", label: "Kommunikation" },
     { href: "/crm/unterlagen", label: "Unterlagen" },
-    { href: "/crm/bildungsgutschein", label: "Bildungsgutschein" },
+    { href: "/crm/bildungsgutschein", label: "Bildungsgutscheine" },
     { href: "/crm/agenturtermine", label: "Termine" },
   ];
   return (

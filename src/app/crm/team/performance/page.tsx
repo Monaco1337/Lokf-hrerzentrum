@@ -219,9 +219,9 @@ export default async function MitarbeiterPerformancePage() {
     <div className="space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="ops-eyebrow">Vertriebsübersicht</p>
+          <p className="ops-eyebrow">Sales Control Center</p>
           <h1 className="mt-1 text-[26px] font-bold tracking-tight text-white sm:text-[28px]">
-            Team-Pulse heute
+            Vertrieb &amp; Team-Pulse
           </h1>
           <p className="mt-1 max-w-2xl text-[12.5px] text-zinc-400">
             Pro Mitarbeiter: was heute geschah, was noch offen ist, wie

@@ -24,10 +24,8 @@ import {
 } from "./LeitstandFunnel";
 import { HeutigePrioritaeten } from "./LeitstandPrioritaeten";
 import { LiveAktivitaeten } from "./LiveAktivitaeten";
-import {
-  KritischeAlarme,
-  type AlarmCounts,
-} from "./LeitstandAlarme";
+import { LeitstandZones } from "./LeitstandZones";
+import type { AlarmCounts } from "./LeitstandAlarme";
 
 export interface LeitstandProps {
   user: UserSummary;
@@ -38,6 +36,12 @@ export interface LeitstandProps {
   activity: ReadonlyArray<AuditLogEntry>;
   /** id → display name lookup for the activity feed */
   actors: Record<string, string>;
+  livePerformance: {
+    leadsToday: number;
+    contactsToday: number;
+    appointmentsToday: number;
+    closesToday: number;
+  };
 }
 
 const DATE_FMT = new Intl.DateTimeFormat("de-DE", {
@@ -54,6 +58,7 @@ export function Leitstand({
   priorities,
   activity,
   actors,
+  livePerformance,
 }: LeitstandProps) {
   const today = new Date();
   const firstName = user.name.trim().split(/\s+/)[0] ?? user.name;
@@ -68,10 +73,10 @@ export function Leitstand({
       {/* Header strip */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="ops-eyebrow">Leitstand</p>
-          <h1 className="mt-1 font-display text-[26px] font-bold tracking-tight text-white sm:text-[30px]">
+          <p className="ops-eyebrow">Leitstand · Operations Center</p>
+          <h1 className="mt-1 font-display text-[26px] font-bold tracking-tight text-navy-950 sm:text-[30px]">
             {firstName}, Stand{" "}
-            <span className="text-zinc-500">{DATE_FMT.format(today)}</span>
+            <span className="text-ink-muted">{DATE_FMT.format(today)}</span>
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -86,8 +91,12 @@ export function Leitstand({
         </div>
       </header>
 
-      {/* 1) Kritische Alarme */}
-      <KritischeAlarme alarms={alarms} />
+      {/* 1) Operations triage — 4 zones */}
+      <LeitstandZones
+        alarms={alarms}
+        kpis={kpis}
+        performance={livePerformance}
+      />
 
       {/* 2) Abschluss Funnel */}
       <AbschlussFunnel funnel={funnel} />
@@ -111,11 +120,11 @@ function SummaryChip({
   tone: "white" | "blue" | "orange" | "red" | "slate";
 }) {
   const map = {
-    white: "border-white/[0.08] bg-white/[0.04] text-zinc-200",
-    blue: "border-blue-500/30 bg-blue-500/10 text-blue-200",
-    orange: "border-orange-500/30 bg-orange-500/10 text-orange-200",
-    red: "border-red-500/30 bg-red-500/10 text-red-200",
-    slate: "border-white/[0.06] bg-white/[0.03] text-zinc-400",
+    white: "border-ink/10 bg-white text-ink",
+    blue: "border-blue-200 bg-blue-50 text-blue-700",
+    orange: "border-orange-200 bg-orange-50 text-orange-700",
+    red: "border-red-200 bg-red-50 text-red-700",
+    slate: "border-ink/10 bg-surface-subtle text-ink-muted",
   } as const;
   return (
     <span
