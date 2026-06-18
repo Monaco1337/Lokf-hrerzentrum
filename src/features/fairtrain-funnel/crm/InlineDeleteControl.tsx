@@ -24,21 +24,27 @@ export function InlineDeleteControl({
 }: InlineDeleteControlProps) {
   if (confirming) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-white px-1.5 py-1 shadow-sm ring-1 ring-ink/10">
+      <span className="inline-flex items-center gap-1 rounded-xl border border-ink/[0.08] bg-white/80 px-1.5 py-1 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-md">
         <button
           type="button"
           disabled={pending}
-          onClick={onConfirm}
+          onClick={(e) => {
+            e.stopPropagation();
+            onConfirm();
+          }}
           aria-label="Löschen bestätigen"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-white transition hover:bg-red-700 disabled:opacity-60"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-red-600 text-white transition hover:bg-red-700 disabled:opacity-60"
         >
           <CheckIcon />
         </button>
         <button
           type="button"
-          onClick={onCancel}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCancel();
+          }}
           aria-label="Abbrechen"
-          className="inline-flex h-6 w-6 items-center justify-center rounded-full text-ink-muted transition hover:bg-surface-subtle hover:text-ink"
+          className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-ink-muted transition hover:bg-surface-subtle hover:text-ink"
         >
           <CloseIconSm />
         </button>
@@ -48,9 +54,13 @@ export function InlineDeleteControl({
   return (
     <button
       type="button"
-      onClick={onAsk}
+      onClick={(e) => {
+        e.stopPropagation();
+        onAsk();
+      }}
       aria-label="Lead löschen"
-      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-ink/10 bg-white text-ink-muted shadow-sm transition-all duration-200 hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+      title="Löschen"
+      className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-ink/[0.08] bg-white/80 text-ink-soft shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-md transition hover:-translate-y-0.5 hover:border-red-200 hover:bg-red-50 hover:text-red-600 hover:shadow-[0_6px_14px_-8px_rgba(220,38,38,0.25)] focus:opacity-100 md:opacity-0 md:group-hover:opacity-100"
     >
       <CloseIcon />
     </button>

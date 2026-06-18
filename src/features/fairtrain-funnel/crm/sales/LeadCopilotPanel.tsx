@@ -76,10 +76,10 @@ function ProgressRing({
 export function LeadCopilotPanel({ rec }: { rec: CopilotRecommendation }) {
   const u = URGENCY_STYLE[rec.urgency];
   return (
-    <section className="rounded-2xl border border-ink/10 bg-gradient-to-br from-white via-white to-surface-subtle/40 p-5 shadow-sm">
+    <section className="rounded-2xl border border-ink/[0.07] bg-white/80 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-white/70">
       <header className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-brand-700 to-navy-900 text-[10px] font-bold text-white shadow-sm ring-1 ring-white/40">
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-brand-50 to-emerald-50/80 text-[10px] font-bold text-brand-700 ring-1 ring-inset ring-brand-200 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
             KI
           </span>
           <h3 className="text-[13.5px] font-semibold text-navy-950">

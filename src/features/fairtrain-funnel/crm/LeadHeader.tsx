@@ -24,7 +24,7 @@ export function LeadHeader({ lead }: { lead: LeadDetailT }) {
         <div className="flex items-center gap-4">
           <span
             aria-hidden
-            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-navy-900 to-brand-700 font-display text-lg font-bold text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18),0_8px_20px_-8px_rgba(11,21,48,0.5)]"
+            className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-white via-white to-surface-subtle font-display text-[18px] font-bold tracking-tight text-navy-950 ring-1 ring-inset ring-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-2px_rgba(15,23,42,0.1)]"
           >
             {initials || "?"}
           </span>

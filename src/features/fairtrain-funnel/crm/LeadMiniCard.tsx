@@ -93,7 +93,7 @@ export function LeadMiniCard({
       <div className="flex items-start gap-3 p-3.5 pl-4 md:p-4 md:pl-5">
         <span
           aria-hidden
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-navy-900 to-brand-700 text-[11.5px] font-bold text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18)] ring-1 ring-white"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-white via-white to-surface-subtle text-[11.5px] font-bold tracking-tight text-navy-950 ring-1 ring-inset ring-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.06)]"
         >
           {initials}
         </span>

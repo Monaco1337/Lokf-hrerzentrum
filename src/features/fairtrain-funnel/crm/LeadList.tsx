@@ -162,7 +162,7 @@ export function LeadList({ leads, filters, users }: LeadListProps) {
       </header>
 
       {/* Search + quick filters */}
-      <section className="rounded-2xl border border-ink/[0.06] bg-white p-4 shadow-card">
+      <section className="rounded-2xl border border-ink/[0.07] bg-white/80 p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-white/70">
         <div className="grid gap-3 lg:grid-cols-[1fr_auto_auto_auto]">
           <div>
             <label className="sr-only" htmlFor="lead-search">

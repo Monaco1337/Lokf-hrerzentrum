@@ -108,11 +108,14 @@ export function LeadWorkspace({ lead, tabs, leftRail, rightRail, progress }: Pro
         Zurück zu Leads
       </Link>
 
-      {/* Identity header */}
-      <div className="overflow-hidden rounded-2xl border border-ink/[0.06] bg-white shadow-card">
+      {/* Identity header — glass surface */}
+      <div className="rounded-2xl border border-ink/[0.07] bg-white/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-white/70">
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-navy-900 to-brand-700 text-lg font-bold text-white shadow-sm">
+            <span
+              aria-hidden
+              className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-white via-white to-surface-subtle text-[18px] font-bold tracking-tight text-navy-950 ring-1 ring-inset ring-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_2px_8px_-2px_rgba(15,23,42,0.1)]"
+            >
               {initials || "?"}
             </span>
             <div>

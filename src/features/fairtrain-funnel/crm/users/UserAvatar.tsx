@@ -28,8 +28,9 @@ export function UserAvatar({
   className?: string;
 }) {
   const cls = [
-    "inline-flex items-center justify-center rounded-full font-bold text-white shadow-[inset_0_1px_0_0_rgba(255,255,255,0.18)] ring-1 ring-white/60",
-    "bg-gradient-to-br from-navy-900 to-brand-700",
+    "inline-flex items-center justify-center rounded-full font-bold tracking-tight text-navy-950",
+    "bg-gradient-to-br from-white via-white to-surface-subtle ring-1 ring-inset ring-ink/10",
+    "shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_2px_rgba(15,23,42,0.06)]",
     SIZE_CLASS[size],
     className,
   ].join(" ");

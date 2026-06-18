@@ -60,7 +60,7 @@ export function LeadProfileRail({
   const priority = PRIORITY_TONE[lead.priority];
 
   return (
-    <aside className="rounded-2xl border border-ink/[0.06] bg-white shadow-card">
+    <aside className="rounded-2xl border border-ink/[0.07] bg-white/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-white/70">
       <div className="border-b border-ink/[0.05] p-4">
         <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted">
           Kontakt

@@ -1,9 +1,11 @@
 /**
- * LeadListCard — premium applicant row for the Leads operations view.
+ * LeadListCard — premium glass-style applicant row.
  *
- * The entire surface navigates to the Lead Command Center. Quick actions and
- * the overflow menu sit in a pointer-events island so they never steal the
- * primary click target.
+ * Click anywhere on the card to open the Lead Command Center. The action icons
+ * + overflow menu live in a separate pointer-events island stacked above the
+ * link, so they remain interactive without blocking navigation. The card uses
+ * an Apple-style frosted look: white-glass surface, soft inner highlight on
+ * the avatar, refined typography.
  */
 "use client";
 
@@ -22,9 +24,9 @@ import { OpenIcon, PhoneIcon, WhatsappIcon } from "./LeadListIcons";
 import { PriorityBadge } from "./PriorityBadge";
 
 const URGENCY_RAIL: Record<LeadUrgency, string> = {
-  overdue: "from-red-500 to-red-600",
-  today: "from-amber-400 to-amber-500",
-  soon: "from-brand-500 to-brand-600",
+  overdue: "from-red-400 to-red-500",
+  today: "from-amber-300 to-amber-500",
+  soon: "from-brand-400 to-brand-600",
   normal: "from-slate-200 to-slate-300",
 };
 
@@ -37,38 +39,14 @@ const URGENCY_LABEL: Record<LeadUrgency, string> = {
 
 const ACTION_TONE: Record<
   NextBestAction["tone"],
-  { chip: string; bar: string; text: string }
+  { bar: string; text: string }
 > = {
-  critical: {
-    chip: "bg-red-50 text-red-700 ring-red-100",
-    bar: "bg-red-500",
-    text: "text-red-700",
-  },
-  urgent: {
-    chip: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-    bar: "bg-emerald-500",
-    text: "text-emerald-700",
-  },
-  warning: {
-    chip: "bg-amber-50 text-amber-800 ring-amber-100",
-    bar: "bg-amber-500",
-    text: "text-amber-800",
-  },
-  active: {
-    chip: "bg-brand-50 text-brand-700 ring-brand-100",
-    bar: "bg-brand-500",
-    text: "text-brand-700",
-  },
-  wait: {
-    chip: "bg-indigo-50 text-indigo-700 ring-indigo-100",
-    bar: "bg-indigo-500",
-    text: "text-indigo-700",
-  },
-  success: {
-    chip: "bg-emerald-50 text-emerald-700 ring-emerald-100",
-    bar: "bg-emerald-500",
-    text: "text-emerald-700",
-  },
+  critical: { bar: "bg-red-500", text: "text-red-700" },
+  urgent: { bar: "bg-emerald-500", text: "text-emerald-700" },
+  warning: { bar: "bg-amber-500", text: "text-amber-800" },
+  active: { bar: "bg-brand-500", text: "text-brand-700" },
+  wait: { bar: "bg-indigo-500", text: "text-indigo-700" },
+  success: { bar: "bg-emerald-500", text: "text-emerald-700" },
 };
 
 const REL = new Intl.RelativeTimeFormat("de-DE", { numeric: "auto" });
@@ -94,10 +72,28 @@ function waLink(phone: string): string {
   return `https://wa.me/${e164}`;
 }
 
-function scoreStyle(score: number): string {
-  if (score >= 90) return "from-emerald-600 to-teal-600";
-  if (score >= 70) return "from-amber-500 to-orange-500";
-  return "from-slate-400 to-slate-500";
+function scoreStyle(score: number): {
+  bg: string;
+  text: string;
+  ring: string;
+} {
+  if (score >= 90)
+    return {
+      bg: "bg-gradient-to-br from-emerald-50 to-emerald-100/70",
+      text: "text-emerald-700",
+      ring: "ring-emerald-200",
+    };
+  if (score >= 70)
+    return {
+      bg: "bg-gradient-to-br from-amber-50 to-amber-100/70",
+      text: "text-amber-800",
+      ring: "ring-amber-200",
+    };
+  return {
+    bg: "bg-gradient-to-br from-slate-50 to-slate-100/70",
+    text: "text-slate-700",
+    ring: "ring-slate-200",
+  };
 }
 
 export interface LeadListCardProps {
@@ -124,39 +120,48 @@ export function LeadListCard({
   const { lead, insights } = entry;
   const status = STATUS_TONE[lead.status];
   const action = ACTION_TONE[insights.nextBestAction.tone];
+  const score = scoreStyle(insights.score);
   const progressPct = Math.round(insights.progress * 100);
   const detailHref = `/crm/leads/${lead.id}` as Route;
   const initials =
     `${lead.firstName[0] ?? ""}${lead.lastName[0] ?? ""}`.toUpperCase() || "?";
 
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-ink/[0.06] bg-white shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-ink/15 hover:shadow-card">
+    <article className="group relative rounded-2xl border border-ink/[0.07] bg-white/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl backdrop-saturate-150 transition-all duration-200 supports-[backdrop-filter]:bg-white/70 hover:-translate-y-0.5 hover:border-ink/15 hover:bg-white hover:shadow-[0_12px_28px_-12px_rgba(15,23,42,0.18),0_4px_10px_-4px_rgba(15,23,42,0.08)]">
+      {/* Click overlay — entire card opens the Lead Command Center */}
       <Link
         href={detailHref}
-        className="absolute inset-0 z-0 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
         aria-label={`${lead.firstName} ${lead.lastName} öffnen`}
+        className="absolute inset-0 z-10 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
       />
 
+      {/* Urgency rail — decorative */}
       <span
         aria-hidden
-        className={`absolute inset-y-3 left-0 z-[1] w-[3px] rounded-r-full bg-gradient-to-b ${URGENCY_RAIL[insights.urgency]}`}
+        className={`pointer-events-none absolute inset-y-4 left-0 z-[5] w-[3px] rounded-r-full bg-gradient-to-b ${URGENCY_RAIL[insights.urgency]}`}
       />
 
-      <div className="relative z-[2] flex flex-col gap-4 p-4 pl-5 sm:flex-row sm:items-center sm:gap-5 sm:p-5 sm:pl-6">
+      {/* Content — pointer-events-none lets clicks fall through to the link */}
+      <div className="pointer-events-none relative flex flex-col gap-4 px-5 py-4 pl-6 sm:flex-row sm:items-center sm:gap-5 sm:py-5">
         {/* Identity */}
-        <div className="flex min-w-0 flex-1 items-center gap-3.5 pointer-events-none">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-navy-900 to-brand-700 text-[12px] font-bold text-white shadow-sm ring-1 ring-white/20">
+        <div className="flex min-w-0 flex-1 items-center gap-3.5">
+          <span
+            aria-hidden
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] bg-gradient-to-br from-white via-white to-surface-subtle text-[13px] font-bold tracking-tight text-navy-950 ring-1 ring-inset ring-ink/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_1px_3px_rgba(15,23,42,0.06)]"
+          >
             {initials}
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="truncate text-[15px] font-bold tracking-tight text-navy-950 group-hover:text-brand-700">
+              <p className="truncate text-[15px] font-bold tracking-tight text-navy-950 transition group-hover:text-brand-700">
                 {lead.firstName} {lead.lastName}
               </p>
               <span
                 className={[
-                  "inline-flex h-7 min-w-[2rem] items-center justify-center rounded-lg bg-gradient-to-br px-2 text-[13px] font-bold tabular-nums text-white shadow-sm",
-                  scoreStyle(insights.score),
+                  "inline-flex h-7 min-w-[2.25rem] items-center justify-center rounded-[10px] px-2 text-[13px] font-bold tabular-nums ring-1 ring-inset shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]",
+                  score.bg,
+                  score.text,
+                  score.ring,
                 ].join(" ")}
               >
                 {insights.score}
@@ -177,7 +182,7 @@ export function LeadListCard({
                 {status.label}
               </span>
               <PriorityBadge priority={lead.priority} />
-              <span className="inline-flex items-center rounded-full bg-surface-subtle px-2 py-0.5 text-[10.5px] font-semibold text-ink-soft ring-1 ring-ink/10">
+              <span className="inline-flex items-center rounded-full bg-surface-subtle/80 px-2 py-0.5 text-[10.5px] font-semibold text-ink-soft ring-1 ring-ink/10">
                 {URGENCY_LABEL[insights.urgency]}
               </span>
             </div>
@@ -185,11 +190,11 @@ export function LeadListCard({
         </div>
 
         {/* Next action + progress */}
-        <div className="min-w-0 flex-1 pointer-events-none sm:max-w-[280px]">
+        <div className="hidden min-w-0 shrink-0 sm:block sm:w-[240px]">
           <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted">
             Nächste Aktion
           </p>
-          <p className={`mt-1 text-[13px] font-semibold ${action.text}`}>
+          <p className={`mt-1 truncate text-[13px] font-semibold ${action.text}`}>
             {insights.nextBestAction.label}
           </p>
           <div className="mt-2.5 flex items-center gap-3">
@@ -208,12 +213,8 @@ export function LeadListCard({
           </p>
         </div>
 
-        {/* Quick actions — isolated from card navigation */}
-        <div
-          className="relative z-[3] flex shrink-0 items-center gap-1.5 self-end sm:self-center"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => e.stopPropagation()}
-        >
+        {/* Action zone — re-enable pointer events; sits above the link layer */}
+        <div className="pointer-events-auto relative z-20 flex shrink-0 items-center gap-1.5 self-end sm:self-center">
           <QuickIcon
             href={insights.nextBestAction.href ?? `tel:${lead.phone}`}
             label="Anrufen"
@@ -253,7 +254,7 @@ function QuickIcon({
   children: React.ReactNode;
 }) {
   const cls =
-    "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-ink/10 bg-white text-ink-soft shadow-sm transition hover:border-ink/20 hover:bg-surface-subtle hover:text-brand-700";
+    "inline-flex h-9 w-9 items-center justify-center rounded-xl border border-ink/[0.08] bg-white/80 text-ink-soft shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-md transition hover:-translate-y-0.5 hover:border-ink/15 hover:bg-white hover:text-brand-700 hover:shadow-[0_6px_14px_-8px_rgba(15,23,42,0.18)]";
   if (external) {
     return (
       <a
