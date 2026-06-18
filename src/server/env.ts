@@ -44,6 +44,9 @@ const RawEnvSchema = z.object({
 
   META_WABA_TOKEN: z.string().default(""),
   META_PHONE_NUMBER_ID: z.string().default(""),
+  // WhatsApp Cloud API webhook security (server-side only, never exposed).
+  WHATSAPP_VERIFY_TOKEN: z.string().default(""),
+  WHATSAPP_APP_SECRET: z.string().default(""),
   TWILIO_ACCOUNT_SID: z.string().default(""),
   TWILIO_AUTH_TOKEN: z.string().default(""),
   DIALOG360_API_KEY: z.string().default(""),

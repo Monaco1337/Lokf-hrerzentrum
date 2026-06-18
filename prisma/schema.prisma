@@ -274,15 +274,35 @@ model CommunicationEvent {
   leadId String
   lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
-  channel           String // CommunicationChannel enum
-  direction         String // CommunicationDirection enum
-  payload           String
+  channel           String // CommunicationChannel enum: WHATSAPP | EMAIL | SMS | INTERNAL
+  direction         String // CommunicationDirection enum: OUT | IN
+  payload           String // message body
   providerMessageId String?
   errorCode         String?
+
+  // Message ledger fields (added 2026-06-18). The CommunicationEvent IS the
+  // message ledger — a future real WhatsApp Cloud API adapter only swaps the
+  // service that writes these rows, not the schema or UI.
+  type              String  @default("TEXT") // MessageType: TEMPLATE | TEXT | SYSTEM | MEDIA
+  templateId        String?
+  templateName      String?
+  variablesResolved String? // JSON object of resolved template variables
+  status            String  @default("SENT") // MessageStatus: DRAFT|QUEUED|SENT|DELIVERED|READ|FAILED
+  statusHistory     String  @default("[]") // JSON array of { status, at }
+  sentBy            String  @default("SYSTEM") // MessageSentBy: AUTOMATION | ADMIN | SYSTEM
+  actorId           String?
+  isDemo            Boolean @default(true) // simulated until a real provider is wired
+  sentAt            DateTime?
+  deliveredAt       DateTime?
+  readAt            DateTime?
+  failedAt          DateTime?
+  failedReason      String?
 
   createdAt DateTime @default(now())
 
   @@index([leadId, createdAt])
+  @@index([channel, direction])
+  @@index([status])
 }
 
 // ----------------------------------------------------------------------------
@@ -391,6 +411,11 @@ model ConsentRecord {
   utm       String?
   ipHash    String?
   userAgent String?
+
+  // Opt-in proof: which version of the consent text the lead accepted. Lets us
+  // prove the exact wording shown at capture time (WhatsApp Cloud API requires
+  // demonstrable opt-in). Null for legacy records.
+  textVersion String?
 
   createdAt DateTime @default(now())
 

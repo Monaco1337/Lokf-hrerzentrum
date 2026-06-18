@@ -140,6 +140,12 @@ export const MetaApprovalStatusSchema = z.enum([
   "approved",
   "rejected",
 ]);
+export const META_APPROVAL_STATUS_LABEL: Record<MetaApprovalStatus, string> = {
+  not_submitted: "Nicht eingereicht",
+  pending: "In Prüfung",
+  approved: "Freigegeben",
+  rejected: "Abgelehnt",
+};
 
 export interface AutomationTemplateEntry {
   id: string;

@@ -5,7 +5,8 @@
  * logging happens through the existing panels rendered alongside it.
  */
 import type { AutomationLogEntry } from "../../automation/types";
-import type { CallLogEntry, CommunicationEntry } from "../../types";
+import type { CallLogEntry, CommunicationEntry, MessageStatusT } from "../../types";
+import { MESSAGE_SENT_BY_LABEL, MESSAGE_STATUS_LABEL } from "../../types";
 
 interface LedgerItem {
   id: string;
@@ -17,6 +18,7 @@ interface LedgerItem {
   status: string;
   statusTone: "ok" | "warn" | "fail" | "muted";
   sentBy: string;
+  demo: boolean | null;
 }
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -26,6 +28,13 @@ const CHANNEL_LABEL: Record<string, string> = {
   PHONE: "Telefon",
   INTERNAL: "Intern",
 };
+
+function messageStatusTone(status: MessageStatusT): LedgerItem["statusTone"] {
+  if (status === "READ" || status === "DELIVERED") return "ok";
+  if (status === "FAILED") return "fail";
+  if (status === "SENT" || status === "QUEUED") return "warn";
+  return "muted";
+}
 
 const DT = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
@@ -54,32 +63,44 @@ export function LeadCommunicationLedger({
   const items: LedgerItem[] = [];
 
   for (const c of communications) {
+    const sentByLabel = MESSAGE_SENT_BY_LABEL[c.sentBy] ?? "System";
+    const title =
+      c.direction === "IN"
+        ? "Eingehende Nachricht"
+        : c.templateName
+          ? `Vorlage: ${c.templateName}`
+          : "Ausgehende Nachricht";
     items.push({
       id: `comm-${c.id}`,
       at: c.createdAt,
       channel: CHANNEL_LABEL[c.channel] ?? c.channel,
       direction: c.direction === "IN" ? "inbound" : "outbound",
-      title: c.direction === "IN" ? "Eingehende Nachricht" : "Ausgehende Nachricht",
-      body: c.payload,
-      status: c.errorCode ? "fehlgeschlagen" : "zugestellt",
-      statusTone: c.errorCode ? "fail" : "ok",
-      sentBy: "System",
+      title,
+      body: c.failedReason ? `${c.payload} · ${c.failedReason}` : c.payload,
+      status: MESSAGE_STATUS_LABEL[c.status],
+      statusTone: messageStatusTone(c.status),
+      sentBy: sentByLabel,
+      demo: c.isDemo,
     });
   }
 
+  // Automation SENT/FAILED sends now persist as full ledger messages above, so
+  // only surface skipped automation attempts here (no consent / no provider).
   for (const a of automationLogs) {
+    if (!a.status.startsWith("SKIPPED")) continue;
     items.push({
       id: `auto-${a.id}`,
       at: a.createdAt,
       channel: CHANNEL_LABEL[a.channel] ?? a.channel,
       direction: "outbound",
       title: a.templateSlug
-        ? `Vorlage: ${a.templateSlug}${a.isTest ? " (Test)" : ""}`
-        : "Automatischer Versand",
+        ? `Übersprungen: ${a.templateSlug}`
+        : "Versand übersprungen",
       body: a.renderedSubject ? `${a.renderedSubject} — ${a.renderedBody}` : a.renderedBody,
       status: a.status.toLowerCase(),
       statusTone: autoStatusTone(a.status),
-      sentBy: a.isTest ? "Test" : "Automation",
+      sentBy: "Automation",
+      demo: null,
     });
   }
 
@@ -94,6 +115,7 @@ export function LeadCommunicationLedger({
       status: "protokolliert",
       statusTone: "muted",
       sentBy: call.user.name,
+      demo: null,
     });
   }
 
@@ -129,6 +151,17 @@ export function LeadCommunicationLedger({
           ) : null}
           <div className="mt-1.5 flex items-center gap-2 text-[10.5px]">
             <StatusBadge tone={it.statusTone} label={it.status} />
+            {it.demo !== null && (
+              <span
+                className={`inline-flex items-center rounded-md px-1.5 py-0.5 font-semibold ${
+                  it.demo
+                    ? "bg-amber-50 text-amber-700"
+                    : "bg-emerald-50 text-emerald-700"
+                }`}
+              >
+                {it.demo ? "Demo" : "Echt"}
+              </span>
+            )}
             <span className="text-ink-muted">· {it.sentBy}</span>
           </div>
         </li>

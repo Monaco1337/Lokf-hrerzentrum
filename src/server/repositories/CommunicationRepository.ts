@@ -1,7 +1,9 @@
 /**
- * CommunicationRepository - APPEND-ONLY.
+ * CommunicationRepository — the message ledger.
  *
- * Every outgoing or incoming message becomes a row. No updates, no deletes.
+ * Historically append-only; it now also supports status transitions for the
+ * delivery lifecycle (queued → sent → delivered → read | failed). The row is
+ * the single source of truth for every WhatsApp / e-mail / internal message.
  */
 import type { Prisma } from "@prisma/client";
 
@@ -9,13 +11,94 @@ import {
   type CommunicationChannel,
   type CommunicationDirection,
   type CommunicationEntry,
+  type MessageSentByT,
+  MessageSentBySchema,
+  type MessageStatusChange,
+  MessageStatusChangeSchema,
+  type MessageStatusT,
+  MessageStatusSchema,
+  type MessageTypeT,
+  MessageTypeSchema,
 } from "@/features/fairtrain-funnel/types";
+import { z } from "zod";
 
 import { prisma } from "../db/prisma";
 import {
   parseCommunicationChannel,
   parseCommunicationDirection,
 } from "./types";
+
+const StatusHistorySchema = z.array(MessageStatusChangeSchema);
+
+function parseStatusHistory(raw: string): MessageStatusChange[] {
+  try {
+    return StatusHistorySchema.parse(JSON.parse(raw));
+  } catch {
+    return [];
+  }
+}
+
+function parseVariables(raw: string | null): Record<string, string> | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return typeof parsed === "object" && parsed !== null ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+interface CommRow {
+  id: string;
+  leadId: string;
+  channel: string;
+  direction: string;
+  payload: string;
+  providerMessageId: string | null;
+  errorCode: string | null;
+  type: string;
+  templateId: string | null;
+  templateName: string | null;
+  variablesResolved: string | null;
+  status: string;
+  statusHistory: string;
+  sentBy: string;
+  actorId: string | null;
+  isDemo: boolean;
+  sentAt: Date | null;
+  deliveredAt: Date | null;
+  readAt: Date | null;
+  failedAt: Date | null;
+  failedReason: string | null;
+  createdAt: Date;
+}
+
+function mapRow(r: CommRow): CommunicationEntry {
+  return {
+    id: r.id,
+    leadId: r.leadId,
+    channel: parseCommunicationChannel(r.channel),
+    direction: parseCommunicationDirection(r.direction),
+    payload: r.payload,
+    providerMessageId: r.providerMessageId,
+    errorCode: r.errorCode,
+    type: MessageTypeSchema.parse(r.type) as MessageTypeT,
+    templateId: r.templateId,
+    templateName: r.templateName,
+    variablesResolved: parseVariables(r.variablesResolved),
+    status: MessageStatusSchema.parse(r.status) as MessageStatusT,
+    statusHistory: parseStatusHistory(r.statusHistory),
+    sentBy: MessageSentBySchema.parse(r.sentBy) as MessageSentByT,
+    actorId: r.actorId,
+    isDemo: r.isDemo,
+    sentAt: r.sentAt,
+    deliveredAt: r.deliveredAt,
+    readAt: r.readAt,
+    failedAt: r.failedAt,
+    failedReason: r.failedReason,
+    createdAt: r.createdAt,
+  };
+}
 
 export interface AppendCommunicationInput {
   leadId: string;
@@ -24,15 +107,33 @@ export interface AppendCommunicationInput {
   payload: string;
   providerMessageId: string | null;
   errorCode: string | null;
+  // Optional ledger metadata — defaults keep legacy call sites working.
+  type?: MessageTypeT;
+  templateId?: string | null;
+  templateName?: string | null;
+  variablesResolved?: Record<string, string> | null;
+  status?: MessageStatusT;
+  statusHistory?: MessageStatusChange[];
+  sentBy?: MessageSentByT;
+  actorId?: string | null;
+  isDemo?: boolean;
+  sentAt?: Date | null;
+  deliveredAt?: Date | null;
+  readAt?: Date | null;
+  failedAt?: Date | null;
+  failedReason?: string | null;
 }
 
 export class CommunicationRepository {
-  async append(
+  /** Append a message. Returns the created entry. */
+  async appendEntry(
     input: AppendCommunicationInput,
     tx?: Prisma.TransactionClient,
-  ): Promise<void> {
+  ): Promise<CommunicationEntry> {
     const client = tx ?? prisma;
-    await client.communicationEvent.create({
+    const now = new Date();
+    const status = input.status ?? "SENT";
+    const row = await client.communicationEvent.create({
       data: {
         leadId: input.leadId,
         channel: input.channel,
@@ -40,8 +141,62 @@ export class CommunicationRepository {
         payload: input.payload,
         providerMessageId: input.providerMessageId,
         errorCode: input.errorCode,
+        type: input.type ?? "TEXT",
+        templateId: input.templateId ?? null,
+        templateName: input.templateName ?? null,
+        variablesResolved: input.variablesResolved
+          ? JSON.stringify(input.variablesResolved)
+          : null,
+        status,
+        statusHistory: JSON.stringify(
+          input.statusHistory ?? [{ status, at: now.toISOString() }],
+        ),
+        sentBy: input.sentBy ?? "SYSTEM",
+        actorId: input.actorId ?? null,
+        isDemo: input.isDemo ?? true,
+        sentAt: input.sentAt ?? null,
+        deliveredAt: input.deliveredAt ?? null,
+        readAt: input.readAt ?? null,
+        failedAt: input.failedAt ?? null,
+        failedReason: input.failedReason ?? null,
       },
     });
+    return mapRow(row as CommRow);
+  }
+
+  /** Back-compat: legacy callers that only need fire-and-forget append. */
+  async append(
+    input: AppendCommunicationInput,
+    tx?: Prisma.TransactionClient,
+  ): Promise<void> {
+    await this.appendEntry(input, tx);
+  }
+
+  async findById(id: string): Promise<CommunicationEntry | null> {
+    const row = await prisma.communicationEvent.findUnique({ where: { id } });
+    return row ? mapRow(row as CommRow) : null;
+  }
+
+  /** Look up a message by the provider's message id (for webhook correlation). */
+  async findByProviderMessageId(
+    providerMessageId: string,
+  ): Promise<CommunicationEntry | null> {
+    const row = await prisma.communicationEvent.findFirst({
+      where: { providerMessageId },
+      orderBy: { createdAt: "desc" },
+    });
+    return row ? mapRow(row as CommRow) : null;
+  }
+
+  /** Apply a status transition addressed by provider message id. */
+  async setStatusByProviderId(
+    providerMessageId: string,
+    status: MessageStatusT,
+    opts: { at?: Date; failedReason?: string; errorCode?: string } = {},
+  ): Promise<CommunicationEntry | null> {
+    const existing = await this.findByProviderMessageId(providerMessageId);
+    if (!existing) return null;
+    return this.setStatus(existing.id, status, opts);
   }
 
   async list(leadId: string): Promise<CommunicationEntry[]> {
@@ -49,25 +204,48 @@ export class CommunicationRepository {
       where: { leadId },
       orderBy: { createdAt: "desc" },
     });
-    return rows.map((r) => ({
-      id: r.id,
-      channel: parseCommunicationChannel(r.channel),
-      direction: parseCommunicationDirection(r.direction),
-      payload: r.payload,
-      providerMessageId: r.providerMessageId,
-      errorCode: r.errorCode,
-      createdAt: r.createdAt,
-    }));
+    return rows.map((r) => mapRow(r as CommRow));
   }
 
-  /**
-   * Batch lookup for the latest outbound timestamp per lead. Used by the
-   * LeadInsightsService to compute "letzter Kontakt" and the staleness /
-   * drop-off heuristics, all in a single SQL pass.
-   *
-   * Returns a Map keyed by leadId. Leads without any outbound event are
-   * absent from the map (callers must default to null).
-   */
+  /** Global recent messages across all leads — drives the hub. */
+  async listRecent(limit = 300): Promise<CommunicationEntry[]> {
+    const rows = await prisma.communicationEvent.findMany({
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+    return rows.map((r) => mapRow(r as CommRow));
+  }
+
+  /** Persist a new status + append to the history trail. */
+  async setStatus(
+    id: string,
+    status: MessageStatusT,
+    opts: { at?: Date; failedReason?: string; errorCode?: string } = {},
+  ): Promise<CommunicationEntry | null> {
+    const existing = await prisma.communicationEvent.findUnique({
+      where: { id },
+    });
+    if (!existing) return null;
+    const at = opts.at ?? new Date();
+    const history = parseStatusHistory(existing.statusHistory);
+    history.push({ status, at: at.toISOString() });
+
+    const data: Prisma.CommunicationEventUpdateInput = {
+      status,
+      statusHistory: JSON.stringify(history),
+    };
+    if (status === "SENT") data.sentAt = at;
+    if (status === "DELIVERED") data.deliveredAt = at;
+    if (status === "READ") data.readAt = at;
+    if (status === "FAILED") {
+      data.failedAt = at;
+      data.failedReason = opts.failedReason ?? "Zustellung fehlgeschlagen";
+      data.errorCode = opts.errorCode ?? "SIMULATED_FAILURE";
+    }
+    const row = await prisma.communicationEvent.update({ where: { id }, data });
+    return mapRow(row as CommRow);
+  }
+
   async lastOutboundPerLead(
     leadIds: ReadonlyArray<string>,
   ): Promise<Map<string, Date>> {

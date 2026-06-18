@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 
 import { can } from "@/features/fairtrain-funnel/auth/permissions";
 import { DemoDataPanel } from "@/features/fairtrain-funnel/crm/admin/DemoDataPanel";
+import { WhatsAppConfigPanel } from "@/features/fairtrain-funnel/crm/admin/WhatsAppConfigPanel";
 import { requireCrmUser } from "@/server/actions/_helpers";
 import { demoDataService } from "@/server/services/DemoDataService";
+import { getWhatsAppConfigStatus } from "@/server/services/messaging/whatsappService";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,7 @@ export default async function SettingsPage() {
     redirect("/crm");
   }
   const demoStatus = await demoDataService.status();
+  const whatsappConfig = getWhatsAppConfigStatus();
 
   return (
     <div className="space-y-8">
@@ -28,6 +31,8 @@ export default async function SettingsPage() {
         counts={demoStatus.counts}
         totalEntries={demoStatus.totalEntries}
       />
+
+      <WhatsAppConfigPanel config={whatsappConfig} />
 
       <section className="rounded-2xl border border-ink/10 bg-white p-6 shadow-sm">
         <h2 className="text-[15px] font-semibold text-navy-950">System</h2>

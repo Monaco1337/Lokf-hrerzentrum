@@ -61,26 +61,66 @@ function docStatusFor(leadStatus: LeadStatus, idx: number): DocumentStatus {
   return DocumentStatus.GENERATED;
 }
 
+interface SeedCommEvent {
+  channel: CommunicationChannel;
+  direction: CommunicationDirection;
+  payload: string;
+  at: Date;
+  type?: string;
+  status?: string;
+  sentBy?: string;
+  templateName?: string;
+  failedReason?: string;
+}
+
+function statusHistoryFor(status: string, at: Date): string {
+  const iso = at.toISOString();
+  if (status === "READ") {
+    return JSON.stringify([
+      { status: "QUEUED", at: iso },
+      { status: "SENT", at: iso },
+      { status: "DELIVERED", at: iso },
+      { status: "READ", at: iso },
+    ]);
+  }
+  if (status === "DELIVERED") {
+    return JSON.stringify([
+      { status: "QUEUED", at: iso },
+      { status: "SENT", at: iso },
+      { status: "DELIVERED", at: iso },
+    ]);
+  }
+  if (status === "FAILED") {
+    return JSON.stringify([
+      { status: "QUEUED", at: iso },
+      { status: "SENT", at: iso },
+      { status: "FAILED", at: iso },
+    ]);
+  }
+  return JSON.stringify([{ status, at: iso }]);
+}
+
 async function seedComms(lead: SeededLead, idx: number): Promise<void> {
   const t0 = lead.createdAt;
-  const events: Array<{
-    channel: CommunicationChannel;
-    direction: CommunicationDirection;
-    payload: string;
-    at: Date;
-  }> = [
+  const events: SeedCommEvent[] = [
     {
       channel: CommunicationChannel.WHATSAPP,
       direction: CommunicationDirection.OUT,
       payload:
         "Hallo! Danke für deine Anfrage zur Lokführer-Weiterbildung — wir melden uns gleich persönlich. 🚆",
       at: minutesAfter(t0, 5),
+      type: "TEMPLATE",
+      status: "READ",
+      sentBy: "AUTOMATION",
+      templateName: "WhatsApp Willkommen",
     },
     {
       channel: CommunicationChannel.WHATSAPP,
       direction: CommunicationDirection.IN,
       payload: "Super, danke! Wann kann ich mit dem Start rechnen?",
       at: minutesAfter(t0, 42),
+      status: "DELIVERED",
+      sentBy: "SYSTEM",
     },
   ];
 
@@ -94,6 +134,10 @@ async function seedComms(lead: SeededLead, idx: number): Promise<void> {
         payload:
           "Guten Tag, anbei die Infos zur 15-monatigen Weiterbildung sowie zum Bildungsgutschein der Agentur für Arbeit. Viele Grüße, Ihr Lokführer.de-Team",
         at: minutesAfter(t0, 90),
+        type: "TEMPLATE",
+        status: "DELIVERED",
+        sentBy: "ADMIN",
+        templateName: "E-Mail Zusammenfassung nächster Schritt",
       },
       {
         channel: CommunicationChannel.EMAIL,
@@ -101,11 +145,31 @@ async function seedComms(lead: SeededLead, idx: number): Promise<void> {
         payload:
           "Vielen Dank für die Unterlagen. Welche Dokumente benötigen Sie von mir für den Bildungsgutschein?",
         at: minutesAfter(t0, 240),
+        status: "DELIVERED",
+        sentBy: "SYSTEM",
       },
     );
   }
 
+  // Every third lead gets a failed delivery so the hub's "Fehlgeschlagen"
+  // filter and red highlighting have something to show.
+  if (idx % 3 === 0) {
+    events.push({
+      channel: CommunicationChannel.WHATSAPP,
+      direction: CommunicationDirection.OUT,
+      payload: "Kurze Erinnerung: Bitte lade noch deinen Lebenslauf hoch. 📄",
+      at: minutesAfter(t0, 320),
+      type: "TEMPLATE",
+      status: "FAILED",
+      sentBy: "AUTOMATION",
+      templateName: "WhatsApp Reminder Unterlagen fehlen",
+      failedReason: "Nummer nicht bei WhatsApp registriert",
+    });
+  }
+
   for (const e of events) {
+    const status = e.status ?? "SENT";
+    const isFailed = status === "FAILED";
     const row = await prisma.communicationEvent.create({
       data: {
         leadId: lead.id,
@@ -113,6 +177,19 @@ async function seedComms(lead: SeededLead, idx: number): Promise<void> {
         direction: e.direction,
         payload: e.payload,
         createdAt: e.at,
+        type: e.type ?? "TEXT",
+        status,
+        statusHistory: statusHistoryFor(status, e.at),
+        sentBy: e.sentBy ?? "SYSTEM",
+        isDemo: true,
+        templateName: e.templateName ?? null,
+        sentAt: e.direction === CommunicationDirection.OUT && !isFailed ? e.at : null,
+        deliveredAt:
+          status === "DELIVERED" || status === "READ" ? e.at : null,
+        readAt: status === "READ" ? e.at : null,
+        failedAt: isFailed ? e.at : null,
+        failedReason: e.failedReason ?? null,
+        errorCode: isFailed ? "SIMULATED_FAILURE" : null,
       },
     });
     await demoSeedRepository.track("CommunicationEvent", row.id, DEMO_BATCH);

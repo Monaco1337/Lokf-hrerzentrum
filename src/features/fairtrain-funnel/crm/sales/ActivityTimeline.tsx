@@ -91,6 +91,9 @@ const ACTION_LABEL: Record<AuditAction, { label: string; tone: TimelineEvent["to
   PORTAL_FORM_SUBMITTED: { label: "Formular abgeschickt", tone: "info" },
   PORTAL_UPLOAD_ADDED: { label: "Upload im Portal", tone: "info" },
   PORTAL_DOCS_COMPLETE: { label: "Unterlagen vollständig", tone: "positive" },
+  MESSAGE_SENT: { label: "Nachricht gesendet", tone: "info" },
+  MESSAGE_RECEIVED: { label: "Antwort erhalten", tone: "positive" },
+  MESSAGE_FAILED: { label: "Nachricht fehlgeschlagen", tone: "danger" },
   WORKFLOW_AUTOMATION: { label: "Automatische Aktion", tone: "info" },
 };
 

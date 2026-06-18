@@ -85,6 +85,14 @@ export async function executeEmailSend(args: {
         payload: result.rawPayload,
         providerMessageId: result.providerMessageId,
         errorCode: null,
+        type: "TEMPLATE",
+        templateId: template.id,
+        templateName: template.name,
+        status: "SENT",
+        sentBy: "AUTOMATION",
+        actorId: triggeredBy,
+        isDemo: true,
+        sentAt: new Date(),
       });
       await auditLogRepository.append({
         actor: triggeredBy,
@@ -124,6 +132,15 @@ export async function executeEmailSend(args: {
         payload: JSON.stringify({ error: message }),
         providerMessageId: null,
         errorCode: "SEND_FAILED",
+        type: "TEMPLATE",
+        templateId: template.id,
+        templateName: template.name,
+        status: "FAILED",
+        sentBy: "AUTOMATION",
+        actorId: triggeredBy,
+        isDemo: true,
+        failedAt: new Date(),
+        failedReason: message,
       });
       await auditLogRepository.append({
         actor: triggeredBy,
@@ -218,6 +235,14 @@ export async function executeWhatsappSend(args: {
         payload: result.rawPayload,
         providerMessageId: result.providerMessageId,
         errorCode: null,
+        type: "TEMPLATE",
+        templateId: template.id,
+        templateName: template.name,
+        status: "SENT",
+        sentBy: "AUTOMATION",
+        actorId: triggeredBy,
+        isDemo: true,
+        sentAt: new Date(),
       });
       await auditLogRepository.append({
         actor: triggeredBy,
@@ -257,6 +282,15 @@ export async function executeWhatsappSend(args: {
         payload: JSON.stringify({ error: message }),
         providerMessageId: null,
         errorCode: "SEND_FAILED",
+        type: "TEMPLATE",
+        templateId: template.id,
+        templateName: template.name,
+        status: "FAILED",
+        sentBy: "AUTOMATION",
+        actorId: triggeredBy,
+        isDemo: true,
+        failedAt: new Date(),
+        failedReason: message,
       });
       await auditLogRepository.append({
         actor: triggeredBy,

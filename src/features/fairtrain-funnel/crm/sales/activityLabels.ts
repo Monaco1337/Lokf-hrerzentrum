@@ -73,6 +73,9 @@ export const ACTIVITY_LABEL: Record<AuditAction, ActivityVisual> = {
   PORTAL_FORM_SUBMITTED: { label: "Formular abgeschickt", icon: "send", tint: "accent" },
   PORTAL_UPLOAD_ADDED: { label: "Upload im Portal", icon: "upload", tint: "brand" },
   PORTAL_DOCS_COMPLETE: { label: "Unterlagen vollständig", icon: "check", tint: "emerald" },
+  MESSAGE_SENT: { label: "Nachricht gesendet", icon: "send", tint: "brand" },
+  MESSAGE_RECEIVED: { label: "Antwort erhalten", icon: "message", tint: "accent" },
+  MESSAGE_FAILED: { label: "Nachricht fehlgeschlagen", icon: "send", tint: "rose" },
   WORKFLOW_AUTOMATION: { label: "Automatische Aktion", icon: "spark", tint: "indigo" },
 };
 

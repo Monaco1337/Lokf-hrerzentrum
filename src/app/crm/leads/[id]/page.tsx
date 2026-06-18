@@ -7,6 +7,7 @@ import { taskRepository } from "@/server/repositories/TaskRepository";
 import { automationService } from "@/server/services/AutomationService";
 import { assertCanAccessLead } from "@/server/services/LeadAccess";
 import { leadService } from "@/server/services/LeadService";
+import { getWhatsAppConfigStatus } from "@/server/services/messaging/whatsappService";
 import { userService } from "@/server/services/UserService";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ export default async function LeadDetailPage({
         currentUser={currentUser}
         assignees={assignees}
         tasks={tasks}
+        whatsappLive={getWhatsAppConfigStatus().isLive}
       />
     );
   } catch (err) {

@@ -88,6 +88,9 @@ const ACTION_PHRASE: Record<AuditAction, { verb: string; tint: string; dot: stri
   PORTAL_FORM_SUBMITTED: { verb: "Formular abgeschickt", tint: "text-blue-300", dot: "bg-blue-500" },
   PORTAL_UPLOAD_ADDED: { verb: "Upload im Portal", tint: "text-blue-300", dot: "bg-blue-500" },
   PORTAL_DOCS_COMPLETE: { verb: "Unterlagen vollständig", tint: "text-emerald-300", dot: "bg-emerald-500" },
+  MESSAGE_SENT: { verb: "Nachricht gesendet", tint: "text-blue-300", dot: "bg-blue-500" },
+  MESSAGE_RECEIVED: { verb: "Antwort erhalten", tint: "text-emerald-300", dot: "bg-emerald-500" },
+  MESSAGE_FAILED: { verb: "Nachricht fehlgeschlagen", tint: "text-red-300", dot: "bg-red-500" },
   WORKFLOW_AUTOMATION: { verb: "Automatische Aktion", tint: "text-emerald-300", dot: "bg-emerald-500" },
 };
 

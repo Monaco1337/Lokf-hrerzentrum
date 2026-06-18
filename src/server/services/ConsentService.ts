@@ -19,7 +19,17 @@ import type { TransactionClient } from "../db/prisma";
 import { getIpSalt } from "../env";
 import { ConsentMissingError } from "../errors";
 import { auditLogRepository } from "../repositories/AuditLogRepository";
-import { consentRepository } from "../repositories/ConsentRepository";
+import {
+  type ConsentProof,
+  consentRepository,
+} from "../repositories/ConsentRepository";
+
+/**
+ * Version tag for the consent copy currently shown to applicants. Bump this
+ * whenever the consent wording changes so each record proves the exact text
+ * the lead accepted.
+ */
+export const CONSENT_TEXT_VERSION = "2026-06";
 
 export interface ConsentContext {
   source: string | null;
@@ -66,6 +76,7 @@ export class ConsentService {
           utm: ctx.utm,
           ipHash,
           userAgent: ctx.userAgent,
+          textVersion: CONSENT_TEXT_VERSION,
         },
         tx,
       );
@@ -112,6 +123,11 @@ export class ConsentService {
 
   async currentStates(leadId: string): Promise<ConsentState[]> {
     return consentRepository.currentStates(leadId);
+  }
+
+  /** Opt-in proof for the WhatsApp channel (accepted/acceptedAt/source/text). */
+  async whatsappOptInProof(leadId: string): Promise<ConsentProof> {
+    return consentRepository.latestProof(leadId, "WHATSAPP");
   }
 }
 

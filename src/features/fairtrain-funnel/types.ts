@@ -9,6 +9,13 @@
  */
 import { z } from "zod";
 
+import type {
+  MessageSentBy as MessageSentByT,
+  MessageStatus as MessageStatusT,
+  MessageStatusChange,
+  MessageType as MessageTypeT,
+} from "./messaging/types";
+
 // ---------------------------------------------------------------------------
 // FunnelPath
 // ---------------------------------------------------------------------------
@@ -190,10 +197,23 @@ export const CommunicationChannel = {
   WHATSAPP: "WHATSAPP",
   EMAIL: "EMAIL",
   SMS: "SMS",
+  INTERNAL: "INTERNAL",
 } as const;
 export type CommunicationChannel =
   (typeof CommunicationChannel)[keyof typeof CommunicationChannel];
-export const CommunicationChannelSchema = z.enum(["WHATSAPP", "EMAIL", "SMS"]);
+export const CommunicationChannelSchema = z.enum([
+  "WHATSAPP",
+  "EMAIL",
+  "SMS",
+  "INTERNAL",
+]);
+export const COMMUNICATION_CHANNEL_LABEL: Record<CommunicationChannel, string> =
+  {
+    WHATSAPP: "WhatsApp",
+    EMAIL: "E-Mail",
+    SMS: "SMS",
+    INTERNAL: "Intern",
+  };
 
 // ---------------------------------------------------------------------------
 // CommunicationDirection
@@ -223,6 +243,7 @@ export {
   TEMPLATE_STATUS_LABEL,
   MetaApprovalStatus,
   MetaApprovalStatusSchema,
+  META_APPROVAL_STATUS_LABEL,
   RuleConditionType,
   CONDITION_LABEL,
   CONDITIONS_WITH_VALUE,
@@ -261,6 +282,27 @@ export type {
 
 // Applicant portal — link lifecycle, document checklist, form contract.
 export * from "./portal/types";
+
+// Messaging / communication ledger lifecycle types.
+export {
+  MessageType,
+  MessageTypeSchema,
+  MESSAGE_TYPE_LABEL,
+  MessageStatus,
+  MessageStatusSchema,
+  MESSAGE_STATUS_LABEL,
+  MESSAGE_STATUS_FLOW,
+  MessageSentBy,
+  MessageSentBySchema,
+  MESSAGE_SENT_BY_LABEL,
+  MessageStatusChangeSchema,
+} from "./messaging/types";
+export type {
+  MessageType as MessageTypeT,
+  MessageStatus as MessageStatusT,
+  MessageSentBy as MessageSentByT,
+  MessageStatusChange,
+} from "./messaging/types";
 
 // ---------------------------------------------------------------------------
 // ConsentType + ConsentAction
@@ -470,11 +512,27 @@ export interface DocumentEntry {
 
 export interface CommunicationEntry {
   id: string;
+  leadId: string;
   channel: CommunicationChannel;
   direction: CommunicationDirection;
   payload: string;
   providerMessageId: string | null;
   errorCode: string | null;
+  // Message ledger fields.
+  type: MessageTypeT;
+  templateId: string | null;
+  templateName: string | null;
+  variablesResolved: Record<string, string> | null;
+  status: MessageStatusT;
+  statusHistory: MessageStatusChange[];
+  sentBy: MessageSentByT;
+  actorId: string | null;
+  isDemo: boolean;
+  sentAt: Date | null;
+  deliveredAt: Date | null;
+  readAt: Date | null;
+  failedAt: Date | null;
+  failedReason: string | null;
   createdAt: Date;
 }
 

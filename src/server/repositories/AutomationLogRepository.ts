@@ -53,7 +53,10 @@ function mapRow(row: {
     templateId: row.templateId,
     templateSlug: row.template?.slug ?? null,
     trigger: parseAutomationTrigger(row.trigger),
-    channel: parseCommunicationChannel(row.channel),
+    channel: parseCommunicationChannel(row.channel) as
+      | "EMAIL"
+      | "WHATSAPP"
+      | "SMS",
     status: parseAutomationLogStatus(row.status),
     renderedSubject: row.renderedSubject,
     renderedBody: row.renderedBody,

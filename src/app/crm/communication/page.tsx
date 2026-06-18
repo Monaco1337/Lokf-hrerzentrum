@@ -7,24 +7,19 @@
 import Link from "next/link";
 import type { Route } from "next";
 
-import { CommunicationChannel } from "@/features/fairtrain-funnel/types";
+import {
+  CommunicationChannel,
+  MessageSentBySchema,
+  MessageStatusSchema,
+} from "@/features/fairtrain-funnel/types";
+import {
+  CommunicationHub,
+  type HubMessage,
+} from "@/features/fairtrain-funnel/crm/communication/CommunicationHub";
 import { requireCrmUser } from "@/server/actions/_helpers";
 import { prisma } from "@/server/db/prisma";
 
 export const dynamic = "force-dynamic";
-
-const DT_FMT = new Intl.DateTimeFormat("de-DE", {
-  day: "2-digit",
-  month: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-const CHANNEL_LABEL: Record<string, string> = {
-  WHATSAPP: "WhatsApp",
-  EMAIL: "E-Mail",
-  SMS: "SMS",
-};
 
 export default async function CommunicationCenterPage() {
   await requireCrmUser();
@@ -37,7 +32,7 @@ export default async function CommunicationCenterPage() {
     }),
     prisma.communicationEvent.findMany({
       orderBy: { createdAt: "desc" },
-      take: 6,
+      take: 300,
       include: {
         lead: { select: { id: true, firstName: true, lastName: true } },
       },
@@ -47,6 +42,22 @@ export default async function CommunicationCenterPage() {
     }),
     prisma.automationTemplate.count(),
   ]);
+
+  const hubMessages: HubMessage[] = recent.map((m) => ({
+    id: m.id,
+    leadId: m.lead.id,
+    leadName: `${m.lead.firstName} ${m.lead.lastName}`.trim() || "Unbekannt",
+    channel: m.channel,
+    direction: m.direction === "IN" ? "IN" : "OUT",
+    type: m.type,
+    status: MessageStatusSchema.catch("SENT").parse(m.status),
+    sentBy: MessageSentBySchema.catch("SYSTEM").parse(m.sentBy),
+    body: m.payload,
+    templateName: m.templateName,
+    isDemo: m.isDemo,
+    failedReason: m.failedReason,
+    createdAt: m.createdAt.toISOString(),
+  }));
 
   // Aggregate channel counts
   const channelStats = new Map<string, { out: number; in: number }>();
@@ -107,61 +118,7 @@ export default async function CommunicationCenterPage() {
         />
       </ul>
 
-      <section className="rounded-xl border border-white/[0.06] bg-[#0d0d0f] p-4">
-        <header className="mb-2 flex items-end justify-between">
-          <div>
-            <p className="ops-eyebrow">Letzte Konversationen</p>
-            <p className="text-[12.5px] text-zinc-400">
-              Eingehende und ausgehende Nachrichten aller Kanäle
-            </p>
-          </div>
-          <Link
-            href={"/crm/communication/log" as Route}
-            className="ops-eyebrow text-orange-300 hover:text-orange-200"
-          >
-            Alle Logs →
-          </Link>
-        </header>
-        {recent.length === 0 && (
-          <p className="py-6 text-center text-[12px] text-zinc-500">
-            Noch keine Kommunikation erfasst.
-          </p>
-        )}
-        <ul className="divide-y divide-white/[0.05]">
-          {recent.map((m) => (
-            <li key={m.id}>
-              <Link
-                href={`/crm/leads/${m.lead.id}` as Route}
-                className="flex items-center gap-3 px-1 py-2.5 transition hover:bg-white/[0.03]"
-              >
-                <span
-                  className={`inline-flex h-6 w-12 items-center justify-center rounded-md text-[9.5px] font-bold tracking-wider ${
-                    m.direction === "IN"
-                      ? "bg-emerald-500/15 text-emerald-300"
-                      : "bg-blue-500/15 text-blue-300"
-                  }`}
-                >
-                  {m.direction === "IN" ? "EIN" : "AUS"}
-                </span>
-                <span className="inline-flex shrink-0 rounded-full bg-white/[0.06] px-2 py-0.5 text-[9.5px] uppercase tracking-wider text-zinc-300">
-                  {CHANNEL_LABEL[m.channel] ?? m.channel}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[12.5px] font-semibold text-white">
-                    {m.lead.firstName} {m.lead.lastName}
-                  </p>
-                  <p className="truncate text-[11px] text-zinc-500">
-                    {m.payload.slice(0, 120)}
-                  </p>
-                </div>
-                <p className="shrink-0 text-[10.5px] tabular-nums text-zinc-500">
-                  {DT_FMT.format(m.createdAt)}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </section>
+      <CommunicationHub messages={hubMessages} />
     </div>
   );
 }

@@ -35,6 +35,11 @@ import { LeadCopilotPanel } from "./sales/LeadCopilotPanel";
 import { ProcessingPanel } from "./sales/ProcessingPanel";
 import { SensitiveRevealToggle } from "./SensitiveRevealToggle";
 import { LeadCommunicationLedger } from "./workspace/LeadCommunicationLedger";
+import {
+  LeadMessagingPanel,
+  type OutboundMessageRef,
+  type TemplateOption,
+} from "./workspace/LeadMessagingPanel";
 import { LeadDocumentChecklist } from "./workspace/LeadDocumentChecklist";
 import { PortalDocumentReview } from "./workspace/PortalDocumentReview";
 import { PortalLinkPanel } from "./workspace/PortalLinkPanel";
@@ -62,12 +67,14 @@ export function LeadDetail({
   currentUser,
   assignees,
   tasks,
+  whatsappLive = false,
 }: {
   data: LeadFullDetail;
   automationTemplates: AutomationTemplateEntry[];
   currentUser: UserSummary;
   assignees: ReadonlyArray<UserSummary>;
   tasks: ReadonlyArray<TaskSummary>;
+  whatsappLive?: boolean;
 }) {
   const { lead } = data;
   const timeline = buildTimeline({
@@ -84,6 +91,26 @@ export function LeadDetail({
   );
   const emailSent = sentChannels.has("EMAIL");
   const whatsappSent = sentChannels.has("WHATSAPP");
+
+  const messageTemplates: TemplateOption[] = automationTemplates
+    .filter((t) => t.enabled && t.status === "active")
+    .map((t) => ({
+      id: t.id,
+      name: t.name,
+      channel: t.channel,
+      category: t.category,
+      body: t.body,
+      approvalStatus: t.metaApprovalStatus,
+    }));
+  const outboundMessages: OutboundMessageRef[] = data.communications
+    .filter((c) => c.direction === "OUT")
+    .slice(0, 6)
+    .map((c) => ({
+      id: c.id,
+      body: c.payload,
+      channel: c.channel,
+      status: c.status,
+    }));
 
   const hasCv =
     lead.unemployedSince ||
@@ -166,10 +193,18 @@ export function LeadDetail({
             </SectionCard>
           </div>
           <aside className="space-y-6 xl:col-span-4">
+            <SectionCard title="Nachricht senden / simulieren">
+              <LeadMessagingPanel
+                leadId={lead.id}
+                templates={messageTemplates}
+                outbound={outboundMessages}
+                whatsappLive={whatsappLive}
+              />
+            </SectionCard>
             <SectionCard title="Anruf protokollieren">
               <CallLogPanel leadId={lead.id} initial={data.callLogs} canTrack={canTrack} />
             </SectionCard>
-            <SectionCard title="Vorlage senden / Magic-Link">
+            <SectionCard title="Magic-Link senden">
               <MagicLinkPanel leadId={lead.id} />
             </SectionCard>
             <LeadAutomationSection

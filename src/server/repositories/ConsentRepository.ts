@@ -24,6 +24,14 @@ export interface AppendConsentInput {
   utm: string | null;
   ipHash: string | null;
   userAgent: string | null;
+  textVersion?: string | null;
+}
+
+export interface ConsentProof {
+  accepted: boolean;
+  acceptedAt: Date | null;
+  source: string | null;
+  textVersion: string | null;
 }
 
 export class ConsentRepository {
@@ -41,8 +49,27 @@ export class ConsentRepository {
         utm: input.utm,
         ipHash: input.ipHash,
         userAgent: input.userAgent,
+        textVersion: input.textVersion ?? null,
       },
     });
+  }
+
+  /** Latest opt-in proof for a consent type (accepted = latest action GRANT). */
+  async latestProof(leadId: string, type: ConsentType): Promise<ConsentProof> {
+    const row = await prisma.consentRecord.findFirst({
+      where: { leadId, type },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!row) {
+      return { accepted: false, acceptedAt: null, source: null, textVersion: null };
+    }
+    const accepted = parseConsentAction(row.action) === "GRANT";
+    return {
+      accepted,
+      acceptedAt: accepted ? row.createdAt : null,
+      source: row.source,
+      textVersion: row.textVersion ?? null,
+    };
   }
 
   /**

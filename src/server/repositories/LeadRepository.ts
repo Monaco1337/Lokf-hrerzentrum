@@ -243,6 +243,28 @@ export class LeadRepository {
     return row ? rowToSummary(row as LeadRowWithAssignee) : null;
   }
 
+  /**
+   * Best-effort lookup by phone number for inbound WhatsApp webhooks. Stored
+   * numbers may contain spaces / country-code formatting, so we compare on the
+   * digit-only tail (last 8 digits) rather than an exact string match.
+   */
+  async findByPhone(phone: string): Promise<LeadSummary | null> {
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 6) return null;
+    const tail = digits.slice(-8);
+
+    const candidates = await prisma.lead.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      include: ASSIGNEE_INCLUDE,
+      take: 2000,
+    });
+    const match = candidates.find((c) =>
+      (c.phone ?? "").replace(/\D/g, "").endsWith(tail),
+    );
+    return match ? rowToSummary(match as LeadRowWithAssignee) : null;
+  }
+
   async update(
     id: string,
     fields: UpdateLeadFields,
