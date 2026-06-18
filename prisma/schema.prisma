@@ -368,8 +368,8 @@ model AutomationTemplate {
 
   slug String @unique // e.g. "lead.created.email"
 
-  trigger String // AutomationTrigger enum: LEAD_CREATED
-  channel String // CommunicationChannel enum: EMAIL | WHATSAPP
+  trigger String // AutomationTrigger enum: LEAD_CREATED | MANUAL | …
+  channel String // CommunicationChannel enum: EMAIL | WHATSAPP | INTERNAL
 
   name    String
   subject String? // email only
@@ -378,6 +378,15 @@ model AutomationTemplate {
   enabled         Boolean @default(true)
   requiresConsent String? // ConsentType enum — skip send when not granted
 
+  // --- Configurable template system (admin-managed message blocks) ----------
+  category          String  @default("welcome") // welcome | documents | reminder | …
+  status            String  @default("active") // draft | active | inactive
+  language          String  @default("de")
+  metaTemplateName  String? // future WhatsApp Business template name
+  metaApprovalStatus String? // not_submitted | pending | approved | rejected
+  usageCount        Int      @default(0)
+  lastUsedAt        DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -385,6 +394,65 @@ model AutomationTemplate {
 
   @@index([trigger, channel])
   @@index([enabled])
+  @@index([category, status])
+}
+
+// ----------------------------------------------------------------------------
+// AutomationRule — admin-configurable trigger → conditions → actions.
+// `conditions` and `actions` are JSON strings (validated via zod at the
+// boundary). Rules are SIMULATED only — no external messages are ever sent.
+// ----------------------------------------------------------------------------
+
+model AutomationRule {
+  id String @id @default(cuid())
+
+  name        String
+  description String?
+
+  trigger    String // AutomationTrigger enum
+  conditions String @default("[]") // JSON array of {type, value?}
+  actions    String @default("[]") // JSON array of {type, …params}
+
+  status  String @default("draft") // draft | active | inactive
+  runMode String @default("demo") // demo | simulation | production_ready
+
+  lastRunAt  DateTime?
+  runCount   Int       @default(0)
+  errorCount Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  runs AutomationRunLog[]
+
+  @@index([trigger, status])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// AutomationRunLog — append-only history of (simulated) rule executions.
+// `detail` holds a JSON snapshot of the actions the rule performed/simulated.
+// ----------------------------------------------------------------------------
+
+model AutomationRunLog {
+  id String @id @default(cuid())
+
+  ruleId String
+  rule   AutomationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  leadId String? // optional lead the run acted on
+
+  status  String // SIMULATED | SKIPPED | ERROR
+  summary String // human-readable description of what happened
+  detail  String @default("{}") // JSON: { actions: [...], conditions: [...] }
+
+  isTest      Boolean @default(true)
+  triggeredBy String  @default("system")
+
+  createdAt DateTime @default(now())
+
+  @@index([ruleId, createdAt])
+  @@index([leadId])
 }
 
 // ----------------------------------------------------------------------------

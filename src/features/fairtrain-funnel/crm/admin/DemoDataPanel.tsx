@@ -29,6 +29,8 @@ const LABELS: Record<string, string> = {
   Task: "Aufgaben",
   AutomationTemplate: "Nachrichtenvorlagen",
   AutomationLog: "Automations-Protokolle",
+  AutomationRule: "Automationsregeln",
+  AutomationRunLog: "Automations-Ausführungen",
   MagicLinkToken: "Bewerberlinks",
 };
 

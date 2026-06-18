@@ -1,49 +1,72 @@
 /**
- * AutomationTemplateRepository — mutable templates edited in CRM admin.
+ * AutomationTemplateRepository — mutable, admin-managed message templates.
+ *
+ * `isDemo` is resolved through the DemoSeedEntry registry (no dedicated column)
+ * so demo templates stay cleanly separable from production data.
  */
-import type {
-  AutomationTemplateEntry,
-  AutomationTrigger,
-  CommunicationChannel,
-  ConsentType,
+import {
+  type AutomationTemplateEntry,
+  type AutomationTrigger,
+  type MetaApprovalStatus,
+  MetaApprovalStatusSchema,
+  type TemplateCategory,
+  TemplateCategorySchema,
+  type TemplateChannel,
+  TemplateChannelSchema,
+  type TemplateStatus,
+  TemplateStatusSchema,
+  type ConsentType,
 } from "@/features/fairtrain-funnel/types";
 
 import { prisma } from "../db/prisma";
-import {
-  parseAutomationTrigger,
-  parseCommunicationChannel,
-  parseConsentType,
-} from "./types";
+import { demoSeedRepository } from "./DemoSeedRepository";
+import { parseAutomationTrigger, parseConsentType } from "./types";
 
 export interface UpsertAutomationTemplateInput {
   slug: string;
   trigger: AutomationTrigger;
-  channel: CommunicationChannel;
+  channel: TemplateChannel;
+  category: TemplateCategory;
+  status: TemplateStatus;
+  language: string;
   name: string;
   subject: string | null;
   body: string;
-  enabled: boolean;
   requiresConsent: ConsentType | null;
+  metaTemplateName: string | null;
+  metaApprovalStatus: MetaApprovalStatus | null;
 }
 
-function mapRow(row: {
+interface TemplateRow {
   id: string;
   slug: string;
   trigger: string;
   channel: string;
+  category: string;
+  status: string;
+  language: string;
   name: string;
   subject: string | null;
   body: string;
   enabled: boolean;
   requiresConsent: string | null;
+  metaTemplateName: string | null;
+  metaApprovalStatus: string | null;
+  usageCount: number;
+  lastUsedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
-}): AutomationTemplateEntry {
+}
+
+function mapRow(row: TemplateRow, demoIds: ReadonlySet<string>): AutomationTemplateEntry {
   return {
     id: row.id,
     slug: row.slug,
     trigger: parseAutomationTrigger(row.trigger),
-    channel: parseCommunicationChannel(row.channel),
+    channel: TemplateChannelSchema.parse(row.channel),
+    category: TemplateCategorySchema.parse(row.category),
+    status: TemplateStatusSchema.parse(row.status),
+    language: row.language,
     name: row.name,
     subject: row.subject,
     body: row.body,
@@ -51,79 +74,135 @@ function mapRow(row: {
     requiresConsent: row.requiresConsent
       ? parseConsentType(row.requiresConsent)
       : null,
+    metaTemplateName: row.metaTemplateName,
+    metaApprovalStatus: row.metaApprovalStatus
+      ? MetaApprovalStatusSchema.parse(row.metaApprovalStatus)
+      : null,
+    usageCount: row.usageCount,
+    lastUsedAt: row.lastUsedAt,
+    isDemo: demoIds.has(row.id),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
 }
 
 export class AutomationTemplateRepository {
+  private async demoIds(): Promise<Set<string>> {
+    return new Set(await demoSeedRepository.listByType("AutomationTemplate"));
+  }
+
   async list(): Promise<AutomationTemplateEntry[]> {
-    const rows = await prisma.automationTemplate.findMany({
-      orderBy: [{ trigger: "asc" }, { channel: "asc" }],
-    });
-    return rows.map(mapRow);
+    const [rows, demoIds] = await Promise.all([
+      prisma.automationTemplate.findMany({
+        orderBy: [{ category: "asc" }, { channel: "asc" }, { name: "asc" }],
+      }),
+      this.demoIds(),
+    ]);
+    return rows.map((r) => mapRow(r, demoIds));
   }
 
   async findById(id: string): Promise<AutomationTemplateEntry | null> {
-    const row = await prisma.automationTemplate.findUnique({ where: { id } });
-    return row ? mapRow(row) : null;
+    const [row, demoIds] = await Promise.all([
+      prisma.automationTemplate.findUnique({ where: { id } }),
+      this.demoIds(),
+    ]);
+    return row ? mapRow(row, demoIds) : null;
   }
 
   async findBySlug(slug: string): Promise<AutomationTemplateEntry | null> {
-    const row = await prisma.automationTemplate.findUnique({ where: { slug } });
-    return row ? mapRow(row) : null;
+    const [row, demoIds] = await Promise.all([
+      prisma.automationTemplate.findUnique({ where: { slug } }),
+      this.demoIds(),
+    ]);
+    return row ? mapRow(row, demoIds) : null;
   }
 
+  /** Legacy auto-send path: only ACTIVE templates with the matching trigger. */
   async listEnabledForTrigger(
     trigger: AutomationTrigger,
   ): Promise<AutomationTemplateEntry[]> {
-    const rows = await prisma.automationTemplate.findMany({
-      where: { trigger, enabled: true },
-      orderBy: { channel: "asc" },
-    });
-    return rows.map(mapRow);
+    const [rows, demoIds] = await Promise.all([
+      prisma.automationTemplate.findMany({
+        where: { trigger, enabled: true, status: "active" },
+        orderBy: { channel: "asc" },
+      }),
+      this.demoIds(),
+    ]);
+    return rows.map((r) => mapRow(r, demoIds));
   }
 
-  async upsert(input: UpsertAutomationTemplateInput): Promise<AutomationTemplateEntry> {
-    const row = await prisma.automationTemplate.upsert({
-      where: { slug: input.slug },
-      create: {
+  async create(input: UpsertAutomationTemplateInput): Promise<AutomationTemplateEntry> {
+    const row = await prisma.automationTemplate.create({
+      data: {
         slug: input.slug,
         trigger: input.trigger,
         channel: input.channel,
+        category: input.category,
+        status: input.status,
+        language: input.language,
         name: input.name,
         subject: input.subject,
         body: input.body,
-        enabled: input.enabled,
+        enabled: input.status === "active",
         requiresConsent: input.requiresConsent,
-      },
-      update: {
-        trigger: input.trigger,
-        channel: input.channel,
-        name: input.name,
-        subject: input.subject,
-        body: input.body,
-        enabled: input.enabled,
-        requiresConsent: input.requiresConsent,
+        metaTemplateName: input.metaTemplateName,
+        metaApprovalStatus: input.metaApprovalStatus,
       },
     });
-    return mapRow(row);
+    return mapRow(row, await this.demoIds());
+  }
+
+  async upsert(input: UpsertAutomationTemplateInput): Promise<AutomationTemplateEntry> {
+    const data = {
+      trigger: input.trigger,
+      channel: input.channel,
+      category: input.category,
+      status: input.status,
+      language: input.language,
+      name: input.name,
+      subject: input.subject,
+      body: input.body,
+      enabled: input.status === "active",
+      requiresConsent: input.requiresConsent,
+      metaTemplateName: input.metaTemplateName,
+      metaApprovalStatus: input.metaApprovalStatus,
+    };
+    const row = await prisma.automationTemplate.upsert({
+      where: { slug: input.slug },
+      create: { slug: input.slug, ...data },
+      update: data,
+    });
+    return mapRow(row, await this.demoIds());
   }
 
   async update(
     id: string,
-    patch: Partial<
-      Pick<
-        UpsertAutomationTemplateInput,
-        "name" | "subject" | "body" | "enabled" | "requiresConsent"
-      >
-    >,
+    patch: {
+      name?: string;
+      subject?: string | null;
+      body?: string;
+      category?: TemplateCategory;
+      status?: TemplateStatus;
+      requiresConsent?: ConsentType | null;
+      metaTemplateName?: string | null;
+      metaApprovalStatus?: MetaApprovalStatus | null;
+    },
   ): Promise<AutomationTemplateEntry> {
-    const row = await prisma.automationTemplate.update({
+    const data: Record<string, unknown> = { ...patch };
+    if (patch.status !== undefined) data.enabled = patch.status === "active";
+    const row = await prisma.automationTemplate.update({ where: { id }, data });
+    return mapRow(row, await this.demoIds());
+  }
+
+  async delete(id: string): Promise<void> {
+    await prisma.automationTemplate.delete({ where: { id } });
+  }
+
+  async recordUsage(id: string): Promise<void> {
+    await prisma.automationTemplate.update({
       where: { id },
-      data: patch,
+      data: { usageCount: { increment: 1 }, lastUsedAt: new Date() },
     });
-    return mapRow(row);
   }
 }
 

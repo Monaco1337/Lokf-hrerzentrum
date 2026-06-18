@@ -21,6 +21,8 @@ export type DemoEntityType =
   | "Task"
   | "AutomationTemplate"
   | "AutomationLog"
+  | "AutomationRule"
+  | "AutomationRunLog"
   | "MagicLinkToken";
 
 export interface DemoSeedRow {

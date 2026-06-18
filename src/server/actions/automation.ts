@@ -7,7 +7,11 @@ import { z } from "zod";
 import {
   CommunicationChannel,
   ConsentTypeSchema,
+  MetaApprovalStatusSchema,
+  TemplateCategorySchema,
+  TemplateStatusSchema,
 } from "@/features/fairtrain-funnel/types";
+import { revalidatePath } from "next/cache";
 
 import { NotFoundError, ValidationError } from "../errors";
 import { automationService } from "../services/AutomationService";
@@ -19,8 +23,11 @@ const UpdateTemplateSchema = z.object({
   name: z.string().min(1).max(120).optional(),
   subject: z.string().max(200).nullable().optional(),
   body: z.string().min(1).max(10000).optional(),
-  enabled: z.boolean().optional(),
+  category: TemplateCategorySchema.optional(),
+  status: TemplateStatusSchema.optional(),
   requiresConsent: ConsentTypeSchema.nullable().optional(),
+  metaTemplateName: z.string().max(120).nullable().optional(),
+  metaApprovalStatus: MetaApprovalStatusSchema.nullable().optional(),
 });
 
 const PreviewTemplateSchema = z.object({
@@ -52,16 +59,94 @@ export async function updateAutomationTemplate(
       name?: string;
       subject?: string | null;
       body?: string;
-      enabled?: boolean;
+      category?: import("@/features/fairtrain-funnel/types").TemplateCategoryType;
+      status?: import("@/features/fairtrain-funnel/types").TemplateStatusType;
       requiresConsent?: import("@/features/fairtrain-funnel/types").ConsentType | null;
+      metaTemplateName?: string | null;
+      metaApprovalStatus?:
+        | import("@/features/fairtrain-funnel/types").MetaApprovalStatusType
+        | null;
     } = {};
     if (rest.name !== undefined) patch.name = rest.name;
     if (rest.subject !== undefined) patch.subject = rest.subject;
     if (rest.body !== undefined) patch.body = rest.body;
-    if (rest.enabled !== undefined) patch.enabled = rest.enabled;
+    if (rest.category !== undefined) patch.category = rest.category;
+    if (rest.status !== undefined) patch.status = rest.status;
     if (rest.requiresConsent !== undefined) patch.requiresConsent = rest.requiresConsent;
+    if (rest.metaTemplateName !== undefined) patch.metaTemplateName = rest.metaTemplateName;
+    if (rest.metaApprovalStatus !== undefined)
+      patch.metaApprovalStatus = rest.metaApprovalStatus;
     const updated = await automationService.updateTemplate(id, patch, actor.id);
+    revalidatePath("/crm/automation");
     return { id: updated.id };
+  });
+}
+
+const CreateTemplateSchema = z.object({
+  name: z.string().min(1).max(120),
+  channel: z.enum(["WHATSAPP", "EMAIL", "INTERNAL"]),
+  category: TemplateCategorySchema,
+  status: TemplateStatusSchema.default("draft"),
+  subject: z.string().max(200).nullable().optional(),
+  body: z.string().min(1).max(10000),
+  requiresConsent: ConsentTypeSchema.nullable().optional(),
+  metaTemplateName: z.string().max(120).nullable().optional(),
+  metaApprovalStatus: MetaApprovalStatusSchema.nullable().optional(),
+});
+
+export async function createAutomationTemplate(
+  raw: unknown,
+): Promise<Result<{ id: string }>> {
+  return runAction(async () => {
+    const parsed = CreateTemplateSchema.safeParse(raw);
+    if (!parsed.success) throw new ValidationError("Invalid template payload");
+    const actor = await requirePermission("canManageAutomations");
+    const d = parsed.data;
+    const created = await automationService.createTemplate(
+      {
+        name: d.name,
+        channel: d.channel,
+        category: d.category,
+        status: d.status,
+        language: "de",
+        subject: d.subject ?? null,
+        body: d.body,
+        requiresConsent: d.requiresConsent ?? null,
+        metaTemplateName: d.metaTemplateName ?? null,
+        metaApprovalStatus: d.metaApprovalStatus ?? null,
+      },
+      actor.id,
+    );
+    revalidatePath("/crm/automation");
+    return { id: created.id };
+  });
+}
+
+const TemplateIdSchema = z.object({ id: z.string().min(1) });
+
+export async function duplicateAutomationTemplate(
+  raw: unknown,
+): Promise<Result<{ id: string }>> {
+  return runAction(async () => {
+    const parsed = TemplateIdSchema.safeParse(raw);
+    if (!parsed.success) throw new ValidationError("Invalid payload");
+    const actor = await requirePermission("canManageAutomations");
+    const created = await automationService.duplicateTemplate(parsed.data.id, actor.id);
+    revalidatePath("/crm/automation");
+    return { id: created.id };
+  });
+}
+
+export async function deleteAutomationTemplate(
+  raw: unknown,
+): Promise<Result<{ id: string }>> {
+  return runAction(async () => {
+    const parsed = TemplateIdSchema.safeParse(raw);
+    if (!parsed.success) throw new ValidationError("Invalid payload");
+    const actor = await requirePermission("canManageAutomations");
+    await automationService.deleteTemplate(parsed.data.id, actor.id);
+    revalidatePath("/crm/automation");
+    return { id: parsed.data.id };
   });
 }
 

@@ -16,6 +16,7 @@ import { prisma } from "../db/prisma";
 import { demoSeedRepository } from "../repositories/DemoSeedRepository";
 import { seedDemoLeads, seedDemoUsers } from "./DemoDataSeeder";
 import { seedDemoActivity } from "./DemoDataSeederActivity";
+import { seedDemoTemplatesAndRules } from "./DemoDataSeederAutomationLib";
 import { seedDemoAutomation, seedDemoTasks } from "./DemoDataSeederOps";
 
 class DemoDataService {
@@ -54,6 +55,7 @@ class DemoDataService {
     await seedDemoActivity(leads);
     await seedDemoTasks(users, leads);
     await seedDemoAutomation(leads);
+    await seedDemoTemplatesAndRules();
 
     const total = await demoSeedRepository.countAll();
     return { created: total, reused: false };
@@ -106,6 +108,14 @@ class DemoDataService {
       {
         type: "AutomationLog",
         del: (id) => prisma.automationLog.delete({ where: { id } }),
+      },
+      {
+        type: "AutomationRunLog",
+        del: (id) => prisma.automationRunLog.delete({ where: { id } }),
+      },
+      {
+        type: "AutomationRule",
+        del: (id) => prisma.automationRule.delete({ where: { id } }),
       },
       { type: "Task", del: (id) => prisma.task.delete({ where: { id } }) },
       { type: "AuditLog", del: (id) => prisma.auditLog.delete({ where: { id } }) },
