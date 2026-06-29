@@ -10,6 +10,7 @@ import { FoerderungSection } from "./landing/FoerderungSection";
 import { HeroSection } from "./landing/HeroSection";
 import { HowItWorksSection } from "./landing/HowItWorksSection";
 import { LocationSection } from "./landing/LocationSection";
+import { SeoClusterSection } from "./landing/SeoClusterSection";
 
 export function FairtrainLandingPage() {
   return (
@@ -23,6 +24,7 @@ export function FairtrainLandingPage() {
         <ChecklistSection />
         <LocationSection />
         <FoerderungSection />
+        <SeoClusterSection />
         <FaqSection />
         <ContactSection />
       </main>

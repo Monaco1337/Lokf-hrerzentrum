@@ -15,6 +15,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
+import { CITIES } from "@/features/knowledge/content/staedte";
 import { KNOWLEDGE_NAV } from "@/features/knowledge/routes";
 
 import { Logo } from "../ui/Logo";
@@ -29,6 +30,23 @@ interface FooterLinkItem {
 const KNOWLEDGE_FOOTER_LINKS: ReadonlyArray<FooterLinkItem> = KNOWLEDGE_NAV.map(
   (r) => ({ href: r.path, label: r.navLabel ?? r.path }),
 );
+
+/** Top cities surfaced sitewide for crawlable internal linking to the cluster. */
+const TOP_CITY_SLUGS = [
+  "berlin",
+  "hamburg",
+  "muenchen",
+  "koeln",
+  "frankfurt",
+  "stuttgart",
+  "duesseldorf",
+  "leipzig",
+] as const;
+
+const CITY_FOOTER_LINKS: ReadonlyArray<FooterLinkItem> = TOP_CITY_SLUGS
+  .map((slug) => CITIES.find((c) => c.slug === slug))
+  .filter((c): c is NonNullable<typeof c> => Boolean(c))
+  .map((c) => ({ href: `/staedte/${c.slug}`, label: c.name }));
 
 const LEGAL_LINKS: ReadonlyArray<FooterLinkItem> = [
   { href: "/datenschutz", label: "Datenschutz" },
@@ -127,7 +145,7 @@ function SitemapGrid() {
     <div className="relative mx-auto max-w-7xl px-6 pt-14 md:px-10 md:pt-20">
       <div className="grid gap-12 md:grid-cols-12 md:gap-10">
         {/* Brand voice */}
-        <div className="md:col-span-5">
+        <div className="md:col-span-4">
           <Link
             href="/"
             aria-label="Lokführerzentrum.de Startseite"
@@ -177,6 +195,28 @@ function SitemapGrid() {
           ))}
         </FooterColumn>
 
+        {/* Städte (SEO cluster) */}
+        <FooterColumn className="md:col-span-2" title="Städte">
+          {CITY_FOOTER_LINKS.map((l) => (
+            <li key={l.href}>
+              <Link
+                href={l.href as Route}
+                className="inline-flex items-center text-[13.5px] text-ink-soft transition hover:text-navy-950"
+              >
+                {l.label}
+              </Link>
+            </li>
+          ))}
+          <li>
+            <Link
+              href="/staedte"
+              className="inline-flex items-center font-semibold text-accent-700 transition hover:text-accent-800"
+            >
+              Alle Städte →
+            </Link>
+          </li>
+        </FooterColumn>
+
         {/* Standorte */}
         <FooterColumn className="md:col-span-2" title="Standorte">
           {LOCATIONS.map((l) => (
@@ -195,7 +235,7 @@ function SitemapGrid() {
         </FooterColumn>
 
         {/* Legal */}
-        <FooterColumn className="md:col-span-3" title="Vertrauen & Recht">
+        <FooterColumn className="md:col-span-2" title="Vertrauen & Recht">
           {LEGAL_LINKS.map((l) => (
             <FooterLink key={l.href} href={l.href}>
               {l.label}
