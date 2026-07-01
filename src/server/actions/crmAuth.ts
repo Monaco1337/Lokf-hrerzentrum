@@ -1,6 +1,7 @@
 "use server";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import type { Route } from "next";
 
 import { CrmLoginSchema } from "@/features/fairtrain-funnel/forms/schemas";
 import { AuditAction } from "@/features/fairtrain-funnel/types";
@@ -34,6 +35,7 @@ export async function crmLogin(formData: FormData): Promise<void> {
   }
 
   let userId: string | null = null;
+  let mustChangePassword = false;
   try {
     if (parsed.data.email) {
       const { user } = await authService.verifyCredentials(
@@ -41,11 +43,15 @@ export async function crmLogin(formData: FormData): Promise<void> {
         parsed.data.password,
       );
       userId = user.id;
+      mustChangePassword = user.mustChangePassword;
     } else {
       const fallback = await authService.verifyLegacyPassword(
         parsed.data.password,
       );
-      if (fallback) userId = fallback.id;
+      if (fallback) {
+        userId = fallback.id;
+        mustChangePassword = fallback.mustChangePassword;
+      }
     }
   } catch {
     redirect("/crm/login?error=credentials");
@@ -70,6 +76,10 @@ export async function crmLogin(formData: FormData): Promise<void> {
     path: "/",
     maxAge: SESSION_TTL_SECONDS,
   });
+  // Force password change on first login — cast needed until next build regenerates typed routes
+  if (mustChangePassword) {
+    redirect("/crm/change-password" as Route);
+  }
   redirect("/crm");
 }
 

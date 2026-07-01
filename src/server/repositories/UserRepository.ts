@@ -31,6 +31,7 @@ function rowToSummary(row: UserRow): UserSummary {
     isActive: row.isActive,
     avatar: row.avatar,
     lastLoginAt: row.lastLoginAt,
+    mustChangePassword: row.mustChangePassword,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -59,6 +60,7 @@ export interface UserAuthRow {
   role: Role;
   isActive: boolean;
   avatar: string | null;
+  mustChangePassword: boolean;
 }
 
 export interface CreateUserInput {
@@ -67,6 +69,7 @@ export interface CreateUserInput {
   passwordHash: string | null;
   role: Role;
   avatar?: string | null;
+  mustChangePassword?: boolean;
 }
 
 export interface UpdateUserInput {
@@ -76,6 +79,7 @@ export interface UpdateUserInput {
   avatar?: string | null;
   isActive?: boolean;
   passwordHash?: string | null;
+  mustChangePassword?: boolean;
 }
 
 export class UserRepository {
@@ -105,6 +109,7 @@ export class UserRepository {
       role: parseRole(row.role),
       isActive: row.isActive,
       avatar: row.avatar,
+      mustChangePassword: row.mustChangePassword,
     };
   }
 
@@ -144,6 +149,7 @@ export class UserRepository {
         passwordHash: input.passwordHash,
         role: input.role,
         avatar: input.avatar ?? null,
+        mustChangePassword: input.mustChangePassword ?? false,
       },
     });
     return rowToSummary(row);
@@ -157,6 +163,7 @@ export class UserRepository {
     if (input.avatar !== undefined) data.avatar = input.avatar;
     if (input.isActive !== undefined) data.isActive = input.isActive;
     if (input.passwordHash !== undefined) data.passwordHash = input.passwordHash;
+    if (input.mustChangePassword !== undefined) data.mustChangePassword = input.mustChangePassword;
     const row = await prisma.user.update({ where: { id }, data });
     return rowToSummary(row);
   }

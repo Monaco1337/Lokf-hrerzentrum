@@ -87,6 +87,7 @@ export interface UserSummary {
   isActive: boolean;
   avatar: string | null;
   lastLoginAt: Date | null;
+  mustChangePassword: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

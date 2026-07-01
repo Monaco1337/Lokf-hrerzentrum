@@ -9,10 +9,14 @@
  *   - All mutating operations emit a corresponding `AuditAction` entry.
  *
  * Bootstrap: `ensureBootstrapAdmins()` is idempotent — on first call (per
- * server process) it makes sure two super admins exist: "Dennis" and
- * "Admin". Existing rows are reused, never duplicated. The seeded users get
- * the legacy `CRM_PASSWORD_HASH` (if configured) so the old single-password
- * login flow keeps working.
+ * server process) it ensures two super-admins exist: "Admin" and
+ * "Danijel Zekanovic". The old "Dennis" account is cleaned up automatically
+ * on the first run after this change. Seeded users receive the legacy
+ * `CRM_PASSWORD_HASH` (if configured) for backward compatibility; Danijel
+ * gets mustChangePassword = true so he is prompted to set his own password.
+ *
+ * One-time initial password for Danijel (share securely out-of-band):
+ *   → same as the configured CRM_PASSWORD_HASH, or "dev" in local dev
  */
 import { hash } from "bcryptjs";
 
@@ -67,27 +71,39 @@ export class UserService {
 
   private async runBootstrap(): Promise<void> {
     const legacyHash = getCrmPasswordHash();
-    // bcrypt-of-"dev" gets reused as a safe in-dev fallback when no real
-    // hash is configured. Operators can change passwords from the UI later.
+    // bcrypt-of-"dev" is used as a safe in-dev fallback when no real
+    // hash is configured. Operators should change passwords via the UI.
     const fallbackHash = await hash("dev", PASSWORD_ROUNDS);
     const defaultHash = legacyHash || fallbackHash;
 
+    // Primary admin — no forced password change (uses legacy hash)
     await this.ensureUser({
       email: "admin@fairtrain.local",
       name: "Admin",
       passwordHash: defaultHash,
+      mustChangePassword: false,
     });
+
+    // Second super-admin: Danijel Zekanovic
+    // Initial password = CRM_PASSWORD_HASH value (or "dev" in local dev).
+    // mustChangePassword = true forces a new password on first login.
     await this.ensureUser({
-      email: "dennis@fairtrain.local",
-      name: "Dennis",
+      email: "danijel@fairtrain.local",
+      name: "Danijel Zekanovic",
       passwordHash: defaultHash,
+      mustChangePassword: true,
     });
+
+    // Cleanup: soft-delete the old "Dennis" bootstrap account if it still
+    // exists, as long as there are at least 2 other active super-admins.
+    await this.retireOldBootstrapAccount("dennis@fairtrain.local");
   }
 
   private async ensureUser(input: {
     email: string;
     name: string;
     passwordHash: string;
+    mustChangePassword: boolean;
   }): Promise<void> {
     const existing = await userRepository.findActiveByEmail(input.email);
     if (existing) return;
@@ -96,6 +112,7 @@ export class UserService {
       email: input.email.toLowerCase(),
       passwordHash: input.passwordHash,
       role: "SUPER_ADMIN",
+      mustChangePassword: input.mustChangePassword,
     });
     await auditLogService.append({
       actor: "system",
@@ -103,6 +120,22 @@ export class UserService {
       entityType: "User",
       entityId: input.email.toLowerCase(),
       details: { role: "SUPER_ADMIN", bootstrap: true },
+    });
+  }
+
+  /** Retire a legacy bootstrap account only when ≥ 2 other admins exist. */
+  private async retireOldBootstrapAccount(email: string): Promise<void> {
+    const old = await userRepository.findActiveByEmail(email);
+    if (!old) return;
+    const activeAdminCount = await userRepository.countActiveByRole("SUPER_ADMIN");
+    if (activeAdminCount < 2) return; // Safety: keep the last one standing
+    await userRepository.softDelete(old.id);
+    await auditLogService.append({
+      actor: "system",
+      action: AuditAction.USER_DELETED,
+      entityType: "User",
+      entityId: old.id,
+      details: { reason: "bootstrap_cleanup", email },
     });
   }
 

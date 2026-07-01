@@ -655,7 +655,8 @@ model User {
   /// Optional avatar URL; renders as initials when null.
   avatar String?
 
-  lastLoginAt DateTime?
+  lastLoginAt       DateTime?
+  mustChangePassword Boolean @default(false)
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
