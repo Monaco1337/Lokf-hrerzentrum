@@ -216,7 +216,7 @@ export function UserAdmin({
               name="email"
               type="email"
               required
-              placeholder="email@fairtrain.local"
+              placeholder="name@fairtrain.de"
               className="input"
             />
             <select name="role" defaultValue="PARTNER_AGENT" className="input">

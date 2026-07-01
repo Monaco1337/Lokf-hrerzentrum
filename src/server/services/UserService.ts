@@ -88,7 +88,7 @@ export class UserService {
     // Initial password = CRM_PASSWORD_HASH value (or "dev" in local dev).
     // mustChangePassword = true forces a new password on first login.
     await this.ensureUser({
-      email: "danijel@fairtrain.local",
+      email: "danijel@fairtrain.de",
       name: "Danijel Zekanovic",
       passwordHash: defaultHash,
       mustChangePassword: true,
