@@ -95,9 +95,10 @@ export class UserService {
       mustChangePassword: true,
     });
 
-    // Cleanup: soft-delete the old "Dennis" bootstrap account if it still
-    // exists, as long as there are at least 2 other active super-admins.
+    // Cleanup: soft-delete legacy bootstrap accounts if they still exist,
+    // as long as ≥ 2 active super-admins remain afterwards.
     await this.retireOldBootstrapAccount("dennis@fairtrain.local");
+    await this.retireOldBootstrapAccount("danijel@fairtrain.local");
   }
 
   private async ensureUser(input: {
@@ -296,6 +297,12 @@ export class UserService {
   private guardActOn(actor: UserSummary, target: UserSummary): void {
     if (actor.id === target.id) {
       // Self-edits are allowed only for name/email/password (not role / active).
+      return;
+    }
+    // A SUPER_ADMIN may manage anyone — including other super-admins. The
+    // "last active super-admin" guard downstream still prevents lockout, so
+    // this is safe while unblocking password resets between super-admins.
+    if (actor.role === "SUPER_ADMIN") {
       return;
     }
     if (target.role === actor.role) {

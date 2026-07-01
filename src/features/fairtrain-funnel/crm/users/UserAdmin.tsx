@@ -109,9 +109,17 @@ export function UserAdmin({
     setUsers((cur) => cur.map((u) => (u.id === target.id ? res.data : u)));
   }
 
-  async function handleSetPassword(target: UserSummary, password: string) {
+  async function handleSetPassword(
+    target: UserSummary,
+    password: string,
+    forceChange: boolean,
+  ) {
     setError(null);
-    const res = await updateUser({ id: target.id, password, mustChangePassword: true });
+    const res = await updateUser({
+      id: target.id,
+      password,
+      mustChangePassword: forceChange,
+    });
     if (!res.ok) { setError(res.message); return; }
     setUsers((cur) => cur.map((u) => (u.id === target.id ? res.data : u)));
     setPwTarget(null);
@@ -311,7 +319,9 @@ export function UserAdmin({
           user={pwTarget}
           pending={pending}
           onClose={() => setPwTarget(null)}
-          onSave={(pw) => startTransition(() => void handleSetPassword(pwTarget, pw))}
+          onSave={(pw, forceChange) =>
+            startTransition(() => void handleSetPassword(pwTarget, pw, forceChange))
+          }
         />
       ) : null}
     </div>
@@ -329,17 +339,18 @@ function SetPasswordModal({
   user: UserSummary;
   pending: boolean;
   onClose: () => void;
-  onSave: (password: string) => void;
+  onSave: (password: string, forceChange: boolean) => void;
 }) {
   const [pw, setPw] = useState("");
   const [show, setShow] = useState(false);
+  const [forceChange, setForceChange] = useState(true);
   const [localErr, setLocalErr] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     if (pw.length < 8) { setLocalErr("Mindestens 8 Zeichen"); return; }
     setLocalErr(null);
-    onSave(pw);
+    onSave(pw, forceChange);
   }
 
   return (
@@ -385,9 +396,21 @@ function SetPasswordModal({
             </div>
           </div>
 
-          <div className="rounded-xl bg-amber-50 px-3.5 py-3 text-[12px] text-amber-800 ring-1 ring-amber-200">
-            Nach dem Speichern muss <strong>{user.name}</strong> das Passwort beim nächsten Login selbst ändern.
-          </div>
+          <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-surface-subtle/60 px-3.5 py-3 ring-1 ring-ink/[0.06]">
+            <input
+              type="checkbox"
+              checked={forceChange}
+              onChange={(e) => setForceChange(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-brand-600"
+            />
+            <span className="text-[12px] text-ink-soft">
+              <span className="font-semibold text-ink">Passwortänderung beim nächsten Login erzwingen</span>
+              <br />
+              {forceChange
+                ? <>{user.name} muss beim nächsten Login ein eigenes Passwort festlegen.</>
+                : <>Zum Testen: der Login funktioniert direkt, ohne Passwortänderung.</>}
+            </span>
+          </label>
 
           {localErr ? (
             <p className="text-[12.5px] font-medium text-rose-600">{localErr}</p>
