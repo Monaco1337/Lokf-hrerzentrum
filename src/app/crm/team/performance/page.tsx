@@ -216,97 +216,114 @@ export default async function MitarbeiterPerformancePage() {
   });
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
+      {/* ── Page header ─────────────────────────────────────────────── */}
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="ops-eyebrow">Sales Control Center</p>
-          <h1 className="mt-1 text-[26px] font-bold tracking-tight text-white sm:text-[28px]">
+          <p className="text-[10.5px] font-semibold uppercase tracking-[0.22em] text-ink-muted">
+            Sales Control Center
+          </p>
+          <h1 className="mt-1 font-display text-[22px] font-bold tracking-tight text-navy-950 sm:text-[26px]">
             Vertrieb &amp; Team-Pulse
           </h1>
-          <p className="mt-1 max-w-2xl text-[12.5px] text-zinc-400">
-            Pro Mitarbeiter: was heute geschah, was noch offen ist, wie
-            effizient gearbeitet wird.
+          <p className="mt-1 max-w-2xl text-[12.5px] text-ink-muted">
+            Pro Mitarbeiter: was heute geschah, was noch offen ist, wie effizient gearbeitet wird.
           </p>
         </div>
+        <p className="hidden text-[11.5px] text-ink-muted sm:block">
+          Echtzeit · täglich aktualisiert
+        </p>
       </header>
 
-      <ul className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
+      {/* ── Agent card grid ─────────────────────────────────────────── */}
+      <ul className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
         {ranking.map((row) => (
           <li
             key={row.user.id}
-            className="rounded-xl border border-white/[0.06] bg-[#0d0d0f] p-4"
+            className="rounded-2xl border border-ink/[0.08] bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition-shadow hover:shadow-[0_4px_16px_-6px_rgba(15,23,42,0.12)]"
           >
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-orange-500 to-amber-400 text-[11px] font-bold text-black">
-                {row.user.name
-                  .split(/\s+/)
-                  .map((p) => p[0])
-                  .filter(Boolean)
-                  .slice(0, 2)
-                  .join("")
-                  .toUpperCase()}
-              </span>
+            {/* Card header — name + role, no avatar */}
+            <div className="flex items-center justify-between gap-3 border-b border-ink/[0.07] px-5 py-4">
               <div className="min-w-0">
-                <p className="truncate text-[13px] font-semibold text-white">
+                <p className="truncate text-[14px] font-semibold tracking-tight text-navy-950">
                   {row.user.name}
                 </p>
-                <p className="text-[10.5px] text-zinc-500">{row.user.role}</p>
+                <p className="mt-0.5 truncate text-[11px] uppercase tracking-[0.12em] text-ink-muted">
+                  {row.user.role.replace(/_/g, " ")}
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full bg-surface-subtle px-2.5 py-1 text-[11px] font-semibold text-ink-muted ring-1 ring-ink/[0.08]">
+                {row.efficiency.activeLeads} Leads
+              </span>
+            </div>
+
+            <div className="space-y-4 px-5 py-4">
+              {/* HEUTE */}
+              <div>
+                <p className="mb-2 text-[9.5px] font-semibold uppercase tracking-[0.2em] text-ink-muted">
+                  Heute
+                </p>
+                <div className="grid grid-cols-5 gap-1.5">
+                  <Tile label="Anrufe"    value={row.today.calls} />
+                  <Tile label="Quali"     value={row.today.qualifications} />
+                  <Tile label="Termine"   value={row.today.appointments} />
+                  <Tile label="Gutschein" value={row.today.voucherActivity} />
+                  <Tile label="Anmeldung" value={row.today.enrollments} />
+                </div>
+              </div>
+
+              {/* OFFEN */}
+              <div>
+                <p className="mb-2 text-[9.5px] font-semibold uppercase tracking-[0.2em] text-ink-muted">
+                  Offen
+                </p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Tile
+                    label="Überfällig"
+                    value={row.open.overdueLeads}
+                    tone={row.open.overdueLeads > 0 ? "red" : "neutral"}
+                  />
+                  <Tile
+                    label="Rückrufe"
+                    value={row.open.overdueCallbacks}
+                    tone={row.open.overdueCallbacks > 0 ? "amber" : "neutral"}
+                  />
+                  <Tile
+                    label="Doc-Lücken"
+                    value={row.open.missingDocs}
+                    tone={row.open.missingDocs > 0 ? "orange" : "neutral"}
+                  />
+                </div>
+              </div>
+
+              {/* EFFIZIENZ */}
+              <div>
+                <p className="mb-2 text-[9.5px] font-semibold uppercase tracking-[0.2em] text-ink-muted">
+                  Effizienz
+                </p>
+                <div className="grid grid-cols-3 gap-1.5">
+                  <Tile
+                    label="Abschluss"
+                    value={PERCENT.format(row.efficiency.conversion)}
+                    tone="emerald"
+                  />
+                  <Tile
+                    label="Reaktion"
+                    value={
+                      row.efficiency.avgResponseHours === null
+                        ? "—"
+                        : `${row.efficiency.avgResponseHours.toFixed(1)} h`
+                    }
+                    tone="blue"
+                  />
+                  <Tile
+                    label="Pünktlich"
+                    value={PERCENT.format(row.efficiency.slaCompliance)}
+                    tone={row.efficiency.slaCompliance >= 0.9 ? "emerald" : "red"}
+                  />
+                </div>
               </div>
             </div>
-
-            <h3 className="ops-eyebrow mt-3">Heute</h3>
-            <div className="mt-1.5 grid grid-cols-5 gap-1.5">
-              <Tile label="Anrufe" value={row.today.calls} />
-              <Tile label="Quali" value={row.today.qualifications} />
-              <Tile label="Termine" value={row.today.appointments} />
-              <Tile label="Gutschein" value={row.today.voucherActivity} />
-              <Tile label="Anmeldung" value={row.today.enrollments} />
-            </div>
-
-            <h3 className="ops-eyebrow mt-3">Offen</h3>
-            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-              <Tile
-                label="Überfällig"
-                value={row.open.overdueLeads}
-                tone={row.open.overdueLeads > 0 ? "red" : "slate"}
-              />
-              <Tile
-                label="Rückrufe"
-                value={row.open.overdueCallbacks}
-                tone={row.open.overdueCallbacks > 0 ? "amber" : "slate"}
-              />
-              <Tile
-                label="Doc-Lücken"
-                value={row.open.missingDocs}
-                tone={row.open.missingDocs > 0 ? "orange" : "slate"}
-              />
-            </div>
-
-            <h3 className="ops-eyebrow mt-3">Effizienz</h3>
-            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-              <Tile
-                label="Abschluss"
-                value={PERCENT.format(row.efficiency.conversion)}
-                tone="emerald"
-              />
-              <Tile
-                label="Reaktion"
-                value={
-                  row.efficiency.avgResponseHours === null
-                    ? "—"
-                    : `${row.efficiency.avgResponseHours.toFixed(1)} h`
-                }
-                tone="blue"
-              />
-              <Tile
-                label="Pünktlich"
-                value={PERCENT.format(row.efficiency.slaCompliance)}
-                tone={row.efficiency.slaCompliance >= 0.9 ? "emerald" : "red"}
-              />
-            </div>
-            <p className="mt-2 text-[10px] text-zinc-500">
-              {row.efficiency.activeLeads} aktive Leads
-            </p>
           </li>
         ))}
       </ul>
@@ -314,31 +331,41 @@ export default async function MitarbeiterPerformancePage() {
   );
 }
 
+type Tone = "neutral" | "red" | "amber" | "orange" | "emerald" | "blue";
+
 function Tile({
   label,
   value,
-  tone = "slate",
+  tone = "neutral",
 }: {
   label: string;
   value: number | string;
-  tone?: "slate" | "red" | "amber" | "orange" | "emerald" | "blue";
+  tone?: Tone;
 }) {
-  const cls = {
-    slate: "bg-white/[0.03] text-zinc-300 border-white/[0.06]",
-    red: "bg-red-500/[0.10] text-red-200 border-red-500/30",
-    amber: "bg-amber-500/[0.10] text-amber-200 border-amber-500/30",
-    orange: "bg-orange-500/[0.10] text-orange-200 border-orange-500/30",
-    emerald: "bg-emerald-500/[0.10] text-emerald-200 border-emerald-500/30",
-    blue: "bg-blue-500/[0.10] text-blue-200 border-blue-500/30",
-  } as const;
+  const styles: Record<Tone, string> = {
+    neutral: "bg-surface-subtle/70 text-navy-950 border-ink/[0.07]",
+    red:     "bg-red-50        text-red-700   border-red-200/70",
+    amber:   "bg-amber-50      text-amber-700 border-amber-200/70",
+    orange:  "bg-orange-50     text-orange-700 border-orange-200/70",
+    emerald: "bg-emerald-50    text-emerald-700 border-emerald-200/70",
+    blue:    "bg-blue-50       text-blue-700  border-blue-200/70",
+  };
+  const labelStyles: Record<Tone, string> = {
+    neutral: "text-ink-muted",
+    red:     "text-red-400",
+    amber:   "text-amber-500",
+    orange:  "text-orange-500",
+    emerald: "text-emerald-500",
+    blue:    "text-blue-400",
+  };
   return (
-    <div
-      className={`rounded-md border px-2 py-1.5 text-center ${cls[tone]}`}
-    >
-      <p className="text-[14px] font-bold leading-tight tabular-nums">
+    <div className={`rounded-xl border px-2 py-2 text-center ${styles[tone]}`}>
+      <p className="text-[13.5px] font-bold leading-tight tabular-nums">
         {value}
       </p>
-      <p className="text-[9.5px] uppercase tracking-wider opacity-80">{label}</p>
+      <p className={`mt-0.5 text-[9px] uppercase tracking-[0.12em] ${labelStyles[tone]}`}>
+        {label}
+      </p>
     </div>
   );
 }
