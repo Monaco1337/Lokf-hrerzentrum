@@ -47,18 +47,21 @@ export function UserAdminRow({
   onRoleChange,
   onToggleActive,
   onDelete,
+  onSetPassword,
 }: {
   user: UserSummary;
   currentUser: UserSummary;
   onRoleChange: (target: UserSummary, role: Role) => void;
   onToggleActive: (target: UserSummary) => void;
   onDelete: (target: UserSummary) => void;
+  onSetPassword: (target: UserSummary) => void;
 }) {
   const u = user;
   const isSelf = u.id === currentUser.id;
   const mayEditRole = !isSelf && canAssignRole(currentUser.role, u.role);
   const mayToggle = can(currentUser.role, "canManageUsers") && !isSelf;
   const mayDelete = can(currentUser.role, "canDeleteUsers") && !isSelf;
+  const maySetPw = can(currentUser.role, "canManageUsers") && !isSelf;
 
   return (
     <tr
@@ -127,6 +130,15 @@ export function UserAdminRow({
       <td className="px-4 py-3 text-ink-soft">{relative(u.lastLoginAt)}</td>
       <td className="px-4 py-3">
         <div className="flex items-center justify-end gap-2">
+          {maySetPw ? (
+            <button
+              type="button"
+              onClick={() => onSetPassword(u)}
+              className="inline-flex items-center gap-1 rounded-full border border-ink/10 bg-white px-2.5 py-1 text-[11.5px] font-medium text-ink-soft transition hover:border-brand-300 hover:bg-brand-50 hover:text-brand-700"
+            >
+              Passwort setzen
+            </button>
+          ) : null}
           {mayToggle ? (
             <button
               type="button"

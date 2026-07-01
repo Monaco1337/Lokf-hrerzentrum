@@ -47,6 +47,7 @@ export function UserAdmin({
   const [showInactive, setShowInactive] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [pwTarget, setPwTarget] = useState<UserSummary | null>(null);
 
   const canCreate = can(currentUser.role, "canCreateUsers");
 
@@ -106,6 +107,14 @@ export function UserAdmin({
       return;
     }
     setUsers((cur) => cur.map((u) => (u.id === target.id ? res.data : u)));
+  }
+
+  async function handleSetPassword(target: UserSummary, password: string) {
+    setError(null);
+    const res = await updateUser({ id: target.id, password, mustChangePassword: true });
+    if (!res.ok) { setError(res.message); return; }
+    setUsers((cur) => cur.map((u) => (u.id === target.id ? res.data : u)));
+    setPwTarget(null);
   }
 
   async function handleDelete(target: UserSummary) {
@@ -289,12 +298,115 @@ export function UserAdmin({
                     startTransition(() => void handleToggleActive(target))
                   }
                   onDelete={(target) => void handleDelete(target)}
+                  onSetPassword={(target) => setPwTarget(target)}
                 />
               ))
             )}
           </tbody>
         </table>
       </section>
+
+      {pwTarget ? (
+        <SetPasswordModal
+          user={pwTarget}
+          pending={pending}
+          onClose={() => setPwTarget(null)}
+          onSave={(pw) => startTransition(() => void handleSetPassword(pwTarget, pw))}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+// ── SetPasswordModal ──────────────────────────────────────────────────────────
+
+function SetPasswordModal({
+  user,
+  pending,
+  onClose,
+  onSave,
+}: {
+  user: UserSummary;
+  pending: boolean;
+  onClose: () => void;
+  onSave: (password: string) => void;
+}) {
+  const [pw, setPw] = useState("");
+  const [show, setShow] = useState(false);
+  const [localErr, setLocalErr] = useState<string | null>(null);
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (pw.length < 8) { setLocalErr("Mindestens 8 Zeichen"); return; }
+    setLocalErr(null);
+    onSave(pw);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <div
+        className="w-full max-w-sm rounded-2xl border border-ink/[0.08] bg-white p-6 shadow-[0_24px_48px_-12px_rgba(15,23,42,0.22)]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="mb-5">
+          <p className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-ink-muted">Passwort zurücksetzen</p>
+          <h2 className="mt-1 font-display text-[18px] font-bold text-navy-950">{user.name}</h2>
+          <p className="mt-0.5 text-[12.5px] text-ink-muted">{user.email}</p>
+        </div>
+
+        <form onSubmit={submit} className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-[12.5px] font-semibold text-ink">Neues Einmalpasswort</label>
+            <div className="relative">
+              <input
+                type={show ? "text" : "password"}
+                value={pw}
+                onChange={(e) => setPw(e.target.value)}
+                placeholder="Mindestens 8 Zeichen"
+                minLength={8}
+                required
+                autoFocus
+                className="input pr-10"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShow(s => !s)}
+                className="absolute inset-y-0 right-3 flex items-center text-ink-muted hover:text-ink"
+                tabIndex={-1}
+              >
+                {show ? (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-amber-50 px-3.5 py-3 text-[12px] text-amber-800 ring-1 ring-amber-200">
+            Nach dem Speichern muss <strong>{user.name}</strong> das Passwort beim nächsten Login selbst ändern.
+          </div>
+
+          {localErr ? (
+            <p className="text-[12.5px] font-medium text-rose-600">{localErr}</p>
+          ) : null}
+
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="rounded-xl border border-ink/10 px-4 py-2 text-[13px] font-medium text-ink hover:bg-surface-subtle">
+              Abbrechen
+            </button>
+            <button
+              type="submit"
+              disabled={pending || pw.length < 8}
+              className="rounded-xl bg-brand-600 px-5 py-2 text-[13px] font-semibold text-white hover:bg-brand-700 disabled:opacity-60"
+            >
+              {pending ? "Speichern …" : "Passwort setzen"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

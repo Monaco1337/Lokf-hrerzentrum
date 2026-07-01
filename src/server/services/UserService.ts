@@ -56,6 +56,7 @@ export interface UpdateUserCommand {
   isActive?: boolean;
   avatar?: string | null;
   password?: string | null;
+  mustChangePassword?: boolean;
 }
 
 export class UserService {
@@ -218,6 +219,9 @@ export class UserService {
 
     if (cmd.password) {
       data.passwordHash = await hash(cmd.password, PASSWORD_ROUNDS);
+    }
+    if (cmd.mustChangePassword !== undefined) {
+      data.mustChangePassword = cmd.mustChangePassword;
     }
 
     const updated = await userRepository.update(targetId, data);

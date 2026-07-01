@@ -37,6 +37,7 @@ const UpdateSchema = z.object({
   role: RoleSchema.optional(),
   isActive: z.boolean().optional(),
   password: z.string().min(8).max(200).optional().or(z.literal("")),
+  mustChangePassword: z.boolean().optional(),
 });
 
 const IdSchema = z.object({ id: z.string().min(1) });
@@ -82,6 +83,7 @@ export async function updateUser(
     if (parsed.data.email !== undefined) cmd.email = parsed.data.email;
     if (parsed.data.role !== undefined) cmd.role = parsed.data.role;
     if (parsed.data.isActive !== undefined) cmd.isActive = parsed.data.isActive;
+    if (parsed.data.mustChangePassword !== undefined) cmd.mustChangePassword = parsed.data.mustChangePassword;
     if (parsed.data.password && parsed.data.password !== "") {
       cmd.password = parsed.data.password;
     }
