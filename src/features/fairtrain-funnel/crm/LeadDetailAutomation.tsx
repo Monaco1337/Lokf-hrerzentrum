@@ -5,6 +5,7 @@ import type {
 } from "../types";
 
 import { LeadAutomationPanel } from "./LeadAutomationPanel";
+import { LeadFirstContactPanel } from "./LeadFirstContactPanel";
 import { consentLabel } from "./leadLabels";
 import { SectionCard } from "./LeadFacts";
 
@@ -43,20 +44,25 @@ export function LeadConsentSection({ consents }: { consents: ConsentState[] }) {
 
 export function LeadAutomationSection({
   leadId,
+  email,
   logs,
   templates,
 }: {
   leadId: string;
+  email: string | null;
   logs: AutomationLogEntry[];
   templates: AutomationTemplateEntry[];
 }) {
   return (
     <SectionCard title="Automatische Kontaktaufnahme">
-      <LeadAutomationPanel
-        leadId={leadId}
-        logs={logs}
-        templates={templates.filter((t) => t.trigger === "LEAD_CREATED")}
-      />
+      <div className="space-y-4">
+        <LeadFirstContactPanel leadId={leadId} email={email} logs={logs} />
+        <LeadAutomationPanel
+          leadId={leadId}
+          logs={logs}
+          templates={templates.filter((t) => t.trigger === "LEAD_CREATED")}
+        />
+      </div>
     </SectionCard>
   );
 }

@@ -18,6 +18,7 @@ export function createEmailProvider(
       return new ResendEmailProvider(
         serverEnv.RESEND_API_KEY,
         serverEnv.EMAIL_FROM,
+        serverEnv.EMAIL_REPLY_TO,
       );
     case "smtp":
       return new SmtpEmailProvider({

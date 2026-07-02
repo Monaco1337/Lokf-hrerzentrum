@@ -184,6 +184,7 @@ export function LeadDetail({
           </SectionCard>
           <LeadAutomationSection
             leadId={lead.id}
+            email={lead.email}
             logs={data.automationLogs}
             templates={automationTemplates}
           />

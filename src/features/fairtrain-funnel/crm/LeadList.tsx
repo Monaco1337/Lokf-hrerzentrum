@@ -8,6 +8,7 @@ import {
   type LeadFilters,
   LeadStatus,
 } from "../types";
+import { BatchFirstContactModal, type BatchLead } from "./BatchFirstContactModal";
 import { humanizeSource, STATUS_TONE } from "./leadLabels";
 import { LeadFormModal, type LeadEditValues } from "./LeadFormModal";
 import { LeadListCard } from "./LeadListCard";
@@ -70,6 +71,7 @@ export function LeadList({ leads, filters, users }: LeadListProps) {
 
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<LeadEditValues | null>(null);
+  const [batchOpen, setBatchOpen] = useState(false);
 
   const sourceOptions = useMemo(() => {
     const set = new Map<string, string>();
@@ -99,6 +101,16 @@ export function LeadList({ leads, filters, users }: LeadListProps) {
   const sortedRows = useMemo(
     () => sortRows(filteredRows, sortKey),
     [filteredRows, sortKey],
+  );
+
+  const batchLeads: BatchLead[] = useMemo(
+    () =>
+      sortedRows.map((e) => ({
+        id: e.lead.id,
+        name: `${e.lead.firstName} ${e.lead.lastName}`.trim(),
+        email: e.lead.email,
+      })),
+    [sortedRows],
   );
 
   function remove(id: string) {
@@ -155,6 +167,17 @@ export function LeadList({ leads, filters, users }: LeadListProps) {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-ink/10 bg-white px-4 text-[13px] font-semibold text-ink-soft shadow-sm transition hover:border-ink/20 hover:text-ink"
+            onClick={() => setBatchOpen(true)}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+              <path d="M4 4h16v16H4z" />
+              <path d="m4 6 8 6 8-6" />
+            </svg>
+            Erstkontakt (Batch)
+          </button>
           <button type="button" className="btn-primary h-10 px-4" onClick={() => setCreating(true)}>
             + Neuer Lead
           </button>
@@ -331,6 +354,12 @@ export function LeadList({ leads, filters, users }: LeadListProps) {
         users={users}
         initial={editing ?? undefined}
         onClose={() => setEditing(null)}
+      />
+
+      <BatchFirstContactModal
+        open={batchOpen}
+        leads={batchLeads}
+        onClose={() => setBatchOpen(false)}
       />
     </div>
   );

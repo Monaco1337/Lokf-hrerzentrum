@@ -50,12 +50,53 @@ import {
   executeWhatsappSend,
 } from "./AutomationExecutor";
 import { consentService } from "./ConsentService";
+import { portalService } from "./PortalService";
 
 export interface AutomationPreviewResult {
   subject: string | null;
   body: string;
   html: string | null;
 }
+
+/** Stable slugs for the two standard transactional lead templates. */
+export const WELCOME_EMAIL_SLUG = "lead_welcome_email";
+export const UPLOAD_REQUEST_EMAIL_SLUG = "lead_upload_request_email";
+
+const WELCOME_EMAIL_BODY = `Guten Tag {{firstName}},
+
+vielen Dank für Ihre Anfrage beim Lokführerzentrum.
+
+Wir haben Ihre Angaben erhalten und prüfen jetzt die nächsten Schritte für Ihre geförderte Weiterbildung zum Lokführer.
+
+Falls noch Unterlagen fehlen, können Sie diese hier ergänzen:
+
+{{uploadLink}}
+
+Ihre Vorgangsnummer:
+{{leadId}}
+
+Mit freundlichen Grüßen
+Ihr Lokführerzentrum-Team`;
+
+const UPLOAD_REQUEST_EMAIL_BODY = `Guten Tag {{firstName}},
+
+wir melden uns bezüglich Ihrer Anfrage zur geförderten Weiterbildung zum Lokführer.
+
+Damit wir Ihren Vorgang sauber prüfen und vorbereiten können, können Sie Ihre fehlenden Unterlagen über den folgenden sicheren Link hochladen:
+
+{{uploadLink}}
+
+Ihre Vorgangsnummer:
+{{leadId}}
+
+Falls Sie Fragen haben, antworten Sie einfach auf diese E-Mail.
+
+Mit freundlichen Grüßen
+Ihr Lokführerzentrum-Team`;
+
+/** Templates that must NOT mint a portal link (skip the extra DB write). */
+const UPLOAD_LINK_PATTERN =
+  /\{\{\s*(upload_link|uploadlink|magic_link|magiclink)\s*\}\}/i;
 
 export class AutomationService {
   constructor(
@@ -64,6 +105,8 @@ export class AutomationService {
   ) {}
 
   async onLeadCreated(leadId: string): Promise<AutomationLogEntry[]> {
+    await this.ensureTransactionalTemplates();
+
     const lead = await leadRepository.findById(leadId);
     if (!lead) throw new NotFoundError("Lead", leadId);
 
@@ -80,11 +123,47 @@ export class AutomationService {
         consents,
         triggeredBy: "system",
         isTest: false,
+        // Re-triggering lead.created must never double-send the same template.
+        skipIfAlreadySent: true,
       });
       logs.push(log);
     }
 
     return logs;
+  }
+
+  /**
+   * Manually send the "Erstkontakt / Unterlagen anfordern" email to a lead
+   * (e.g. an imported existing lead). Transactional — no marketing consent
+   * required — but guarded against double-sends.
+   */
+  async sendFirstContact(
+    leadId: string,
+    actor: string,
+  ): Promise<AutomationLogEntry> {
+    await this.ensureTransactionalTemplates();
+
+    const lead = await leadRepository.findById(leadId);
+    if (!lead) throw new NotFoundError("Lead", leadId);
+
+    const template = await automationTemplateRepository.findBySlug(
+      UPLOAD_REQUEST_EMAIL_SLUG,
+    );
+    if (!template) {
+      throw new NotFoundError("AutomationTemplate", UPLOAD_REQUEST_EMAIL_SLUG);
+    }
+
+    const consents = await consentService.currentStates(leadId);
+    return this.executeTemplate({
+      lead,
+      template,
+      consents,
+      triggeredBy: actor,
+      isTest: false,
+      // Transactional response to the lead's own request — bypass consent gate.
+      force: true,
+      skipIfAlreadySent: true,
+    });
   }
 
   async resendForLead(
@@ -322,16 +401,53 @@ export class AutomationService {
     triggeredBy: string;
     isTest: boolean;
     force?: boolean;
+    skipIfAlreadySent?: boolean;
     testRecipient?: string;
   }): Promise<AutomationLogEntry> {
-    const { lead, template, consents, triggeredBy, isTest, force, testRecipient } =
-      args;
+    const {
+      lead,
+      template,
+      consents,
+      triggeredBy,
+      isTest,
+      force,
+      skipIfAlreadySent,
+      testRecipient,
+    } = args;
     if (template.channel === "INTERNAL") {
       throw new ValidationError(
         `Vorlage "${template.name}" ist intern und kann nicht versendet werden.`,
       );
     }
-    const ctx = this.buildContext(lead);
+
+    // Double-send guard: if this template was already delivered to this lead,
+    // log a skip instead of sending again.
+    if (skipIfAlreadySent && !isTest) {
+      const prior = await automationLogRepository.findSuccessfulSend(
+        lead.id,
+        template.id,
+      );
+      if (prior) {
+        return automationLogRepository.append({
+          leadId: lead.id,
+          templateId: template.id,
+          trigger: template.trigger,
+          channel: template.channel,
+          status: AutomationLogStatus.SKIPPED,
+          renderedSubject: template.subject,
+          renderedBody: template.body,
+          errorCode: "ALREADY_SENT",
+          errorMessage: `Bereits gesendet am ${prior.createdAt.toISOString()}`,
+          isTest,
+          triggeredBy,
+        });
+      }
+    }
+
+    const needsUploadLink =
+      UPLOAD_LINK_PATTERN.test(template.body) ||
+      (template.subject != null && UPLOAD_LINK_PATTERN.test(template.subject));
+    const ctx = await this.buildSendContext(lead, isTest, needsUploadLink);
     const renderedBody = renderTemplate(template.body, ctx);
     const renderedSubject =
       template.subject != null
@@ -390,14 +506,153 @@ export class AutomationService {
     );
   }
 
-  private buildContext(lead: LeadDetail): TemplateRenderContext {
-    let sourceDomain = "lokfuehrerzentrum.de";
+  private sourceDomain(): string {
     try {
-      sourceDomain = new URL(serverEnv.APP_BASE_URL).hostname;
+      return new URL(serverEnv.APP_BASE_URL).hostname;
     } catch {
-      // keep default
+      return "lokfuehrerzentrum.de";
     }
-    return buildTemplateContext(lead, sourceDomain);
+  }
+
+  /** Synchronous context for previews (uses generic links, no DB writes). */
+  private buildContext(lead: LeadDetail): TemplateRenderContext {
+    return buildTemplateContext(lead, this.sourceDomain(), {
+      supportEmail: serverEnv.EMAIL_REPLY_TO || null,
+    });
+  }
+
+  /**
+   * Context for a real send. Mints a lead-specific, token-secured portal upload
+   * link (reusing PortalService) only when the template actually references it.
+   */
+  private async buildSendContext(
+    lead: LeadDetail,
+    isTest: boolean,
+    needsUploadLink: boolean,
+  ): Promise<TemplateRenderContext> {
+    const sourceDomain = this.sourceDomain();
+    const supportEmail = serverEnv.EMAIL_REPLY_TO || null;
+
+    let uploadLink: string | null = null;
+    const isRealLead =
+      !isTest && Boolean(lead.id) && lead.id !== "sample-preview";
+    if (needsUploadLink && isRealLead) {
+      try {
+        const { url } = await portalService.createLink(lead.id, "system", 30);
+        uploadLink = url;
+      } catch (err) {
+        // Never let link creation break the send — fall back to a generic link.
+        // eslint-disable-next-line no-console
+        console.error("[automation] upload link creation failed", {
+          leadId: lead.id,
+          err,
+        });
+      }
+    }
+
+    return buildTemplateContext(lead, sourceDomain, {
+      uploadLink,
+      magicLink: uploadLink,
+      supportEmail,
+    });
+  }
+
+  private transactionalTemplatesPromise: Promise<void> | null = null;
+
+  /**
+   * Idempotently ensure the two standard transactional templates exist.
+   * Cached per process; only creates when missing (never overwrites admin
+   * edits). Safe to call on every lead.created / manual send.
+   */
+  async ensureTransactionalTemplates(): Promise<void> {
+    if (!this.transactionalTemplatesPromise) {
+      this.transactionalTemplatesPromise = this.seedTransactionalTemplates().catch(
+        (err) => {
+          // Reset so a later call can retry after a transient DB error.
+          this.transactionalTemplatesPromise = null;
+          throw err;
+        },
+      );
+    }
+    return this.transactionalTemplatesPromise;
+  }
+
+  private async seedTransactionalTemplates(): Promise<void> {
+    const welcomeCreated = await this.ensureTemplateBySlug({
+      slug: WELCOME_EMAIL_SLUG,
+      trigger: AutomationTrigger.LEAD_CREATED,
+      channel: CommunicationChannel.EMAIL,
+      category: "welcome",
+      status: "active",
+      language: "de",
+      name: "Neues Lead: Willkommensmail",
+      subject: "Ihre Anfrage beim Lokführerzentrum ist eingegangen",
+      body: WELCOME_EMAIL_BODY,
+      // Transactional confirmation of the lead's own request — no consent gate.
+      requiresConsent: null,
+      metaTemplateName: null,
+      metaApprovalStatus: null,
+    });
+
+    // One-time migration: on first creation of the canonical welcome email,
+    // deactivate any legacy/demo LEAD_CREATED email templates so exactly one
+    // welcome email fires per new lead (never a double-send).
+    if (welcomeCreated) {
+      await this.deactivateLegacyWelcomeEmails();
+    }
+
+    await this.ensureTemplateBySlug({
+      slug: UPLOAD_REQUEST_EMAIL_SLUG,
+      trigger: AutomationTrigger.MANUAL,
+      channel: CommunicationChannel.EMAIL,
+      category: "documents",
+      status: "active",
+      language: "de",
+      name: "Bestandslead: Unterlagen anfordern",
+      subject: "Ihre Unterlagen für die Lokführer-Weiterbildung",
+      body: UPLOAD_REQUEST_EMAIL_BODY,
+      requiresConsent: null,
+      metaTemplateName: null,
+      metaApprovalStatus: null,
+    });
+  }
+
+  /** Returns true when the template was newly created (false if it existed). */
+  private async ensureTemplateBySlug(input: {
+    slug: string;
+    trigger: AutomationTrigger;
+    channel: TemplateChannelType;
+    category: import("@/features/fairtrain-funnel/types").TemplateCategoryType;
+    status: import("@/features/fairtrain-funnel/types").TemplateStatusType;
+    language: string;
+    name: string;
+    subject: string | null;
+    body: string;
+    requiresConsent: ConsentType | null;
+    metaTemplateName: string | null;
+    metaApprovalStatus:
+      | import("@/features/fairtrain-funnel/types").MetaApprovalStatusType
+      | null;
+  }): Promise<boolean> {
+    const existing = await automationTemplateRepository.findBySlug(input.slug);
+    if (existing) return false;
+    await automationTemplateRepository.upsert(input);
+    return true;
+  }
+
+  /** Deactivate other active LEAD_CREATED email templates (legacy/demo). */
+  private async deactivateLegacyWelcomeEmails(): Promise<void> {
+    const all = await automationTemplateRepository.list();
+    const conflicting = all.filter(
+      (t) =>
+        t.slug !== WELCOME_EMAIL_SLUG &&
+        t.trigger === AutomationTrigger.LEAD_CREATED &&
+        t.channel === CommunicationChannel.EMAIL &&
+        (t.enabled || t.status === "active"),
+    );
+    for (const t of conflicting) {
+      await automationTemplateRepository.update(t.id, { status: "inactive" });
+    }
   }
 
   private sampleLead(

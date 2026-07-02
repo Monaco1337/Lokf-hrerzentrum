@@ -41,6 +41,12 @@ export interface TemplateContextOptions {
   missingDocuments?: string | null;
   appointmentDate?: string | null;
   appointmentTime?: string | null;
+  /** Lead-specific, token-secured upload link (falls back to a generic link). */
+  uploadLink?: string | null;
+  /** Lead-specific magic/portal link (defaults to uploadLink). */
+  magicLink?: string | null;
+  /** Reply-to / support address surfaced in transactional emails. */
+  supportEmail?: string | null;
 }
 
 export function buildTemplateContext(
@@ -57,6 +63,10 @@ export function buildTemplateContext(
     year: "numeric",
   });
   const baseUrl = `https://${sourceDomain}`;
+  // Prefer a lead-specific, token-secured link; never leak PII into the URL.
+  const uploadLink = opts.uploadLink?.trim() || `${baseUrl}/m/upload`;
+  const magicLink = opts.magicLink?.trim() || uploadLink;
+  const supportEmail = opts.supportEmail?.trim() || `info@${sourceDomain}`;
 
   return {
     first_name: lead.firstName,
@@ -70,7 +80,7 @@ export function buildTemplateContext(
     standort,
     location: standort,
     secure_form_link: `${baseUrl}/m/formular`,
-    upload_link: `${baseUrl}/m/upload`,
+    upload_link: uploadLink,
     booking_link: `${baseUrl}/m/termin`,
     missing_documents: opts.missingDocuments?.trim() || "die noch offenen Unterlagen",
     owner_name: opts.ownerName?.trim() || "Ihr Ansprechpartner",
@@ -83,6 +93,14 @@ export function buildTemplateContext(
     message: interesse,
     source_domain: sourceDomain,
     datum,
+    // camelCase aliases used by the transactional lead templates.
+    firstname: lead.firstName,
+    lastname: lead.lastName,
+    fullname: fullName,
+    leadid: lead.id,
+    uploadlink: uploadLink,
+    magiclink: magicLink,
+    supportemail: supportEmail,
   };
 }
 
@@ -102,6 +120,8 @@ export const KNOWN_VARIABLE_KEYS: ReadonlyArray<string> = [
   "booking_link", "missing_documents", "owner_name", "company_name",
   "appointment_date", "appointment_time", "interesse", "interest",
   "nachricht", "message", "source_domain", "datum",
+  "firstname", "lastname", "fullname", "leadid", "uploadlink", "magiclink",
+  "supportemail",
 ];
 
 export function renderTemplate(

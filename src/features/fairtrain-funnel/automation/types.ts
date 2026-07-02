@@ -389,4 +389,12 @@ export interface TemplateRenderContext {
   message: string;
   source_domain: string;
   datum: string;
+  // camelCase aliases (rendered lowercase) for the transactional lead templates.
+  firstname: string;
+  lastname: string;
+  fullname: string;
+  leadid: string;
+  uploadlink: string;
+  magiclink: string;
+  supportemail: string;
 }

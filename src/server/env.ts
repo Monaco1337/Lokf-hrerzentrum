@@ -36,6 +36,7 @@ const RawEnvSchema = z.object({
     .default("mock"),
   RESEND_API_KEY: z.string().default(""),
   EMAIL_FROM: z.string().default(""),
+  EMAIL_REPLY_TO: z.string().default(""),
   SMTP_HOST: z.string().default(""),
   SMTP_PORT: z.coerce.number().int().positive().default(587),
   SMTP_USER: z.string().default(""),

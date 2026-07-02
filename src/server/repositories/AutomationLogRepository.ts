@@ -91,6 +91,22 @@ export class AutomationLogRepository {
     return mapRow(row);
   }
 
+  /**
+   * Double-send guard: has this template already been SENT (non-test) to this
+   * lead? Returns the most recent successful log, or null.
+   */
+  async findSuccessfulSend(
+    leadId: string,
+    templateId: string,
+  ): Promise<AutomationLogEntry | null> {
+    const row = await prisma.automationLog.findFirst({
+      where: { leadId, templateId, status: "SENT", isTest: false },
+      orderBy: { createdAt: "desc" },
+      include: { template: { select: { slug: true } } },
+    });
+    return row ? mapRow(row) : null;
+  }
+
   async listForLead(leadId: string): Promise<AutomationLogEntry[]> {
     const rows = await prisma.automationLog.findMany({
       where: { leadId },
