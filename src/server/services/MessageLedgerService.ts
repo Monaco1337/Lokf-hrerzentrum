@@ -47,7 +47,9 @@ import { leadRepository } from "../repositories/LeadRepository";
 import { taskRepository } from "../repositories/TaskRepository";
 import { whatsappService } from "./messaging/whatsappService";
 
-const SOURCE_DOMAIN = "lokfuehrerzentrum.de";
+// Punycode form of the IDN production domain `lokführerzentrum.de` so any link
+// this builds resolves in every email client.
+const SOURCE_DOMAIN = "xn--lokfhrerzentrum-2vb.de";
 
 /** Map a template channel onto a ledger communication channel. */
 function templateChannelToComm(channel: string): CommunicationChannel {

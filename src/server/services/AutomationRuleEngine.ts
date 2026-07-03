@@ -160,7 +160,7 @@ export class AutomationRuleEngine {
         if (!action.templateId) return { type: action.type, result: "Keine Vorlage gewählt" };
         const tpl = await automationTemplateRepository.findById(action.templateId);
         if (!tpl) return { type: action.type, result: "Vorlage nicht gefunden" };
-        const ctx = buildTemplateContext(lead, "lokfuehrerzentrum.de", {
+        const ctx = buildTemplateContext(lead, "xn--lokfhrerzentrum-2vb.de", {
           ownerName: lead.assignedTo,
         });
         const preview = renderTemplate(tpl.body, ctx).slice(0, 160);

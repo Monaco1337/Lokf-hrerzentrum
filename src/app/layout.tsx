@@ -11,7 +11,9 @@ const montserrat = Montserrat({
   preload: true,
 });
 
-const FALLBACK_SITE_URL = "https://lokfuehrerzentrum.de";
+// Punycode form of the IDN production domain `lokführerzentrum.de`. In
+// production `NEXT_PUBLIC_SITE_URL` is set explicitly; this fallback never fires.
+const FALLBACK_SITE_URL = "https://xn--lokfhrerzentrum-2vb.de";
 
 /**
  * Resolve the canonical site URL from env, tolerating a missing or malformed

@@ -510,7 +510,8 @@ export class AutomationService {
     try {
       return new URL(serverEnv.APP_BASE_URL).hostname;
     } catch {
-      return "lokfuehrerzentrum.de";
+      // Punycode form of the IDN production domain `lokführerzentrum.de`.
+      return "xn--lokfhrerzentrum-2vb.de";
     }
   }
 

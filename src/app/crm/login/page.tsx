@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { FairtrainLogo } from "@/features/fairtrain-funnel/components/FairtrainLogo";
-import { requireCrmUser } from "@/server/actions/_helpers";
+import { getOptionalCrmUser } from "@/server/actions/_helpers";
 import { crmLogin } from "@/server/actions/crmAuth";
 
 export default async function CrmLoginPage({
@@ -13,14 +13,9 @@ export default async function CrmLoginPage({
 
   // Already authenticated? Bounce straight to the dashboard so users
   // don't see a stale login form (and the previous-session chrome).
-  let hasSession = false;
-  try {
-    await requireCrmUser();
-    hasSession = true;
-  } catch {
-    /* No (valid) session — fall through and render the form. */
-  }
-  if (hasSession) redirect("/crm");
+  // `getOptionalCrmUser` never throws, so this page always renders safely.
+  const existing = await getOptionalCrmUser();
+  if (existing) redirect("/crm");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-surface-subtle px-4">

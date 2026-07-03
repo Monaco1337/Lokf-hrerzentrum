@@ -30,7 +30,18 @@ export default async function CrmLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await userService.ensureBootstrapAdmins();
+  // Bootstrap seeding runs on every render as a convenience, but it is a DB
+  // write and must NEVER take down the whole CRM shell. A transient DB hiccup
+  // (cold start, pool exhaustion) here previously bubbled up as an uncaught
+  // server exception -> white screen. Degrade gracefully instead; the seeded
+  // admins already exist in steady state, and any real DB outage will surface
+  // as a controlled error boundary further down the tree.
+  try {
+    await userService.ensureBootstrapAdmins();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[crm-layout] ensureBootstrapAdmins failed (non-fatal)", err);
+  }
 
   const pathname = (await headers()).get("x-pathname") ?? "";
   if (pathname.startsWith("/crm/login")) {

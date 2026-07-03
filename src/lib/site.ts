@@ -9,7 +9,12 @@
  */
 export const SITE_NAME = "Lokführerzentrum.de";
 
-const FALLBACK_SITE_URL = "https://lokfuehrerzentrum.de";
+// The production domain is the IDN `lokführerzentrum.de`; its wire/Host form is
+// the Punycode `xn--lokfhrerzentrum-2vb.de`. Punycode is used here so any URL
+// this produces (canonical tags, sitemap, links) works in every client/crawler.
+// In production `NEXT_PUBLIC_SITE_URL` should be set explicitly and this
+// fallback never fires.
+const FALLBACK_SITE_URL = "https://xn--lokfhrerzentrum-2vb.de";
 
 /**
  * Resolve the canonical origin without a trailing slash, tolerating a missing

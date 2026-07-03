@@ -17,6 +17,17 @@ const RawEnvSchema = z.object({
   // would otherwise break the whole build for every server route.
   APP_BASE_URL: z.string().url().catch("http://localhost:3000"),
 
+  // Single canonical host (no scheme, no path). The production domain is the
+  // IDN `lokführerzentrum.de`, whose wire/Host form is Punycode — so set this
+  // to "xn--lokfhrerzentrum-2vb.de" (apex) or "www.xn--lokfhrerzentrum-2vb.de"
+  // (www), matching whichever host is primary in the hosting provider.
+  // When set, `middleware.ts` permanently (308) redirects every OTHER host
+  // variant (the non-primary of www/apex, plus any ASCII alias) to it so auth
+  // cookies/sessions live on exactly ONE host. Left empty => canonicalisation
+  // disabled (safe default; enable ONLY once the primary host is attached +
+  // DNS-verified, otherwise traffic would 308 to a dead host).
+  CANONICAL_HOST: z.string().default(""),
+
   CRM_PASSWORD_HASH: z.string().default(""),
   CRM_SESSION_SECRET: z.string().default(""),
 
