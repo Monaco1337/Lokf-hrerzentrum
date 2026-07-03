@@ -160,11 +160,11 @@ function SitemapGrid() {
           </p>
 
           <a
-            href="mailto:hallo@lokfuehrerzentrum.de"
+            href="mailto:foerderung@xn--lokfhrerzentrum-2vb.de"
             className="mt-7 inline-flex items-center gap-2.5 rounded-full border border-ink/10 bg-white px-4 py-2.5 text-[13.5px] font-medium text-navy-900 shadow-sm transition hover:border-ink/20 hover:bg-surface-subtle"
           >
             <MailGlyph className="h-4 w-4 text-accent-600" />
-            hallo@lokfuehrerzentrum.de
+            foerderung@lokführerzentrum.de
           </a>
         </div>
 
