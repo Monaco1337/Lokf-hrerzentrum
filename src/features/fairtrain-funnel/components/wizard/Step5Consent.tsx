@@ -160,10 +160,10 @@ export function Step5Consent({ state, patch, onPrev, onNext }: StepProps) {
           Datenübertragung und Widerruf der Einwilligung – schreib uns einfach
           an{" "}
           <a
-            href="mailto:datenschutz@fairtrain.example.com"
+            href="mailto:foerderung@xn--lokfhrerzentrum-2vb.de"
             className="font-medium text-ink-soft underline decoration-ink/20 underline-offset-2 transition hover:text-ink hover:decoration-ink/40"
           >
-            datenschutz@fairtrain.example.com
+            foerderung@lokführerzentrum.de
           </a>
           .
         </p>
