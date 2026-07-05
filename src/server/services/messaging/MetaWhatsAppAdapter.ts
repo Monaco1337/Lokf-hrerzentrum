@@ -35,15 +35,30 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
 
   constructor(
     private readonly token: string,
-    private readonly phoneNumberId: string,
+    /** Default sender number; per-send `fromPhoneNumberId` overrides it. May be
+     *  empty when all numbers are managed in the DB. */
+    private readonly defaultPhoneNumberId: string,
   ) {}
 
-  private get endpoint(): string {
-    return `https://graph.facebook.com/${GRAPH_VERSION}/${this.phoneNumberId}/messages`;
+  private endpoint(fromPhoneNumberId?: string): string {
+    const id = fromPhoneNumberId || this.defaultPhoneNumberId;
+    return `https://graph.facebook.com/${GRAPH_VERSION}/${id}/messages`;
   }
 
-  private async post(body: Record<string, unknown>): Promise<ProviderSendResult> {
-    const res = await fetch(this.endpoint, {
+  private async post(
+    body: Record<string, unknown>,
+    fromPhoneNumberId?: string,
+  ): Promise<ProviderSendResult> {
+    if (!fromPhoneNumberId && !this.defaultPhoneNumberId) {
+      return {
+        providerMessageId: "",
+        status: MessageStatus.FAILED,
+        rawPayload: JSON.stringify({ ok: false, reason: "no_sender_number" }),
+        failedReason:
+          "Keine Absender-Nummer bestimmt (WhatsApp-Nummer nicht konfiguriert).",
+      };
+    }
+    const res = await fetch(this.endpoint(fromPhoneNumberId), {
       method: "POST",
       headers: {
         Authorization: `Bearer ${this.token}`,
@@ -95,25 +110,31 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
       params.length > 0
         ? [{ type: "body", parameters: params }]
         : undefined;
-    return this.post({
-      messaging_product: "whatsapp",
-      to: args.to.replace(/^\+/, ""),
-      type: "template",
-      template: {
-        name: args.templateName,
-        language: { code: "de" },
-        ...(components ? { components } : {}),
+    return this.post(
+      {
+        messaging_product: "whatsapp",
+        to: args.to.replace(/^\+/, ""),
+        type: "template",
+        template: {
+          name: args.templateName,
+          language: { code: "de" },
+          ...(components ? { components } : {}),
+        },
       },
-    });
+      args.fromPhoneNumberId,
+    );
   }
 
   async sendText(args: SendTextArgs): Promise<ProviderSendResult> {
-    return this.post({
-      messaging_product: "whatsapp",
-      to: args.to.replace(/^\+/, ""),
-      type: "text",
-      text: { body: args.body },
-    });
+    return this.post(
+      {
+        messaging_product: "whatsapp",
+        to: args.to.replace(/^\+/, ""),
+        type: "text",
+        text: { body: args.body },
+      },
+      args.fromPhoneNumberId,
+    );
   }
 
   async handleWebhook(payload: unknown): Promise<WhatsAppWebhookEvent[]> {

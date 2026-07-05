@@ -298,11 +298,17 @@ model CommunicationEvent {
   failedAt          DateTime?
   failedReason      String?
 
+  // Which of OUR WhatsApp business numbers handled this message (Meta
+  // `phone_number_id`). Null for legacy rows / non-WhatsApp channels. Drives the
+  // multi-number Multichat inbox and reply-from-the-same-number routing.
+  businessPhoneNumberId String?
+
   createdAt DateTime @default(now())
 
   @@index([leadId, createdAt])
   @@index([channel, direction])
   @@index([status])
+  @@index([businessPhoneNumberId])
 }
 
 // ----------------------------------------------------------------------------
@@ -667,9 +673,49 @@ model User {
   callLogs       CallLog[]
   tasksAssigned  Task[]    @relation("TaskAssignee")
   tasksCreated   Task[]    @relation("TaskCreatedBy")
+  whatsappNumbers WhatsAppNumber[] @relation("WhatsAppNumberOwner")
 
   @@index([role])
   @@index([isActive])
+}
+
+// ----------------------------------------------------------------------------
+// WhatsAppNumber — one row per WhatsApp Business Cloud API sender number.
+//
+// All numbers live under ONE WhatsApp Business Account (WABA); a single
+// System-User token (env `META_WABA_TOKEN`) can send from every number, so we
+// only persist the per-number `phoneNumberId` here (never a secret). Adding a
+// new sales number = inserting a row via the admin UI, no deploy required.
+//
+// `assignedUser` is the Vertriebler who owns the number: inbound messages that
+// arrive on this number are auto-assigned to them, and replies to that
+// conversation go back out from this number.
+// ----------------------------------------------------------------------------
+
+model WhatsAppNumber {
+  id String @id @default(cuid())
+
+  /// Meta Cloud API `phone_number_id` (opaque id, NOT the phone number).
+  phoneNumberId String @unique
+
+  /// Human-readable E.164 number for display, e.g. "+4915112345678".
+  displayPhone String
+
+  /// Free-text label shown in the UI, e.g. "Vertrieb Danijel".
+  label String
+
+  /// Owning sales rep (auto-assignment target). Null = shared/unassigned.
+  assignedUserId String?
+  assignedUser   User?   @relation("WhatsAppNumberOwner", fields: [assignedUserId], references: [id], onDelete: SetNull)
+
+  /// Deactivate a number without deleting its history/routing.
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([active])
+  @@index([assignedUserId])
 }
 
 // ----------------------------------------------------------------------------

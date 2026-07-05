@@ -70,6 +70,7 @@ interface CommRow {
   readAt: Date | null;
   failedAt: Date | null;
   failedReason: string | null;
+  businessPhoneNumberId: string | null;
   createdAt: Date;
 }
 
@@ -96,6 +97,7 @@ function mapRow(r: CommRow): CommunicationEntry {
     readAt: r.readAt,
     failedAt: r.failedAt,
     failedReason: r.failedReason,
+    businessPhoneNumberId: r.businessPhoneNumberId ?? null,
     createdAt: r.createdAt,
   };
 }
@@ -122,6 +124,7 @@ export interface AppendCommunicationInput {
   readAt?: Date | null;
   failedAt?: Date | null;
   failedReason?: string | null;
+  businessPhoneNumberId?: string | null;
 }
 
 export class CommunicationRepository {
@@ -159,6 +162,7 @@ export class CommunicationRepository {
         readAt: input.readAt ?? null,
         failedAt: input.failedAt ?? null,
         failedReason: input.failedReason ?? null,
+        businessPhoneNumberId: input.businessPhoneNumberId ?? null,
       },
     });
     return mapRow(row as CommRow);
@@ -244,6 +248,24 @@ export class CommunicationRepository {
     }
     const row = await prisma.communicationEvent.update({ where: { id }, data });
     return mapRow(row as CommRow);
+  }
+
+  /**
+   * The business number (`phone_number_id`) most recently used in this lead's
+   * WhatsApp thread — inbound or outbound. Drives "reply from the same number".
+   * Returns null if the thread has no number attribution yet.
+   */
+  async latestBusinessNumberForLead(leadId: string): Promise<string | null> {
+    const row = await prisma.communicationEvent.findFirst({
+      where: {
+        leadId,
+        channel: "WHATSAPP",
+        businessPhoneNumberId: { not: null },
+      },
+      orderBy: { createdAt: "desc" },
+      select: { businessPhoneNumberId: true },
+    });
+    return row?.businessPhoneNumberId ?? null;
   }
 
   async lastOutboundPerLead(

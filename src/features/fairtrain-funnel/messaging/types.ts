@@ -109,4 +109,69 @@ export interface WhatsAppConfigInfo {
   hasPhoneNumberId: boolean;
   hasVerifyToken: boolean;
   hasAppSecret: boolean;
+  /** How many active sender numbers are configured in the DB. */
+  activeNumberCount?: number;
+}
+
+// ---------------------------------------------------------------------------
+// WhatsApp sender numbers (multi-number Multichat). UI-safe: never a secret.
+// ---------------------------------------------------------------------------
+
+/** A configured WhatsApp Business Cloud API sender number. */
+export interface WhatsAppNumberRecord {
+  id: string;
+  /** Meta Cloud API `phone_number_id` (opaque id, not the phone number). */
+  phoneNumberId: string;
+  /** Human-readable E.164 number for display, e.g. "+4915112345678". */
+  displayPhone: string;
+  /** Free-text label, e.g. "Vertrieb Danijel". */
+  label: string;
+  /** Owning sales rep id (auto-assignment target) or null. */
+  assignedUserId: string | null;
+  /** Owning sales rep display name, resolved for the UI, or null. */
+  assignedUserName: string | null;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ---------------------------------------------------------------------------
+// Multichat unified inbox — UI-ready, serialisable conversation shapes.
+// ---------------------------------------------------------------------------
+
+export interface MultichatMessage {
+  id: string;
+  direction: "IN" | "OUT";
+  body: string;
+  status: string;
+  isDemo: boolean;
+  businessPhoneNumberId: string | null;
+  createdAt: string;
+}
+
+export interface MultichatConversation {
+  leadId: string;
+  leadName: string;
+  phone: string;
+  assignedUserId: string | null;
+  assignedName: string | null;
+  businessPhoneNumberId: string | null;
+  numberLabel: string | null;
+  lastAt: string;
+  preview: string;
+  unread: number;
+  total: number;
+  messages: MultichatMessage[];
+}
+
+export interface MultichatNumberOption {
+  phoneNumberId: string;
+  label: string;
+  displayPhone: string;
+}
+
+export interface MultichatData {
+  conversations: MultichatConversation[];
+  numbers: MultichatNumberOption[];
+  whatsappLive: boolean;
 }

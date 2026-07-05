@@ -9,7 +9,10 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { CommunicationChannelSchema } from "@/features/fairtrain-funnel/types";
+import {
+  CommunicationChannel,
+  CommunicationChannelSchema,
+} from "@/features/fairtrain-funnel/types";
 
 import { ValidationError } from "../errors";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
@@ -21,7 +24,41 @@ function revalidateCommunication(leadId?: string): void {
   revalidatePath("/crm/communication/whatsapp");
   revalidatePath("/crm/communication/email");
   revalidatePath("/crm/communication/log");
+  revalidatePath("/crm/multichat");
   if (leadId) revalidatePath(`/crm/leads/${leadId}`);
+}
+
+const SendWhatsAppTextSchema = z.object({
+  leadId: z.string().min(1),
+  body: z.string().trim().min(1).max(4000),
+});
+
+/**
+ * Free-text WhatsApp reply used by the Multichat inbox. The sending number is
+ * resolved automatically (thread number → assigned rep's number → first active
+ * number) inside MessageLedgerService, so the operator never picks a number.
+ */
+export async function sendWhatsAppText(
+  raw: unknown,
+): Promise<Result<{ id: string; status: string; isDemo: boolean }>> {
+  return runAction(async () => {
+    const parsed = SendWhatsAppTextSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new ValidationError("Ungültige Nachricht", {
+        issues: parsed.error.issues,
+      });
+    }
+    const actor = await requirePermission("canManageLeads");
+    await assertLeadScopeForActor(actor, parsed.data.leadId);
+    const entry = await messageLedgerService.sendText({
+      leadId: parsed.data.leadId,
+      body: parsed.data.body,
+      actorId: actor.id,
+      channel: CommunicationChannel.WHATSAPP,
+    });
+    revalidateCommunication(parsed.data.leadId);
+    return { id: entry.id, status: entry.status, isDemo: entry.isDemo };
+  });
 }
 
 const SendTemplateSchema = z.object({

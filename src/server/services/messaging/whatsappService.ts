@@ -24,8 +24,12 @@ import type { WhatsAppService } from "./whatsappPort";
 
 export type { WhatsAppConfigInfo, WhatsAppConfigStatus };
 
+// Real sending is gated on the WABA System-User token only. The per-number
+// `phone_number_id` no longer has to live in the env — numbers are managed in
+// the DB (WhatsAppNumber) and passed per send. A single token sends from every
+// number under the WABA.
 function metaSecretsPresent(): boolean {
-  return Boolean(serverEnv.META_WABA_TOKEN) && Boolean(serverEnv.META_PHONE_NUMBER_ID);
+  return Boolean(serverEnv.META_WABA_TOKEN);
 }
 
 /** Compute config health for the settings UI. Booleans only — no secrets. */
@@ -56,6 +60,8 @@ export function getWhatsAppConfigStatus(): WhatsAppConfigInfo {
 
 function createWhatsAppService(): WhatsAppService {
   if (serverEnv.WHATSAPP_PROVIDER === "meta" && metaSecretsPresent()) {
+    // `META_PHONE_NUMBER_ID` is only a fallback default now; per-send
+    // `fromPhoneNumberId` (from the WhatsAppNumber table) is authoritative.
     return new MetaWhatsAppAdapter(
       serverEnv.META_WABA_TOKEN,
       serverEnv.META_PHONE_NUMBER_ID,

@@ -23,11 +23,29 @@ function tsToDate(ts: unknown): Date {
   return new Date();
 }
 
+/** Read the receiving business number from a change's `metadata` block. */
+function readMetadata(value: Record<string, unknown>): {
+  phoneNumberId?: string;
+  displayPhone?: string;
+} {
+  const meta = value.metadata;
+  if (!meta || typeof meta !== "object") return {};
+  const m = meta as Record<string, unknown>;
+  const out: { phoneNumberId?: string; displayPhone?: string } = {};
+  if (typeof m.phone_number_id === "string") out.phoneNumberId = m.phone_number_id;
+  if (typeof m.display_phone_number === "string") {
+    out.displayPhone = m.display_phone_number;
+  }
+  return out;
+}
+
 function parseValue(
   value: Record<string, unknown>,
   mapStatus: StatusMapper,
   out: WhatsAppWebhookEvent[],
 ): void {
+  const { phoneNumberId, displayPhone } = readMetadata(value);
+
   for (const s of asArray(value.statuses)) {
     const id = typeof s.id === "string" ? s.id : null;
     const status = typeof s.status === "string" ? s.status : null;
@@ -39,6 +57,7 @@ function parseValue(
       status: mapStatus(status),
       at: tsToDate(s.timestamp),
     };
+    if (phoneNumberId) event.businessPhoneNumberId = phoneNumberId;
     if (errors) {
       if (errors.code !== undefined) event.errorCode = String(errors.code);
       if (typeof errors.title === "string") event.reason = errors.title;
@@ -57,13 +76,16 @@ function parseValue(
         : typeof m.type === "string"
           ? `[${m.type}]`
           : "[Nachricht]";
-    out.push({
+    const event: WhatsAppWebhookEvent = {
       kind: "inbound",
       from,
       providerMessageId: id,
       body,
       at: tsToDate(m.timestamp),
-    });
+    };
+    if (phoneNumberId) event.businessPhoneNumberId = phoneNumberId;
+    if (displayPhone) event.businessPhone = displayPhone;
+    out.push(event);
   }
 }
 

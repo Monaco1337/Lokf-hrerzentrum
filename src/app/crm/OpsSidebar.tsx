@@ -63,6 +63,7 @@ const SECTIONS: ReadonlyArray<RawSection> = [
           { href: "/crm/sales/dialer", label: "Kontaktcenter", icon: "phone", permission: "canTrackCalls" },
           { href: "/crm/sales/followups", label: "Follow-Ups", icon: "clock", permission: "canCreateTasks" },
           { href: "/crm/tasks", label: "Aufgaben", icon: "checkbox", permission: "canCreateTasks" },
+          { href: "/crm/multichat", label: "Multichat", icon: "message", permission: "canManageLeads" },
           { href: "/crm/communication", label: "Kommunikation", icon: "message" },
         ],
       },
@@ -91,6 +92,7 @@ const SECTIONS: ReadonlyArray<RawSection> = [
     title: "System",
     entries: [
       { href: "/crm/automation", label: "Automationen", icon: "spark", permission: "canManageAutomations" },
+      { href: "/crm/settings/whatsapp-numbers", label: "WhatsApp-Nummern", icon: "message", permission: "canManageSettings" },
       { href: "/crm/settings", label: "Einstellungen", icon: "settings", permission: "canManageSettings" },
     ],
   },

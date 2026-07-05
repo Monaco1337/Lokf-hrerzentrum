@@ -28,6 +28,8 @@ export interface WebhookStatusEvent {
   at: Date;
   errorCode?: string;
   reason?: string;
+  /** Our business number (Meta `phone_number_id`) this event belongs to. */
+  businessPhoneNumberId?: string;
 }
 
 export interface WebhookInboundEvent {
@@ -37,6 +39,10 @@ export interface WebhookInboundEvent {
   providerMessageId: string;
   body: string;
   at: Date;
+  /** Our business number (Meta `phone_number_id`) that received the message. */
+  businessPhoneNumberId?: string;
+  /** Our business display phone (E.164) that received the message. */
+  businessPhone?: string;
 }
 
 export type WhatsAppWebhookEvent = WebhookStatusEvent | WebhookInboundEvent;
@@ -53,11 +59,17 @@ export interface SendTemplateArgs {
   templateName: string;
   body: string;
   variables: Record<string, string>;
+  /** Send FROM this business number (Meta `phone_number_id`). Falls back to
+   *  the env default number when omitted. */
+  fromPhoneNumberId?: string;
 }
 
 export interface SendTextArgs {
   to: string;
   body: string;
+  /** Send FROM this business number (Meta `phone_number_id`). Falls back to
+   *  the env default number when omitted. */
+  fromPhoneNumberId?: string;
 }
 
 export interface WhatsAppService {

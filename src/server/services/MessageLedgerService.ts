@@ -39,12 +39,15 @@ import {
   NotFoundError,
   ValidationError,
 } from "../errors";
+import type { LeadSummary } from "@/features/fairtrain-funnel/types";
+
 import { auditLogService } from "./AuditLogService";
 import { consentService } from "./ConsentService";
 import { automationTemplateRepository } from "../repositories/AutomationTemplateRepository";
 import { communicationRepository } from "../repositories/CommunicationRepository";
 import { leadRepository } from "../repositories/LeadRepository";
 import { taskRepository } from "../repositories/TaskRepository";
+import { whatsAppNumberRepository } from "../repositories/WhatsAppNumberRepository";
 import { whatsappService } from "./messaging/whatsappService";
 
 // Punycode form of the IDN production domain `lokführerzentrum.de` so any link
@@ -118,6 +121,29 @@ export class MessageLedgerService {
     return !whatsappService.isSimulated;
   }
 
+  /**
+   * Which business number should an outbound message to this lead go out from?
+   * Priority: (1) the number the thread already uses, (2) the assigned rep's
+   * own number, (3) the first active number. Null = no number configured (the
+   * adapter then surfaces a controlled failure).
+   */
+  private async resolveOutboundNumber(
+    lead: LeadSummary,
+  ): Promise<string | null> {
+    const threadNumber = await communicationRepository.latestBusinessNumberForLead(
+      lead.id,
+    );
+    if (threadNumber) return threadNumber;
+
+    const active = await whatsAppNumberRepository.listActive();
+    if (active.length === 0) return null;
+    if (lead.assignedToId) {
+      const owned = active.find((n) => n.assignedUserId === lead.assignedToId);
+      if (owned) return owned.phoneNumberId;
+    }
+    return active[0]?.phoneNumberId ?? null;
+  }
+
   private async assertWhatsappConsent(
     leadId: string,
     actorId: string,
@@ -172,6 +198,9 @@ export class MessageLedgerService {
     }
 
     const now = new Date();
+    const fromPhoneNumberId = isWhatsapp
+      ? await this.resolveOutboundNumber(lead)
+      : null;
     const delivery = await this.dispatchWhatsapp({
       isWhatsapp,
       live,
@@ -180,6 +209,7 @@ export class MessageLedgerService {
       body,
       variables,
       isInternal: channel === CommunicationChannel.INTERNAL,
+      fromPhoneNumberId,
     });
 
     const entry = await communicationRepository.appendEntry({
@@ -201,6 +231,7 @@ export class MessageLedgerService {
       sentAt: delivery.status === MessageStatus.FAILED ? null : now,
       failedAt: delivery.status === MessageStatus.FAILED ? now : null,
       failedReason: delivery.failedReason,
+      businessPhoneNumberId: fromPhoneNumberId,
     });
 
     await automationTemplateRepository.recordUsage(template.id);
@@ -237,10 +268,13 @@ export class MessageLedgerService {
 
     const now = new Date();
     let delivery: DeliveryOutcome;
+    let fromPhoneNumberId: string | null = null;
     if (isWhatsapp) {
+      fromPhoneNumberId = await this.resolveOutboundNumber(lead);
       const result = await whatsappService.sendText({
         to: lead.phone,
         body: args.body,
+        ...(fromPhoneNumberId ? { fromPhoneNumberId } : {}),
       });
       delivery = {
         providerMessageId: result.providerMessageId || null,
@@ -273,6 +307,7 @@ export class MessageLedgerService {
       sentAt: delivery.status === MessageStatus.FAILED ? null : now,
       failedAt: delivery.status === MessageStatus.FAILED ? now : null,
       failedReason: delivery.failedReason,
+      businessPhoneNumberId: fromPhoneNumberId,
     });
 
     await auditLogService.append({
@@ -296,6 +331,7 @@ export class MessageLedgerService {
     body: string;
     variables: Record<string, string>;
     isInternal: boolean;
+    fromPhoneNumberId?: string | null;
   }): Promise<DeliveryOutcome> {
     if (!args.isWhatsapp) {
       // Email/internal are recorded here, not sent through the WA provider.
@@ -311,6 +347,7 @@ export class MessageLedgerService {
       templateName: args.templateName,
       body: args.body,
       variables: args.variables,
+      ...(args.fromPhoneNumberId ? { fromPhoneNumberId: args.fromPhoneNumberId } : {}),
     });
     return {
       providerMessageId: result.providerMessageId || null,

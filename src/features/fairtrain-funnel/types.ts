@@ -533,6 +533,8 @@ export interface CommunicationEntry {
   readAt: Date | null;
   failedAt: Date | null;
   failedReason: string | null;
+  /** Which of our WhatsApp business numbers handled this message (or null). */
+  businessPhoneNumberId: string | null;
   createdAt: Date;
 }
 

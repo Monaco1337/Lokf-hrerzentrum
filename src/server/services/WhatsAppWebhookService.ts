@@ -21,6 +21,7 @@ import {
 import { auditLogService } from "./AuditLogService";
 import { communicationRepository } from "../repositories/CommunicationRepository";
 import { leadRepository } from "../repositories/LeadRepository";
+import { whatsAppNumberRepository } from "../repositories/WhatsAppNumberRepository";
 import { whatsappService } from "./messaging/whatsappService";
 
 export interface WebhookProcessResult {
@@ -73,9 +74,20 @@ export class WhatsAppWebhookService {
       // inbound
       const lead = await leadRepository.findByPhone(event.from);
       if (!lead) {
+        // Unknown sender (no matching lead). We deliberately skip rather than
+        // auto-create a lead, since a valid Lead requires funnel data. Counted
+        // so the webhook result stays observable.
         skipped += 1;
         continue;
       }
+
+      // Which of our numbers received this? Drives auto-assignment + threading.
+      const businessNumber = event.businessPhoneNumberId
+        ? await whatsAppNumberRepository.findByPhoneNumberId(
+            event.businessPhoneNumberId,
+          )
+        : null;
+
       await communicationRepository.appendEntry({
         leadId: lead.id,
         channel: CommunicationChannel.WHATSAPP,
@@ -89,6 +101,7 @@ export class WhatsAppWebhookService {
         actorId: null,
         isDemo: false,
         deliveredAt: event.at,
+        businessPhoneNumberId: event.businessPhoneNumberId ?? null,
       });
       inboundStored += 1;
 
@@ -100,8 +113,35 @@ export class WhatsAppWebhookService {
         details: {
           channel: "WHATSAPP",
           providerMessageId: event.providerMessageId,
+          businessPhoneNumberId: event.businessPhoneNumberId ?? null,
         },
       });
+
+      // Auto-assign: a message arriving on a rep's number belongs to that rep.
+      // We only claim UNASSIGNED leads, so we never steal an active handover.
+      if (
+        businessNumber?.assignedUserId &&
+        !lead.assignedToId &&
+        businessNumber.active
+      ) {
+        await leadRepository.update(lead.id, {
+          assignedToId: businessNumber.assignedUserId,
+          assignedTo: businessNumber.assignedUserName,
+          assignedById: businessNumber.assignedUserId,
+          assignedAt: event.at,
+        });
+        await auditLogService.append({
+          actor: "whatsapp-webhook",
+          action: AuditAction.LEAD_ASSIGNED,
+          entityType: "Lead",
+          entityId: lead.id,
+          details: {
+            assignedToId: businessNumber.assignedUserId,
+            via: "whatsapp-number",
+            numberLabel: businessNumber.label,
+          },
+        });
+      }
 
       // A fresh inbound reply means a fresh action is due soon.
       const soon = new Date(event.at.getTime() + 2 * 3_600_000);
