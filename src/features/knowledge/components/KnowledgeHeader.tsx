@@ -43,7 +43,7 @@ export function KnowledgeHeader({ activePath }: { activePath?: string }) {
         </nav>
 
         <Link
-          href="/eligibility"
+          href="/eignungscheck"
           className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-accent-600 px-4 py-2 text-[13px] font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.06),0_8px_18px_-8px_rgba(63,114,72,0.45)] ring-1 ring-accent-700/15 transition-all duration-200 hover:-translate-y-px hover:bg-accent-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2"
         >
           Eignung prüfen

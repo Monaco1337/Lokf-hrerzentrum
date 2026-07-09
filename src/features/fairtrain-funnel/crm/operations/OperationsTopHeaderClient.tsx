@@ -151,7 +151,7 @@ export function OperationsTopHeaderClient({
         <LiveClock />
 
         <a
-          href="/eignungs-check"
+          href="/eignungscheck"
           target="_blank"
           rel="noopener"
           className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-[12px] font-medium text-[#374151] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#D1D5DB] hover:bg-[#F9FAFB] hover:text-[#111827] focus:outline-none focus:ring-2 focus:ring-emerald-500/30"

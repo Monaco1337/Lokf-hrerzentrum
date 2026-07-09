@@ -62,7 +62,7 @@ export function ChecklistSection() {
 
         <div className="mt-7 flex justify-center">
           <Link
-            href="/eligibility"
+            href="/eignungscheck"
             className="inline-flex items-center gap-2 rounded-xl border border-ink/10 bg-white px-5 py-3 text-sm font-semibold text-ink shadow-sm transition hover:border-ink/20 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2"
           >
             Eignung kostenlos prüfen

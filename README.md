@@ -56,7 +56,7 @@ npm run dev
 Dann:
 
 - Landing: <http://localhost:3000>
-- Wizard: <http://localhost:3000/eligibility>
+- Wizard: <http://localhost:3000/eignungscheck>
 - CRM: <http://localhost:3000/crm/login> (Dev-Passwort: `dev`)
 
 ## Tests

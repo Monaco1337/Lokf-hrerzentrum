@@ -107,7 +107,7 @@ function CTABarMobile() {
   return (
     <div className="mt-10 flex md:hidden">
       <Link
-        href="/eligibility"
+        href="/eignungscheck"
         className="group/cta relative inline-flex h-14 w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-gradient-to-br from-accent-600 via-accent-700 to-accent-800 text-[15px] font-semibold tracking-tight text-white shadow-cta transition-all duration-200 hover:shadow-cta-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/60 focus-visible:ring-offset-2 active:scale-[0.99]"
       >
         <span
@@ -125,7 +125,7 @@ function CTABarDesktop() {
   return (
     <div className="mt-14 hidden justify-center md:flex lg:mt-16">
       <Link
-        href="/eligibility"
+        href="/eignungscheck"
         className="group/cta relative inline-flex h-14 items-center justify-center gap-2.5 overflow-hidden rounded-xl bg-gradient-to-br from-accent-600 via-accent-700 to-accent-800 px-9 text-[15px] font-semibold tracking-tight text-white shadow-cta transition-all duration-200 hover:-translate-y-0.5 hover:shadow-cta-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/60 focus-visible:ring-offset-2"
       >
         <span

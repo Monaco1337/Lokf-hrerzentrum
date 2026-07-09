@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function EligibilityPage() {
+export default function EignungscheckPage() {
   return (
     <div className="min-h-screen bg-surface-subtle">
       <header className="sticky top-0 z-40 border-b border-ink/10 bg-white/90 backdrop-blur-md">

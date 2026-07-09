@@ -191,7 +191,7 @@ export function CtaBlock({
         {body}
       </p>
       <Link
-        href="/eligibility"
+        href="/eignungscheck"
         className="mt-6 inline-flex items-center gap-2 rounded-full bg-accent-500 px-7 py-3.5 text-[14.5px] font-semibold text-white shadow-[0_18px_38px_-12px_rgba(63,114,72,0.6)] ring-1 ring-accent-400/30 transition-all duration-200 hover:-translate-y-0.5 hover:bg-accent-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-300 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
       >
         Eignung kostenlos prüfen

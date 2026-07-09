@@ -73,7 +73,7 @@ export function Step6Result({ result }: { result: ResultState }) {
             {result.message ?? "Bitte versuche es in einem Moment erneut."}
           </p>
           <Link
-            href="/eligibility"
+            href="/eignungscheck"
             className="btn-cta mt-7 inline-flex"
           >
             Erneut versuchen

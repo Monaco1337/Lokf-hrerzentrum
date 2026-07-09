@@ -26,7 +26,7 @@ export const NAVBAR_SCROLL_TRIGGER_ID = "zielgruppen";
 export const NAVBAR_TOP_OFFSET = 72;
 
 /** Primary CTA target. */
-export const PRIMARY_CTA_HREF = "/eligibility";
+export const PRIMARY_CTA_HREF = "/eignungscheck";
 export const PRIMARY_CTA_LABEL = "Eignungscheck starten";
 
 /** WhatsApp contact target (placeholder until prod number is wired in). */

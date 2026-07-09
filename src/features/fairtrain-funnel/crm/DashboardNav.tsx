@@ -79,7 +79,7 @@ const TILES: ReadonlyArray<NavTile> = [
   {
     label: "Eignungscheck",
     hint: "Funnel öffnen (neuer Tab)",
-    href: "/eligibility",
+    href: "/eignungscheck",
     external: true,
     tone: "emerald",
     icon: (

@@ -84,7 +84,7 @@ export function HeroSection() {
 
           <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center sm:flex-wrap">
             <Link
-              href="/eligibility"
+              href="/eignungscheck"
               className={[
                 "group relative inline-flex w-full items-center justify-center gap-2 rounded-full",
                 "bg-gradient-to-b from-accent-500 to-accent-700",

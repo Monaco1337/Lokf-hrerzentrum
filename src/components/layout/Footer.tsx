@@ -177,7 +177,7 @@ function SitemapGrid() {
           ))}
           <li>
             <Link
-              href="/eligibility"
+              href="/eignungscheck"
               className="inline-flex items-center text-[13.5px] text-ink-soft transition hover:text-navy-950"
             >
               Eignungscheck

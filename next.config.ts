@@ -4,6 +4,15 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   typedRoutes: true,
+  // Permanent (301) redirects from the former Eignungscheck routes to the
+  // single public route `/eignungscheck`. Path + query are preserved by Next.
+  // Kept in sync with `PRIMARY_CTA_HREF` in src/components/layout/navConfig.ts.
+  async redirects() {
+    return [
+      { source: "/eligibility", destination: "/eignungscheck", statusCode: 301 },
+      { source: "/eignungs-check", destination: "/eignungscheck", statusCode: 301 },
+    ];
+  },
   experimental: {
     // The wizard's FileDropzone uploads documents (PDF/PNG/JPG/WEBP up to
     // 15 MB) through the `uploadFile` Server Action. Next.js caps Server

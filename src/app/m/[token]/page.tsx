@@ -43,7 +43,7 @@ export default async function MagicLinkPage({ params }: PageProps) {
           <div className="card p-8 text-center">
             <h1 className="text-xl font-semibold text-ink">Link nicht nutzbar</h1>
             <p className="mt-2 text-sm text-ink-soft">{error}</p>
-            <Link href="/eligibility" className="btn-primary mt-6">
+            <Link href="/eignungscheck" className="btn-primary mt-6">
               Erneut starten
             </Link>
           </div>

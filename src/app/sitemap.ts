@@ -5,7 +5,7 @@ import { absoluteUrl, getSiteUrl } from "@/lib/site";
 
 /**
  * Sitemap lists only indexable URLs. The homepage plus every knowledge route
- * are included; /eligibility is deliberately omitted because it is marked
+ * are included; /eignungscheck is deliberately omitted because it is marked
  * `noindex` (a sitemap must not advertise non-indexable pages).
  */
 export default function sitemap(): MetadataRoute.Sitemap {
