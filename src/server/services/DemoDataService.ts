@@ -14,6 +14,7 @@
  */
 import { prisma } from "../db/prisma";
 import { demoSeedRepository } from "../repositories/DemoSeedRepository";
+import { DEMO_SOURCE, DEMO_TAG } from "./demo/demoConstants";
 import { seedDemoLeads, seedDemoUsers } from "./DemoDataSeeder";
 import { seedDemoActivity } from "./DemoDataSeederActivity";
 import { seedDemoTemplatesAndRules } from "./DemoDataSeederAutomationLib";
@@ -80,7 +81,12 @@ class DemoDataService {
    */
   async remove(): Promise<{ removed: number }> {
     const start = await demoSeedRepository.countAll();
-    if (start === 0) return { removed: 0 };
+    if (start === 0) {
+      // Registry is empty, but defensively sweep any untracked demo leftovers
+      // (e.g. from a partial/legacy seed) by their seeder-only markers.
+      const swept = await this.purgeByMarkers();
+      return { removed: swept };
+    }
 
     const order: ReadonlyArray<{
       type: Parameters<typeof demoSeedRepository.listByType>[0];
@@ -150,7 +156,81 @@ class DemoDataService {
       }
     }
     await demoSeedRepository.deleteAll();
-    return { removed: start };
+    // Belt-and-suspenders: also drop any untracked demo leftovers by marker.
+    const swept = await this.purgeByMarkers();
+    return { removed: start + swept };
+  }
+
+  /**
+   * Defensive marker-based sweep for demo rows that are NOT (or no longer) in
+   * the registry. Matches ONLY seeder-exclusive markers (`source = "demo"`, the
+   * `[DEMO]` name prefix, `@fairtrain.local` accounts, `runMode = "demo"`), which
+   * real imported leads / staff never carry — so this can never touch real data.
+   * Lead deletion cascades to its comms/notes/tasks/etc. Best-effort per step.
+   */
+  private async purgeByMarkers(): Promise<number> {
+    let removed = 0;
+
+    // 1) Tasks tagged [DEMO] first (User FK is Restrict on createdById).
+    removed += await this.safeDeleteMany(() =>
+      prisma.task.deleteMany({ where: { title: { startsWith: DEMO_TAG } } }),
+    );
+
+    // 2) Leads by source/name marker — cascades to all lead-owned children.
+    removed += await this.safeDeleteMany(() =>
+      prisma.lead.deleteMany({
+        where: {
+          OR: [
+            { source: DEMO_SOURCE },
+            { firstName: { startsWith: DEMO_TAG } },
+          ],
+        },
+      }),
+    );
+
+    // 3) Contact inquiries (standalone, not lead-linked).
+    removed += await this.safeDeleteMany(() =>
+      prisma.contactInquiry.deleteMany({
+        where: {
+          OR: [{ source: DEMO_SOURCE }, { firstName: { startsWith: DEMO_TAG } }],
+        },
+      }),
+    );
+
+    // 4) Demo automation rules + [DEMO] templates (never the real std.* ones).
+    removed += await this.safeDeleteMany(() =>
+      prisma.automationRule.deleteMany({ where: { runMode: DEMO_SOURCE } }),
+    );
+    removed += await this.safeDeleteMany(() =>
+      prisma.automationTemplate.deleteMany({
+        where: { name: { startsWith: DEMO_TAG } },
+      }),
+    );
+
+    // 5) Demo staff accounts (fixed @fairtrain.local domain or [DEMO] name).
+    removed += await this.safeDeleteMany(() =>
+      prisma.user.deleteMany({
+        where: {
+          OR: [
+            { email: { endsWith: "@fairtrain.local" } },
+            { name: { startsWith: DEMO_TAG } },
+          ],
+        },
+      }),
+    );
+
+    return removed;
+  }
+
+  private async safeDeleteMany(
+    fn: () => Promise<{ count: number }>,
+  ): Promise<number> {
+    try {
+      const { count } = await fn();
+      return count;
+    } catch {
+      return 0;
+    }
   }
 
   /** Back-compat alias — the original public method name was `reset`. */

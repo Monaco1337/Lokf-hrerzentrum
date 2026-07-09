@@ -87,7 +87,7 @@ export function DemoDataPanel({ isSeeded, counts, totalEntries }: Props) {
   const runRemove = () => {
     if (
       !window.confirm(
-        "Alle Demo-Daten werden unwiderruflich entfernt. Echte Leads, Mitarbeiter und Einstellungen bleiben unberührt. Fortfahren?",
+        "Alle Demo-Daten werden unwiderruflich entfernt (inkl. evtl. Reste): Demo-Leads (source=\"demo\" / [DEMO]), Demo-Mitarbeiter und Demo-Vorlagen. Echte importierte Leads, echte Mitarbeiter und Einstellungen bleiben unberührt. Fortfahren?",
       )
     ) {
       return;
@@ -174,7 +174,7 @@ export function DemoDataPanel({ isSeeded, counts, totalEntries }: Props) {
         <button
           type="button"
           onClick={runRemove}
-          disabled={pending || !isSeeded}
+          disabled={pending}
           className="inline-flex items-center gap-1.5 rounded-full border border-ink/15 bg-white px-3.5 py-1.5 text-[13px] font-medium text-ink-soft shadow-sm transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
         >
           Demo-Daten entfernen

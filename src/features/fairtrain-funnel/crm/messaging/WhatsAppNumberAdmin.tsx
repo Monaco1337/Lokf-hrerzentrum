@@ -109,7 +109,9 @@ export function WhatsAppNumberAdmin({
         <h1 className="text-xl font-semibold text-[#111827]">WhatsApp-Nummern</h1>
         <p className="mt-1 text-sm text-[#6B7280]">
           Alle Vertriebs-Nummern laufen über einen WABA + ein Token. Neue Nummer
-          hier anlegen → sofort live, kein Deploy nötig.
+          hier anlegen → sofort live, kein Deploy nötig. Ohne zugewiesenen
+          Vertriebler ist die Nummer <strong>geteilt</strong>: jede:r mit
+          Berechtigung kann darüber senden und arbeiten (keine Auto-Zuweisung).
         </p>
       </header>
 
@@ -143,9 +145,9 @@ export function WhatsAppNumberAdmin({
           <Field label="Meta phone_number_id">
             <input name="phoneNumberId" required placeholder="123456789012345" className={inputClass} />
           </Field>
-          <Field label="Zuständiger Vertriebler">
+          <Field label="Zuständiger Vertriebler (optional)">
             <select name="assignedUserId" className={inputClass} defaultValue="">
-              <option value="">— keiner —</option>
+              <option value="">— keiner (geteilt, alle mit Berechtigung) —</option>
               {reps.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.name} ({ROLE_LABEL[r.role]})
