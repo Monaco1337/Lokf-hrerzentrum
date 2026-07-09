@@ -44,12 +44,20 @@ export function LeitstandWhatsApp({ kpis }: { kpis: WhatsAppKpis }) {
         <h2 className="text-[13px] font-bold uppercase tracking-wide text-ink-muted">
           WhatsApp-Tracking
         </h2>
-        <Link
-          href={"/crm/multichat" as Route}
-          className="text-[12.5px] font-semibold text-brand-700 hover:underline"
-        >
-          Multichat öffnen →
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href={"/crm/campaigns/reaktivierung" as Route}
+            className="text-[12.5px] font-semibold text-brand-700 hover:underline"
+          >
+            Reaktivierung →
+          </Link>
+          <Link
+            href={"/crm/multichat" as Route}
+            className="text-[12.5px] font-semibold text-brand-700 hover:underline"
+          >
+            Multichat öffnen →
+          </Link>
+        </div>
       </div>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {tiles.map((t) => (

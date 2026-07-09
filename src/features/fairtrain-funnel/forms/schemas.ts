@@ -355,4 +355,8 @@ export const LeadFilterSchema = z.object({
   quality: z.string().optional(), // LeadQualityStatus value
   temp: z.string().optional(), // HOT | WARM | COLD (derived, filtered in-page)
   newReply: z.coerce.boolean().optional(),
+  // Reactivation campaign filters.
+  leadType: z.string().optional(), // "neu" | "alt_lead"
+  campaign: z.string().optional(), // campaign key
+  campaignStatus: z.string().optional(), // CampaignStatus value
 });

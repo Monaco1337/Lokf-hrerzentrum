@@ -129,8 +129,10 @@ export const LeadQualityStatus = {
   UNBEWERTET: "unbewertet",
   NEUTRAL: "neutral",
   WARM: "warm",
+  HOT: "hot", // strong buying signal (e.g. "Ja, Interesse" quick-reply)
   REAGIERT: "reagiert",
   SCHROTTLEAD: "schrottlead",
+  AUSGESCHLOSSEN: "ausgeschlossen", // opted out / "Kein Interesse"
   NICHT_KONTAKTIERBAR: "nicht_kontaktierbar",
 } as const;
 export type LeadQualityStatus =
@@ -139,16 +141,20 @@ export const LeadQualityStatusSchema = z.enum([
   "unbewertet",
   "neutral",
   "warm",
+  "hot",
   "reagiert",
   "schrottlead",
+  "ausgeschlossen",
   "nicht_kontaktierbar",
 ]);
 export const LEAD_QUALITY_LABEL: Record<LeadQualityStatus, string> = {
   unbewertet: "Unbewertet",
   neutral: "Neutral",
   warm: "Warm",
+  hot: "Hot",
   reagiert: "Reagiert",
   schrottlead: "Schrottlead",
+  ausgeschlossen: "Ausgeschlossen",
   nicht_kontaktierbar: "Nicht kontaktierbar",
 };
 
@@ -163,6 +169,7 @@ export function leadTemperature(input: {
   leadQualityStatus: LeadQualityStatus | string;
 }): LeadTemperature {
   if (
+    input.leadQualityStatus === "hot" ||
     input.leadQualityStatus === "reagiert" ||
     input.whatsappStatus === "beantwortet" ||
     input.leadScore >= 25

@@ -40,8 +40,12 @@ import { statusHistoryRepository } from "../repositories/StatusHistoryRepository
 import { uploadedFileRepository } from "../repositories/UploadedFileRepository";
 import { auditLogService } from "./AuditLogService";
 import { automationService } from "./AutomationService";
+import { REACTIVATION_CAMPAIGN_KEY } from "@/features/fairtrain-funnel/campaign/types";
+
+import { campaignStopService } from "./CampaignStopService";
 import { consentService, type ConsentContext } from "./ConsentService";
 import { fileUploadService } from "./FileUploadService";
+import { leadImportService } from "./LeadImportService";
 
 // Re-export ConsentInput here for the action layer (avoids cross-feature pulls).
 export type { ConsentInput } from "@/features/fairtrain-funnel/types";
@@ -258,6 +262,28 @@ export class LeadService {
       console.error("[automation] lead.created failed", { leadId, err });
     }
 
+    // Reactivation: if this wizard submission matches an active Alt-Lead
+    // (same phone/email), they completed the Eignungscheck → stop that
+    // campaign. Best-effort; never blocks the public submit.
+    try {
+      const match = await leadRepository.findActiveCampaignLeadByContact(
+        REACTIVATION_CAMPAIGN_KEY,
+        input.phone,
+        input.email,
+        leadId,
+      );
+      if (match) {
+        await campaignStopService.stop(
+          match.id,
+          "eignungscheck_completed",
+          "qualifiziert",
+        );
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[campaign] eignungscheck-complete stop failed", { leadId, err });
+    }
+
     return {
       leadId,
       priority: scoring.priority,
@@ -265,6 +291,27 @@ export class LeadService {
       score: scoring.score,
       blockedReasons: scoring.blockedReasons,
     };
+  }
+
+  /**
+   * Bulk-import Alt-Leads from an Excel/CSV buffer. Creates leads with the
+   * reactivation defaults and deliberately does NOT call
+   * `automationService.onLeadCreated` — no message is sent on import.
+   */
+  async importAltLeads(
+    buffer: Buffer,
+    filename: string,
+    actor: string,
+  ): Promise<import("./LeadImportService").ImportCommitResult> {
+    const result = await leadImportService.commit(buffer, filename, actor);
+    await auditLogService.append({
+      actor,
+      action: AuditAction.LEAD_CREATED,
+      entityType: "LeadImportBatch",
+      entityId: result.batchId,
+      details: { filename, ...result.counters },
+    });
+    return result;
   }
 
   async list(filters: LeadFilters): Promise<LeadSummary[]> {

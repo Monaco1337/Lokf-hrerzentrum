@@ -68,6 +68,10 @@ export default async function LeadsPage({
     quality: typeof sp.quality === "string" ? sp.quality : undefined,
     temp: typeof sp.temp === "string" ? sp.temp : undefined,
     newReply: sp.newReply !== undefined,
+    leadType: typeof sp.leadType === "string" ? sp.leadType : undefined,
+    campaign: typeof sp.campaign === "string" ? sp.campaign : undefined,
+    campaignStatus:
+      typeof sp.campaignStatus === "string" ? sp.campaignStatus : undefined,
   });
 
   const temperature = ((): LeadTemperature | undefined => {
@@ -95,6 +99,9 @@ export default async function LeadsPage({
         ),
         hasNewReply: raw.data.newReply || undefined,
         temperature,
+        leadType: raw.data.leadType,
+        campaign: raw.data.campaign,
+        campaignStatus: raw.data.campaignStatus,
       }
     : {};
 

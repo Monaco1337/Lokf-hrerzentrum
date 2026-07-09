@@ -95,24 +95,67 @@ function parseValue(
     const id = typeof m.id === "string" ? m.id : null;
     const from = typeof m.from === "string" ? m.from : null;
     if (!id || !from) continue;
+    const type = typeof m.type === "string" ? m.type : "text";
+    const reply = readButtonReply(m);
     const text = m.text as { body?: unknown } | undefined;
     const body =
-      text && typeof text.body === "string"
+      reply?.title ??
+      (text && typeof text.body === "string"
         ? text.body
         : typeof m.type === "string"
           ? `[${m.type}]`
-          : "[Nachricht]";
+          : "[Nachricht]");
     const event: WhatsAppWebhookEvent = {
       kind: "inbound",
       from,
       providerMessageId: id,
       body,
       at: tsToDate(m.timestamp),
+      messageType: type,
     };
     if (phoneNumberId) event.businessPhoneNumberId = phoneNumberId;
     if (displayPhone) event.businessPhone = displayPhone;
+    if (reply) {
+      if (reply.id) event.buttonId = reply.id;
+      if (reply.title) event.buttonTitle = reply.title;
+    }
     out.push(event);
   }
+}
+
+/**
+ * Extract a quick-reply / interactive / list reply payload from a Meta inbound
+ * message. Supports the three shapes Meta emits:
+ *  - template quick-reply:  message.button.{payload,text}
+ *  - interactive button:     message.interactive.button_reply.{id,title}
+ *  - interactive list:       message.interactive.list_reply.{id,title}
+ */
+function readButtonReply(
+  m: Record<string, unknown>,
+): { id?: string; title?: string } | null {
+  const button = m.button as { payload?: unknown; text?: unknown } | undefined;
+  if (button && typeof button === "object") {
+    const out: { id?: string; title?: string } = {};
+    if (typeof button.payload === "string") out.id = button.payload;
+    if (typeof button.text === "string") out.title = button.text;
+    if (out.id || out.title) return out;
+  }
+  const interactive = m.interactive as
+    | {
+        button_reply?: { id?: unknown; title?: unknown };
+        list_reply?: { id?: unknown; title?: unknown };
+      }
+    | undefined;
+  if (interactive && typeof interactive === "object") {
+    const r = interactive.button_reply ?? interactive.list_reply;
+    if (r && typeof r === "object") {
+      const out: { id?: string; title?: string } = {};
+      if (typeof r.id === "string") out.id = r.id;
+      if (typeof r.title === "string") out.title = r.title;
+      if (out.id || out.title) return out;
+    }
+  }
+  return null;
 }
 
 export function parseMetaWebhook(

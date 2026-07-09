@@ -57,6 +57,16 @@ export interface WebhookInboundEvent {
   businessPhoneNumberId?: string;
   /** Our business display phone (E.164) that received the message. */
   businessPhone?: string;
+  /** Message type: text | button | interactive | list | image | ... */
+  messageType?: string;
+  /**
+   * Quick-reply / interactive button payload id, when the inbound message is a
+   * button/list reply (Meta `button.payload`, `interactive.button_reply.id`,
+   * `interactive.list_reply.id`).
+   */
+  buttonId?: string;
+  /** Human-readable button/list title the user tapped. */
+  buttonTitle?: string;
 }
 
 export type WhatsAppWebhookEvent = WebhookStatusEvent | WebhookInboundEvent;

@@ -65,6 +65,7 @@ const SECTIONS: ReadonlyArray<RawSection> = [
           { href: "/crm/tasks", label: "Aufgaben", icon: "checkbox", permission: "canCreateTasks" },
           { href: "/crm/multichat", label: "Multichat", icon: "message", permission: "canManageLeads" },
           { href: "/crm/communication", label: "Kommunikation", icon: "message" },
+          { href: "/crm/import", label: "Lead-Import", icon: "import", permission: "canManageLeads" },
         ],
       },
       {
@@ -84,6 +85,7 @@ const SECTIONS: ReadonlyArray<RawSection> = [
     title: "Management",
     entries: [
       { href: "/crm/users", label: "Mitarbeiter", icon: "users", permission: "canManageUsers" },
+      { href: "/crm/campaigns/reaktivierung", label: "Reaktivierung", icon: "megaphone", permission: "canManageLeads" },
       { href: "/crm/team/performance", label: "Vertrieb", icon: "chart-up", permission: "canViewAnalytics" },
       { href: "/crm/reporting", label: "Reports", icon: "report", permission: "canViewAnalytics" },
     ],

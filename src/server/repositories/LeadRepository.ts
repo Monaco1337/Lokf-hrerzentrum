@@ -95,6 +95,17 @@ export interface CreateLeadInput {
   acceptsTravelHotel?: boolean | null;
   acceptsPsychLoad?: boolean | null;
   hasNoKbaDrugEntries?: boolean | null;
+  // Reactivation campaign layer (additive).
+  leadType?: string | undefined;
+  campaign?: string | null | undefined;
+  campaignStatus?: string | null | undefined;
+  campaignStep?: number | undefined;
+  communicationStarted?: boolean | undefined;
+  firstContactSentAt?: Date | null | undefined;
+  automationPaused?: boolean | undefined;
+  campaignCompleted?: boolean | undefined;
+  employmentSnapshot?: string | null | undefined;
+  nextCampaignActionAt?: Date | null | undefined;
 }
 
 export interface UpdateLeadFields {
@@ -135,6 +146,17 @@ export interface UpdateLeadFields {
   lastWhatsappErrorReason?: string | null;
   lastInboundMessage?: string | null;
   lastInboundMessageAt?: Date | null;
+  // Reactivation campaign layer (additive).
+  leadType?: string;
+  campaign?: string | null;
+  campaignStatus?: string | null;
+  campaignStep?: number;
+  communicationStarted?: boolean;
+  firstContactSentAt?: Date | null;
+  automationPaused?: boolean;
+  campaignCompleted?: boolean;
+  employmentSnapshot?: string | null;
+  nextCampaignActionAt?: Date | null;
 }
 
 function rowToSummary(row: LeadRowWithAssignee): LeadSummary {
@@ -171,6 +193,16 @@ function rowToSummary(row: LeadRowWithAssignee): LeadSummary {
     lastWhatsappErrorReason: row.lastWhatsappErrorReason,
     lastInboundMessage: row.lastInboundMessage,
     lastInboundMessageAt: row.lastInboundMessageAt,
+    leadType: row.leadType,
+    campaign: row.campaign,
+    campaignStatus: row.campaignStatus,
+    campaignStep: row.campaignStep,
+    communicationStarted: row.communicationStarted,
+    firstContactSentAt: row.firstContactSentAt,
+    automationPaused: row.automationPaused,
+    campaignCompleted: row.campaignCompleted,
+    employmentSnapshot: row.employmentSnapshot,
+    nextCampaignActionAt: row.nextCampaignActionAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -252,6 +284,32 @@ export class LeadRepository {
         acceptsTravelHotel: input.acceptsTravelHotel ?? null,
         acceptsPsychLoad: input.acceptsPsychLoad ?? null,
         hasNoKbaDrugEntries: input.hasNoKbaDrugEntries ?? null,
+        ...(input.leadType !== undefined ? { leadType: input.leadType } : {}),
+        ...(input.campaign !== undefined ? { campaign: input.campaign } : {}),
+        ...(input.campaignStatus !== undefined
+          ? { campaignStatus: input.campaignStatus }
+          : {}),
+        ...(input.campaignStep !== undefined
+          ? { campaignStep: input.campaignStep }
+          : {}),
+        ...(input.communicationStarted !== undefined
+          ? { communicationStarted: input.communicationStarted }
+          : {}),
+        ...(input.firstContactSentAt !== undefined
+          ? { firstContactSentAt: input.firstContactSentAt }
+          : {}),
+        ...(input.automationPaused !== undefined
+          ? { automationPaused: input.automationPaused }
+          : {}),
+        ...(input.campaignCompleted !== undefined
+          ? { campaignCompleted: input.campaignCompleted }
+          : {}),
+        ...(input.employmentSnapshot !== undefined
+          ? { employmentSnapshot: input.employmentSnapshot }
+          : {}),
+        ...(input.nextCampaignActionAt !== undefined
+          ? { nextCampaignActionAt: input.nextCampaignActionAt }
+          : {}),
       },
     });
     return rowToSummary(row);
@@ -356,6 +414,24 @@ export class LeadRepository {
       data.lastInboundMessage = fields.lastInboundMessage;
     if (fields.lastInboundMessageAt !== undefined)
       data.lastInboundMessageAt = fields.lastInboundMessageAt;
+    if (fields.leadType !== undefined) data.leadType = fields.leadType;
+    if (fields.campaign !== undefined) data.campaign = fields.campaign;
+    if (fields.campaignStatus !== undefined)
+      data.campaignStatus = fields.campaignStatus;
+    if (fields.campaignStep !== undefined)
+      data.campaignStep = fields.campaignStep;
+    if (fields.communicationStarted !== undefined)
+      data.communicationStarted = fields.communicationStarted;
+    if (fields.firstContactSentAt !== undefined)
+      data.firstContactSentAt = fields.firstContactSentAt;
+    if (fields.automationPaused !== undefined)
+      data.automationPaused = fields.automationPaused;
+    if (fields.campaignCompleted !== undefined)
+      data.campaignCompleted = fields.campaignCompleted;
+    if (fields.employmentSnapshot !== undefined)
+      data.employmentSnapshot = fields.employmentSnapshot;
+    if (fields.nextCampaignActionAt !== undefined)
+      data.nextCampaignActionAt = fields.nextCampaignActionAt;
 
     const row = await client.lead.update({
       where: { id },
@@ -409,6 +485,9 @@ export class LeadRepository {
       // "Neue Antworten": a reply arrived after (or without) our last outbound.
       where.lastWhatsappReplyAt = { not: null };
     }
+    if (filters.leadType) where.leadType = filters.leadType;
+    if (filters.campaign) where.campaign = filters.campaign;
+    if (filters.campaignStatus) where.campaignStatus = filters.campaignStatus;
 
     const rows = await prisma.lead.findMany({
       where,
@@ -446,6 +525,127 @@ export class LeadRepository {
 
   async aggregateKpis(): Promise<LeadKpis> {
     return aggregateLeadKpis();
+  }
+
+  /**
+   * Leads that are released-ready for a campaign: imported, not yet contacted,
+   * not completed. Ordered oldest-first for a stable "next N" selection.
+   */
+  async listReadyCampaignLeads(
+    campaign: string,
+    limit: number,
+  ): Promise<LeadSummary[]> {
+    const rows = await prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        campaign,
+        leadType: "alt_lead",
+        communicationStarted: false,
+        campaignCompleted: false,
+      },
+      orderBy: { createdAt: "asc" },
+      include: ASSIGNEE_INCLUDE,
+      ...(Number.isFinite(limit) ? { take: limit } : {}),
+    });
+    return (rows as LeadRowWithAssignee[]).map(rowToSummary);
+  }
+
+  /**
+   * Find an active reactivation-campaign lead matching a phone tail or email —
+   * used to detect that a freshly-submitted wizard lead is actually one of our
+   * Alt-Leads completing the Eignungscheck (stop trigger). Excludes `excludeId`.
+   */
+  async findActiveCampaignLeadByContact(
+    campaign: string,
+    phone: string,
+    email: string,
+    excludeId: string,
+  ): Promise<LeadSummary | null> {
+    const emailNorm = email.trim().toLowerCase();
+    const digits = phone.replace(/\D/g, "");
+    const tail = digits.length >= 6 ? digits.slice(-8) : null;
+
+    const candidates = await prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        campaign,
+        leadType: "alt_lead",
+        campaignCompleted: false,
+        id: { not: excludeId },
+      },
+      include: ASSIGNEE_INCLUDE,
+      take: 2000,
+    });
+    const match = (candidates as LeadRowWithAssignee[]).find((c) => {
+      if (emailNorm && (c.email ?? "").trim().toLowerCase() === emailNorm) {
+        return true;
+      }
+      if (tail) {
+        return (c.phone ?? "").replace(/\D/g, "").endsWith(tail);
+      }
+      return false;
+    });
+    return match ? rowToSummary(match) : null;
+  }
+
+  async countReadyCampaignLeads(campaign: string): Promise<number> {
+    return prisma.lead.count({
+      where: {
+        deletedAt: null,
+        campaign,
+        leadType: "alt_lead",
+        communicationStarted: false,
+        campaignCompleted: false,
+      },
+    });
+  }
+
+  /**
+   * Campaign leads that have reached the final step and are past the grace
+   * period without a reaction — candidates for the "inaktiv" finalizer.
+   */
+  async findCampaignLeadsToFinalize(
+    campaign: string,
+    firstContactBefore: Date,
+    limit = 200,
+  ): Promise<LeadSummary[]> {
+    const rows = await prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        campaign,
+        campaignCompleted: false,
+        campaignStep: { gte: 3 },
+        firstContactSentAt: { lte: firstContactBefore },
+      },
+      include: ASSIGNEE_INCLUDE,
+      take: limit,
+    });
+    return (rows as LeadRowWithAssignee[]).map(rowToSummary);
+  }
+
+  /**
+   * Load dedup keys for every active lead in one pass. Phones are reduced to
+   * their last-8-digit tail (matching `findByPhone` semantics), emails are
+   * lowercased. Used by the Alt-Lead import to detect duplicates against the
+   * existing base in-memory (no per-row query).
+   */
+  async allContactKeys(): Promise<{
+    phoneTails: Set<string>;
+    emails: Set<string>;
+  }> {
+    const rows = await prisma.lead.findMany({
+      where: { deletedAt: null },
+      select: { phone: true, email: true },
+    });
+    const phoneTails = new Set<string>();
+    const emails = new Set<string>();
+    for (const row of rows) {
+      const digits = (row.phone ?? "").replace(/\D/g, "");
+      if (digits.length >= 6) phoneTails.add(digits.slice(-8));
+      const email = (row.email ?? "").trim().toLowerCase();
+      if (email) emails.add(email);
+    }
+    return { phoneTails, emails };
   }
 }
 

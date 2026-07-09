@@ -110,6 +110,13 @@ export class AutomationService {
     const lead = await leadRepository.findById(leadId);
     if (!lead) throw new NotFoundError("Lead", leadId);
 
+    // Safety net: imported Alt-Leads / paused leads never run new-lead
+    // automation. Their contact is driven exclusively by the reactivation
+    // campaign after a manual release.
+    if (lead.leadType === "alt_lead" || lead.automationPaused) {
+      return [];
+    }
+
     const templates = await automationTemplateRepository.listEnabledForTrigger(
       AutomationTrigger.LEAD_CREATED,
     );
@@ -694,6 +701,16 @@ export class AutomationService {
       lastWhatsappErrorReason: null,
       lastInboundMessage: null,
       lastInboundMessageAt: null,
+      leadType: "neu",
+      campaign: null,
+      campaignStatus: null,
+      campaignStep: 0,
+      communicationStarted: false,
+      firstContactSentAt: null,
+      automationPaused: false,
+      campaignCompleted: false,
+      employmentSnapshot: null,
+      nextCampaignActionAt: null,
       createdAt: now,
       updatedAt: now,
       motivationText: "Ich möchte Lokführer werden.",

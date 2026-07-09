@@ -19,6 +19,7 @@ import {
 } from "@/features/fairtrain-funnel/types";
 
 import { auditLogService } from "./AuditLogService";
+import { campaignInboundService } from "./CampaignInboundService";
 import {
   classifyWhatsAppEvent,
   type WhatsAppClassifierEvent,
@@ -260,6 +261,15 @@ export class WhatsAppWebhookService {
     });
     if (priorityHigh) fields.priority = "HOT";
     await leadRepository.update(lead.id, fields);
+
+    // Reactivation campaign: an inbound reply / quick-reply button stops the
+    // sequence (cancel follow-ups) and, for buttons, classifies the lead.
+    await campaignInboundService.handleInbound(lead.id, {
+      buttonId: event.buttonId,
+      buttonTitle: event.buttonTitle,
+      body: event.body,
+      at: event.at,
+    });
 
     // Auto-assign: a message on a rep's number belongs to that rep. We only
     // claim UNASSIGNED leads, so we never steal an active handover.

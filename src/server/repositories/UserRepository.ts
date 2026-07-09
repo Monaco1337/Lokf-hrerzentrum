@@ -134,6 +134,30 @@ export class UserRepository {
     return rows.map(rowToSummary);
   }
 
+  /**
+   * Resolve a valid actor id for system-driven work (cron campaign runner,
+   * automation). Prefers an active SUPER_ADMIN, then ADMIN, then any active
+   * user. Returns null only if the CRM has no active users at all.
+   */
+  async findSystemActorId(): Promise<string | null> {
+    const preferred = await prisma.user.findFirst({
+      where: {
+        isActive: true,
+        deletedAt: null,
+        role: { in: ["SUPER_ADMIN", "ADMIN"] },
+      },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    if (preferred) return preferred.id;
+    const any = await prisma.user.findFirst({
+      where: { isActive: true, deletedAt: null },
+      orderBy: { createdAt: "asc" },
+      select: { id: true },
+    });
+    return any?.id ?? null;
+  }
+
   /** Count of users per role — used for the "last super-admin" guards. */
   async countActiveByRole(role: Role): Promise<number> {
     return prisma.user.count({

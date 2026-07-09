@@ -12,6 +12,7 @@ import { NotFoundError, ValidationError } from "../errors";
 import { leadRepository } from "../repositories/LeadRepository";
 import { userRepository } from "../repositories/UserRepository";
 import { auditLogService } from "../services/AuditLogService";
+import { campaignStopService } from "../services/CampaignStopService";
 import { requirePermission, runAction, type Result } from "./_helpers";
 
 const InputSchema = z.object({
@@ -62,6 +63,16 @@ export async function assignLead(
         to: parsed.data.userId ?? null,
       },
     });
+
+    // Manual takeover of an active reactivation lead stops the campaign
+    // (no automatic follow-ups after a human took over).
+    if (parsed.data.userId) {
+      await campaignStopService.stop(
+        parsed.data.leadId,
+        "manual_takeover",
+        "reagiert",
+      );
+    }
 
     revalidatePath(`/crm/leads/${parsed.data.leadId}`);
     revalidatePath("/crm/leads");

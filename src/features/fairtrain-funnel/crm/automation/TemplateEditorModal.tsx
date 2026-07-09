@@ -70,6 +70,9 @@ export function TemplateEditorModal({
   const [metaTemplateName, setMetaTemplateName] = useState(
     template?.metaTemplateName ?? "",
   );
+  const [metaApprovalStatus, setMetaApprovalStatus] = useState(
+    template?.metaApprovalStatus ?? "not_submitted",
+  );
   const [leadId, setLeadId] = useState(previewLeads[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
 
@@ -115,6 +118,8 @@ export function TemplateEditorModal({
         category,
         status,
         metaTemplateName: metaTemplateName.trim() || null,
+        // Only WhatsApp templates carry a Meta approval status; email is null.
+        metaApprovalStatus: channel === "WHATSAPP" ? metaApprovalStatus : null,
       };
       const res =
         mode === "create"
@@ -237,6 +242,28 @@ export function TemplateEditorModal({
               />
             </Field>
           </div>
+
+          {channel === "WHATSAPP" ? (
+            <Field label="Meta-Freigabestatus">
+              <select
+                className="input"
+                value={metaApprovalStatus}
+                onChange={(e) =>
+                  setMetaApprovalStatus(
+                    e.target.value as typeof metaApprovalStatus,
+                  )
+                }
+              >
+                <option value="not_submitted">Nicht eingereicht</option>
+                <option value="pending">In Prüfung</option>
+                <option value="approved">Freigegeben (Live-Versand aktiv)</option>
+                <option value="rejected">Abgelehnt</option>
+              </select>
+              <p className="mt-1 text-[11px] text-ink-muted">
+                Echter WhatsApp-Versand ist erst bei „Freigegeben“ möglich.
+              </p>
+            </Field>
+          ) : null}
 
           {isEmail ? (
             <Field label="Betreff">

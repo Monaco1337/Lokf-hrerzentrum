@@ -16,6 +16,7 @@ import {
 import { getTokenPepper, serverEnv } from "../env";
 import { TokenInvalidError } from "../errors";
 import { auditLogService } from "./AuditLogService";
+import { campaignStopService } from "./CampaignStopService";
 import { magicLinkTokenRepository } from "../repositories/MagicLinkTokenRepository";
 
 export interface CreateTokenResult {
@@ -92,6 +93,10 @@ export class MagicLinkTokenService {
       entityId: row.leadId,
       details: { scope: row.scope },
     });
+
+    // A campaign lead clicking their personalised link ("Eignungscheck
+    // gestartet") reacts → stop the automated sequence.
+    await campaignStopService.stop(row.leadId, "link_click", "reagiert");
 
     return { leadId: row.leadId, scope: row.scope };
   }

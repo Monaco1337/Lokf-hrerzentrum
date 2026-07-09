@@ -455,6 +455,17 @@ export interface LeadSummary {
   lastWhatsappErrorReason: string | null;
   lastInboundMessage: string | null;
   lastInboundMessageAt: Date | null;
+  // Reactivation campaign layer (additive; separate from pipeline `status`).
+  leadType: string;
+  campaign: string | null;
+  campaignStatus: string | null;
+  campaignStep: number;
+  communicationStarted: boolean;
+  firstContactSentAt: Date | null;
+  automationPaused: boolean;
+  campaignCompleted: boolean;
+  employmentSnapshot: string | null;
+  nextCampaignActionAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -621,6 +632,12 @@ export interface LeadFilters {
   hasNewReply?: boolean | undefined;
   /** Derived HOT/WARM/COLD engagement bucket — applied in-page, not in SQL. */
   temperature?: LeadTemperature | undefined;
+  /** Filter by lead type ("neu" | "alt_lead"). */
+  leadType?: string | undefined;
+  /** Filter by campaign key (e.g. "reaktivierung_alt_leads"). */
+  campaign?: string | undefined;
+  /** Filter by campaign lifecycle status. */
+  campaignStatus?: string | undefined;
 }
 
 export interface LeadKpis {

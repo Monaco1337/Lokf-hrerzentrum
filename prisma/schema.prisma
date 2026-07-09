@@ -98,6 +98,20 @@ model Lead {
   lastInboundMessage       String?
   lastInboundMessageAt     DateTime?
 
+  // Reactivation campaign layer (added 2026-07-09). Additive to the pipeline
+  // status/state-machine — `campaignStatus` is a SEPARATE German lifecycle for
+  // the Alt-Lead reactivation flow and never touches `status`.
+  leadType             String    @default("neu") // "neu" | "alt_lead"
+  campaign             String? // e.g. "reaktivierung_alt_leads"
+  campaignStatus       String? // CampaignStatus enum (German)
+  campaignStep         Int       @default(0) // 0=none, 1=Tag0 sent, 2=Follow-up 1, 3=Follow-up 2
+  communicationStarted Boolean   @default(false)
+  firstContactSentAt   DateTime?
+  automationPaused     Boolean   @default(false)
+  campaignCompleted    Boolean   @default(false)
+  employmentSnapshot   String? // snapshot at import, e.g. "arbeitslos_nein"
+  nextCampaignActionAt DateTime? // drives the campaign runner (separate from nextFollowUpAt)
+
   // SLA
   slaBreachedAt  DateTime?
   nextFollowUpAt DateTime?
@@ -135,6 +149,7 @@ model Lead {
   tasks               Task[]
   portalLinks         PortalLink[]
   portalDocuments     PortalDocument[]
+  campaignJobs        CampaignMessageJob[]
 
   @@index([status])
   @@index([priority])
@@ -144,6 +159,10 @@ model Lead {
   @@index([assignedToId])
   @@index([whatsappStatus])
   @@index([leadQualityStatus])
+  @@index([leadType])
+  @@index([campaign])
+  @@index([campaignStatus])
+  @@index([nextCampaignActionAt])
 }
 
 // ----------------------------------------------------------------------------
@@ -841,4 +860,103 @@ model Task {
   @@index([leadId])
   @@index([assigneeId, status])
   @@index([createdAt])
+}
+
+// ----------------------------------------------------------------------------
+// LeadImportBatch — one row per Excel/CSV Alt-Lead import (added 2026-07-09).
+// Holds the aggregate counters for the campaign overview and enables a
+// controlled release + rollback of an imported cohort.
+// ----------------------------------------------------------------------------
+
+model LeadImportBatch {
+  id String @id @default(cuid())
+
+  filename String
+  leadType String @default("alt_lead")
+  campaign String @default("reaktivierung_alt_leads")
+
+  status String @default("imported") // imported | released | completed
+
+  // aggregate counters (computed at import time)
+  totalRows        Int @default(0)
+  imported         Int @default(0)
+  duplicates       Int @default(0)
+  invalid          Int @default(0)
+  alreadyContacted Int @default(0)
+  whatsappAvailable Int @default(0)
+  emailAvailable    Int @default(0)
+
+  releaseTier   String? // "10" | "50" | "100" | "all" | "test5"
+  releasedCount Int?
+  releasedAt    DateTime?
+  releasedById  String?
+
+  createdById String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  rows LeadImportRow[]
+
+  @@index([campaign, createdAt])
+  @@index([status])
+}
+
+// ----------------------------------------------------------------------------
+// LeadImportRow — per-row result of an import (idempotency + error/duplicate
+// display). `rawJson` keeps the original row for auditing/rollback.
+// ----------------------------------------------------------------------------
+
+model LeadImportRow {
+  id String @id @default(cuid())
+
+  batchId String
+  batch   LeadImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  rowIndex Int
+  rawJson  String
+
+  status      String // imported | duplicate | invalid | skipped
+  leadId      String?
+  errorReason String?
+
+  phoneNormalized String?
+  emailNormalized String?
+
+  createdAt DateTime @default(now())
+
+  @@index([batchId, status])
+  @@index([phoneNormalized])
+  @@index([emailNormalized])
+}
+
+// ----------------------------------------------------------------------------
+// CampaignMessageJob — the reactivation send queue (added 2026-07-09).
+// One row per (lead, step, channel). The unique constraint guarantees a lead
+// is never contacted twice for the same step/channel (idempotency). The cron
+// runner and the manual "Fällige senden" button both drain this table.
+// ----------------------------------------------------------------------------
+
+model CampaignMessageJob {
+  id String @id @default(cuid())
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  campaign String
+  step     Int // 1=Tag0 Erstkontakt, 2=Follow-up 1 (Tag 3), 3=Follow-up 2 (Tag 7)
+  channel  String // WHATSAPP | EMAIL
+
+  scheduledFor DateTime
+  status       String   @default("queued") // queued | sent | skipped | failed | canceled
+
+  sentAt            DateTime?
+  providerMessageId String?
+  reason            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([leadId, step, channel])
+  @@index([status, scheduledFor])
+  @@index([campaign, step])
 }

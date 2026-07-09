@@ -20,6 +20,7 @@ import { ValidationError } from "../errors";
 import { callLogRepository } from "../repositories/CallLogRepository";
 import { leadRepository } from "../repositories/LeadRepository";
 import { auditLogService } from "../services/AuditLogService";
+import { campaignStopService } from "../services/CampaignStopService";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
 import { requirePermission, runAction, type Result } from "./_helpers";
 
@@ -77,6 +78,16 @@ export async function logCall(
       await leadRepository.update(parsed.data.leadId, {
         nextFollowUpAt: callbackAt,
       });
+    }
+
+    // A booked appointment (or any logged conversation on an active
+    // reactivation lead) is a takeover — stop the automated sequence.
+    if (parsed.data.outcome === "APPOINTMENT_SET") {
+      await campaignStopService.stop(
+        parsed.data.leadId,
+        "appointment_booked",
+        "qualifiziert",
+      );
     }
 
     await auditLogService.append({
