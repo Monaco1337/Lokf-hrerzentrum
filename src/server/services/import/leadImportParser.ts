@@ -84,6 +84,26 @@ function cellToString(value: unknown): string {
 }
 
 /**
+ * Some exports ship a single "Name" column that holds the FULL name (e.g.
+ * "Peter Thomas") alongside a separate "Vorname". Our mapping sends "Name" to
+ * `lastName`, which would then wrongly repeat the first name. When the derived
+ * last name starts with (or equals) the first name, strip that prefix so we
+ * store a clean surname. Real "Vorname"/"Nachname" files are unaffected because
+ * a proper surname never starts with the first-name token.
+ */
+function deriveLastName(firstName: string, lastName: string): string {
+  const first = firstName.trim();
+  const last = lastName.trim();
+  if (!first || !last) return last;
+  if (last.toLowerCase() === first.toLowerCase()) return "";
+  const prefix = `${first.toLowerCase()} `;
+  if (last.toLowerCase().startsWith(prefix)) {
+    return last.slice(first.length).trim();
+  }
+  return last;
+}
+
+/**
  * Parse an uploaded workbook buffer. `overrideMapping` lets the UI pin columns
  * explicitly; otherwise the mapping is auto-detected from the header row.
  */
@@ -134,10 +154,11 @@ export function parseLeadImport(
       raw[h || `col_${i}`] = cellToString(cells[i]);
     });
     const get = (i: number): string => (i >= 0 ? cellToString(cells[i]) : "");
+    const firstName = get(idx.firstName);
     rows.push({
       rowIndex: r,
-      firstName: get(idx.firstName),
-      lastName: get(idx.lastName),
+      firstName,
+      lastName: deriveLastName(firstName, get(idx.lastName)),
       email: get(idx.email),
       phone: get(idx.phone),
       city: get(idx.city),

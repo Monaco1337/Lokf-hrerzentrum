@@ -35,6 +35,17 @@ import {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+/**
+ * Placeholder / junk numbers (e.g. "+4900000000000", "+491111111111") pass a
+ * naive E.164 check but are not reachable and — worse — their repeated tail
+ * digits collide in tail-based dedup, wrongly dropping unrelated leads. Treat
+ * any number with a run of 8+ identical digits as no WhatsApp contact so the
+ * lead still imports via e-mail without polluting the dedup index.
+ */
+function isPlaceholderPhone(digits: string): boolean {
+  return /(\d)\1{7,}/.test(digits);
+}
+
 export type ImportRowStatus = "imported" | "duplicate" | "invalid";
 
 export interface AnalyzedRow {
@@ -86,9 +97,13 @@ function classify(
   const emailNormalized = emailValid ? emailRaw : null;
 
   const phoneNorm = row.phone ? normalizePhoneForWhatsApp(row.phone) : "";
-  const phoneValid = phoneNorm !== "" && isValidE164(phoneNorm);
+  const phoneDigits = phoneNorm.replace(/\D/g, "");
+  const phoneValid =
+    phoneNorm !== "" &&
+    isValidE164(phoneNorm) &&
+    !isPlaceholderPhone(phoneDigits);
   const phoneNormalized = phoneValid ? phoneNorm : null;
-  const phoneTail = phoneValid ? phoneNorm.replace(/\D/g, "").slice(-8) : null;
+  const phoneTail = phoneValid ? phoneDigits.slice(-8) : null;
 
   const base = {
     rowIndex: row.rowIndex,

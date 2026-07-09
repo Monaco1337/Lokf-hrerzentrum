@@ -100,4 +100,19 @@ describe("lead import parser", () => {
     expect(nonEmpty[0]?.firstName).toBe("Max");
     expect(nonEmpty[1]?.city).toBe("Hamburg");
   });
+
+  it("derives the surname when the 'Name' column holds the full name", () => {
+    const csv = [
+      "Vorname;Name;E-Mail;Telefon",
+      "Peter;Peter Thomas;peter@example.com;+491716523911",
+      "Sven;Sven;sven@example.com;+491733027877",
+      "Georgios;Georgios Samouladas;g@example.com;+4915150958211",
+    ].join("\n");
+    const parsed = parseLeadImport(Buffer.from(csv, "utf8"));
+    expect(parsed.mapping.lastName).toBe("Name");
+    expect(parsed.rows[0]?.lastName).toBe("Thomas");
+    // "Sven"/"Sven": the surname is unknown, not a repeat of the first name.
+    expect(parsed.rows[1]?.lastName).toBe("");
+    expect(parsed.rows[2]?.lastName).toBe("Samouladas");
+  });
 });
