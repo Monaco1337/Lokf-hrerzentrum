@@ -8,7 +8,6 @@
 /* eslint-disable no-restricted-imports -- server component (no client code); direct DB access is intentional and never bundled to the client. */
 import { prisma } from "@/server/db/prisma";
 import { LeadStatus } from "@/features/fairtrain-funnel/types";
-import { demoDataService } from "@/server/services/DemoDataService";
 
 import {
   OperationsTopHeaderClient,
@@ -56,9 +55,6 @@ async function loadHealth() {
 }
 
 export async function OperationsTopHeader() {
-  const [health, demoActive] = await Promise.all([
-    loadHealth(),
-    demoDataService.isActive(),
-  ]);
-  return <OperationsTopHeaderClient health={health} demoActive={demoActive} />;
+  const health = await loadHealth();
+  return <OperationsTopHeaderClient health={health} />;
 }

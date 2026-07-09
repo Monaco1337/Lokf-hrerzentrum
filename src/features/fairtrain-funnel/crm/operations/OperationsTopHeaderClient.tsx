@@ -18,7 +18,6 @@ export interface HeaderHealth {
 
 interface OperationsTopHeaderClientProps {
   health: HeaderHealth;
-  demoActive: boolean;
 }
 
 function SidebarToggle() {
@@ -60,7 +59,6 @@ function SidebarToggle() {
 
 export function OperationsTopHeaderClient({
   health,
-  demoActive,
 }: OperationsTopHeaderClientProps) {
   const healthTone =
     health.level === "crit"
@@ -149,21 +147,6 @@ export function OperationsTopHeaderClient({
         </div>
 
         <div className="flex-1" />
-
-        {demoActive && (
-          <Link
-            href="/crm/settings"
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#FDE68A] bg-[#FEF3C7] px-2.5 py-1 text-[11px] font-semibold text-[#92400E] transition hover:bg-[#FDE68A]"
-            title="Demo-Modus aktiv — Beispieldaten werden angezeigt. Verwalten unter Einstellungen."
-          >
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-500 opacity-70" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-amber-500" />
-            </span>
-            <span className="hidden sm:inline">Demo-Modus</span>
-            <span className="sm:hidden">Demo</span>
-          </Link>
-        )}
 
         <LiveClock />
 

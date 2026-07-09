@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { can } from "@/features/fairtrain-funnel/auth/permissions";
-import { DemoDataPanel } from "@/features/fairtrain-funnel/crm/admin/DemoDataPanel";
 import { WhatsAppConfigPanel } from "@/features/fairtrain-funnel/crm/admin/WhatsAppConfigPanel";
 import { requireCrmUser } from "@/server/actions/_helpers";
-import { demoDataService } from "@/server/services/DemoDataService";
 import { getWhatsAppConfigStatus } from "@/server/services/messaging/whatsappService";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +12,6 @@ export default async function SettingsPage() {
   if (!can(user.role, "canManageSettings")) {
     redirect("/crm");
   }
-  const demoStatus = await demoDataService.status();
   const whatsappConfig = getWhatsAppConfigStatus();
 
   return (
@@ -22,15 +19,9 @@ export default async function SettingsPage() {
       <header>
         <h1 className="text-2xl font-semibold text-navy-950">Einstellungen</h1>
         <p className="mt-1 text-[13.5px] text-ink-soft">
-          Systemkonfiguration, Demo-Modus und Tools für Administratoren.
+          Systemkonfiguration und Tools für Administratoren.
         </p>
       </header>
-
-      <DemoDataPanel
-        isSeeded={demoStatus.isSeeded}
-        counts={demoStatus.counts}
-        totalEntries={demoStatus.totalEntries}
-      />
 
       <WhatsAppConfigPanel config={whatsappConfig} />
 
