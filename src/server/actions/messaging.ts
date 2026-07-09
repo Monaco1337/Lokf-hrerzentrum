@@ -15,6 +15,7 @@ import {
 } from "@/features/fairtrain-funnel/types";
 
 import { ValidationError } from "../errors";
+import { leadRepository } from "../repositories/LeadRepository";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
 import { messageLedgerService } from "../services/MessageLedgerService";
 import { requirePermission, runAction, type Result } from "./_helpers";
@@ -58,6 +59,29 @@ export async function sendWhatsAppText(
     });
     revalidateCommunication(parsed.data.leadId);
     return { id: entry.id, status: entry.status, isDemo: entry.isDemo };
+  });
+}
+
+const MarkReplyHandledSchema = z.object({ leadId: z.string().min(1) });
+
+/**
+ * "Als erledigt markieren" in the Multichat "Neue Antworten" inbox: clears the
+ * unhandled-reply flag on the lead so it leaves the inbox / the leads "neue
+ * Antworten" filter. The inbound message + history are kept intact.
+ */
+export async function markReplyHandled(
+  raw: unknown,
+): Promise<Result<{ leadId: string }>> {
+  return runAction(async () => {
+    const parsed = MarkReplyHandledSchema.safeParse(raw);
+    if (!parsed.success) throw new ValidationError("Ungültiger Lead");
+    const actor = await requirePermission("canManageLeads");
+    await assertLeadScopeForActor(actor, parsed.data.leadId);
+    await leadRepository.update(parsed.data.leadId, {
+      lastWhatsappReplyAt: null,
+    });
+    revalidateCommunication(parsed.data.leadId);
+    return { leadId: parsed.data.leadId };
   });
 }
 

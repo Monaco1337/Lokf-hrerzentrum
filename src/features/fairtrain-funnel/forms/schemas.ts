@@ -350,4 +350,9 @@ export const LeadFilterSchema = z.object({
   slaBreachedOnly: z.coerce.boolean().optional(),
   createdFrom: z.coerce.date().optional(),
   createdTo: z.coerce.date().optional(),
+  // WhatsApp status tracking filters.
+  whatsapp: z.string().optional(), // WhatsappTrackingStatus value
+  quality: z.string().optional(), // LeadQualityStatus value
+  temp: z.string().optional(), // HOT | WARM | COLD (derived, filtered in-page)
+  newReply: z.coerce.boolean().optional(),
 });

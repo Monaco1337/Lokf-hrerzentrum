@@ -9,9 +9,29 @@
  */
 import type { MessageStatusT } from "@/features/fairtrain-funnel/types";
 
-import type { WhatsAppWebhookEvent } from "./whatsappPort";
+import type { WhatsAppWebhookEvent, WhatsappFailureKind } from "./whatsappPort";
 
 type StatusMapper = (providerStatus: string) => MessageStatusT;
+
+/**
+ * Map a Meta Cloud API error code to a disambiguated failure kind. Conservative
+ * by design: only codes where Meta is explicit about the recipient produce a
+ * specific verdict; everything else stays "generic" so we never fabricate an
+ * "invalid number" / "not registered" classification from an ambiguous signal.
+ * Ref: Meta WhatsApp Cloud API error codes.
+ */
+function classifyMetaFailure(code: string | undefined): WhatsappFailureKind {
+  switch (code) {
+    // Recipient is not a valid WhatsApp user.
+    case "1013":
+      return "not_registered";
+    // Message undeliverable — Meta does not confirm the exact reason.
+    case "131026":
+      return "unreachable";
+    default:
+      return "generic";
+  }
+}
 
 function asArray(v: unknown): Array<Record<string, unknown>> {
   return Array.isArray(v) ? (v as Array<Record<string, unknown>>) : [];
@@ -51,17 +71,23 @@ function parseValue(
     const status = typeof s.status === "string" ? s.status : null;
     if (!id || !status) continue;
     const errors = asArray(s.errors)[0];
+    const mapped = mapStatus(status);
     const event: WhatsAppWebhookEvent = {
       kind: "status",
       providerMessageId: id,
-      status: mapStatus(status),
+      status: mapped,
       at: tsToDate(s.timestamp),
     };
     if (phoneNumberId) event.businessPhoneNumberId = phoneNumberId;
+    let errorCode: string | undefined;
     if (errors) {
-      if (errors.code !== undefined) event.errorCode = String(errors.code);
+      if (errors.code !== undefined) {
+        errorCode = String(errors.code);
+        event.errorCode = errorCode;
+      }
       if (typeof errors.title === "string") event.reason = errors.title;
     }
+    if (mapped === "FAILED") event.failure = classifyMetaFailure(errorCode);
     out.push(event);
   }
 

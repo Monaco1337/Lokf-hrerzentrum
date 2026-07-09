@@ -10,12 +10,15 @@
  * If a send fails, we surface a FAILED ProviderSendResult; the ledger persists
  * the failure. Inbound + status webhooks are parsed by the shared parser.
  */
+import { createHmac, timingSafeEqual } from "node:crypto";
+
 import { extractVariables } from "@/features/fairtrain-funnel/automation/TemplateRenderer";
 import {
   MessageStatus,
   type MessageStatusT,
 } from "@/features/fairtrain-funnel/types";
 
+import { serverEnv } from "../../env";
 import { mapMetaStatus } from "./DemoWhatsAppAdapter";
 import { parseMetaWebhook } from "./metaWebhookParser";
 import type {
@@ -139,6 +142,19 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
 
   async handleWebhook(payload: unknown): Promise<WhatsAppWebhookEvent[]> {
     return parseMetaWebhook(payload, (s) => this.mapProviderStatus(s));
+  }
+
+  /** HMAC-SHA256 of the raw body against the app secret (`x-hub-signature-256`). */
+  verifyWebhookSignature(rawBody: string, signatureHeader: string | null): boolean {
+    const secret = serverEnv.WHATSAPP_APP_SECRET;
+    if (!secret || !signatureHeader) return false;
+    const expected = `sha256=${createHmac("sha256", secret)
+      .update(rawBody)
+      .digest("hex")}`;
+    const a = Buffer.from(expected);
+    const b = Buffer.from(signatureHeader);
+    if (a.length !== b.length) return false;
+    return timingSafeEqual(a, b);
   }
 
   mapProviderStatus(providerStatus: string): MessageStatusT {

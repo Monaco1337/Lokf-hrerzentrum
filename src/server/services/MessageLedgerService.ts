@@ -42,6 +42,7 @@ import {
 import type { LeadSummary } from "@/features/fairtrain-funnel/types";
 
 import { auditLogService } from "./AuditLogService";
+import { classifyOutboundSend } from "./LeadWhatsAppClassifier";
 import { consentService } from "./ConsentService";
 import { automationTemplateRepository } from "../repositories/AutomationTemplateRepository";
 import { communicationRepository } from "../repositories/CommunicationRepository";
@@ -251,10 +252,33 @@ export class MessageLedgerService {
       },
     });
 
+    if (isWhatsapp) {
+      await this.trackOutboundWhatsapp(lead, delivery, now);
+    }
     if (delivery.status !== MessageStatus.FAILED) {
       await this.applyTemplateSideEffect(template.category, lead.id, args.actorId);
     }
     return entry;
+  }
+
+  /**
+   * Reflect a WhatsApp send on the lead's tracking fields immediately, so a lead
+   * never stays "offen" after we actually dispatched a message. Real delivery
+   * signals (delivered/read/replied) still arrive via webhooks and advance it.
+   */
+  private async trackOutboundWhatsapp(
+    lead: LeadSummary,
+    delivery: DeliveryOutcome,
+    at: Date,
+  ): Promise<void> {
+    const ack =
+      delivery.status === MessageStatus.FAILED
+        ? "FAILED"
+        : delivery.status === MessageStatus.QUEUED
+          ? "QUEUED"
+          : "SENT";
+    const fields = classifyOutboundSend(lead, ack, at, delivery.failedReason);
+    await leadRepository.update(lead.id, fields);
   }
 
   async sendText(args: SendTextArgs): Promise<CommunicationEntry> {
@@ -320,6 +344,9 @@ export class MessageLedgerService {
       entityId: lead.id,
       details: { channel, manual: false, simulated: delivery.isDemo },
     });
+    if (isWhatsapp) {
+      await this.trackOutboundWhatsapp(lead, delivery, now);
+    }
     return entry;
   }
 

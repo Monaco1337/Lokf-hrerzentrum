@@ -11,12 +11,16 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import type { MultichatData } from "@/features/fairtrain-funnel/messaging/types";
-import { sendWhatsAppText } from "@/server/actions/messaging";
+import { markReplyHandled, sendWhatsAppText } from "@/server/actions/messaging";
+import { sendMagicLink } from "@/server/actions/sendMagicLink";
 
 import { ConversationRow, Thread } from "./MultichatThread";
 
+type Tab = "alle" | "neu";
+
 export function MultichatInbox({ data }: { data: MultichatData }) {
   const router = useRouter();
+  const [tab, setTab] = useState<Tab>("alle");
   const [search, setSearch] = useState("");
   const [numberFilter, setNumberFilter] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -25,11 +29,13 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
   );
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return data.conversations.filter((c) => {
+      if (tab === "neu" && !c.hasNewReply) return false;
       if (numberFilter && c.businessPhoneNumberId !== numberFilter) return false;
       if (unreadOnly && c.unread === 0) return false;
       if (!q) return true;
@@ -39,12 +45,13 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
         (c.assignedName ?? "").toLowerCase().includes(q)
       );
     });
-  }, [data.conversations, search, numberFilter, unreadOnly]);
+  }, [data.conversations, tab, search, numberFilter, unreadOnly]);
 
   const selected =
     data.conversations.find((c) => c.leadId === selectedId) ?? null;
 
   const totalUnread = data.conversations.reduce((s, c) => s + c.unread, 0);
+  const newReplies = data.conversations.filter((c) => c.hasNewReply).length;
 
   function handleSend() {
     if (!selected || !draft.trim()) return;
@@ -61,6 +68,40 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
     });
   }
 
+  function handleMarkDone() {
+    if (!selected) return;
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const res = await markReplyHandled({ leadId: selected.leadId });
+      if (!res.ok) {
+        setError(res.message);
+        return;
+      }
+      setNotice("Als erledigt markiert.");
+      router.refresh();
+    });
+  }
+
+  function handleSelfCheck() {
+    if (!selected) return;
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const res = await sendMagicLink({
+        leadId: selected.leadId,
+        scope: "COMPLETE_PROFILE",
+        channel: "WHATSAPP",
+      });
+      if (!res.ok) {
+        setError(res.message);
+        return;
+      }
+      setNotice("Selbstcheck-Link per WhatsApp gesendet.");
+      router.refresh();
+    });
+  }
+
   return (
     <div data-ops className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
@@ -71,15 +112,46 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
             {totalUnread > 0 ? ` · ${totalUnread} ungelesen` : ""}
           </p>
         </div>
-        <span
-          className={
-            data.whatsappLive
-              ? "rounded-full bg-[#DCFCE7] px-3 py-1 text-[12px] font-medium text-[#15803D]"
-              : "rounded-full bg-[#FEF3C7] px-3 py-1 text-[12px] font-medium text-[#92400E]"
-          }
-        >
-          {data.whatsappLive ? "Live" : "Simulation"}
-        </span>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-lg border border-[#E5E7EB] bg-white p-0.5">
+            <button
+              type="button"
+              onClick={() => setTab("alle")}
+              className={
+                tab === "alle"
+                  ? "rounded-md bg-[#111827] px-3 py-1.5 text-[13px] font-medium text-white"
+                  : "rounded-md px-3 py-1.5 text-[13px] text-[#374151]"
+              }
+            >
+              Alle
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("neu")}
+              className={
+                tab === "neu"
+                  ? "inline-flex items-center gap-1.5 rounded-md bg-[#111827] px-3 py-1.5 text-[13px] font-medium text-white"
+                  : "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] text-[#374151]"
+              }
+            >
+              Neue Antworten
+              {newReplies > 0 ? (
+                <span className="rounded-full bg-[#16A34A] px-1.5 text-[10.5px] font-semibold text-white">
+                  {newReplies}
+                </span>
+              ) : null}
+            </button>
+          </div>
+          <span
+            className={
+              data.whatsappLive
+                ? "rounded-full bg-[#DCFCE7] px-3 py-1 text-[12px] font-medium text-[#15803D]"
+                : "rounded-full bg-[#FEF3C7] px-3 py-1 text-[12px] font-medium text-[#92400E]"
+            }
+          >
+            {data.whatsappLive ? "Live" : "Simulation"}
+          </span>
+        </div>
       </header>
 
       <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
@@ -145,8 +217,11 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
               draft={draft}
               setDraft={setDraft}
               onSend={handleSend}
+              onMarkDone={handleMarkDone}
+              onSelfCheck={handleSelfCheck}
               pending={pending}
               error={error}
+              notice={notice}
               live={data.whatsappLive}
             />
           ) : (

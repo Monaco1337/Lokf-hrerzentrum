@@ -21,6 +21,18 @@ export interface ProviderSendResult {
   failedReason?: string;
 }
 
+/**
+ * Disambiguated failure reason for a FAILED status, derived from the provider's
+ * error code. We only ever set the specific kinds when the provider is explicit
+ * — otherwise we stay conservative with "generic"/"unreachable" and never
+ * invent an "invalid number" / "not registered" verdict.
+ */
+export type WhatsappFailureKind =
+  | "generic" // -> fehlgeschlagen
+  | "invalid_number" // -> nummer_ungueltig
+  | "not_registered" // -> nicht_registriert
+  | "unreachable"; // -> nicht_erreichbar
+
 export interface WebhookStatusEvent {
   kind: "status";
   providerMessageId: string;
@@ -28,6 +40,8 @@ export interface WebhookStatusEvent {
   at: Date;
   errorCode?: string;
   reason?: string;
+  /** Set only when status is FAILED — classified from the provider error code. */
+  failure?: WhatsappFailureKind;
   /** Our business number (Meta `phone_number_id`) this event belongs to. */
   businessPhoneNumberId?: string;
 }
@@ -82,6 +96,14 @@ export interface WhatsAppService {
 
   /** Translate inbound provider webhook payloads into ledger events. */
   handleWebhook(payload: unknown): Promise<WhatsAppWebhookEvent[]>;
+
+  /**
+   * Verify a webhook request's signature against the provider secret. Returns
+   * false when no secret is configured or the signature does not match, so the
+   * caller can reject unverified traffic. Providers without a signature scheme
+   * return false (the route then refuses to process).
+   */
+  verifyWebhookSignature(rawBody: string, signatureHeader: string | null): boolean;
 
   /** Map a provider-specific status string onto the internal lifecycle. */
   mapProviderStatus(providerStatus: string): MessageStatusT;

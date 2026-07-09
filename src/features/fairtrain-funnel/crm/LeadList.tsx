@@ -5,8 +5,12 @@ import { useMemo, useState, useTransition } from "react";
 import { deleteLead } from "@/server/actions/deleteLead";
 import {
   type EnrichedLeadSummary,
+  LEAD_QUALITY_LABEL,
   type LeadFilters,
+  LeadQualityStatus,
   LeadStatus,
+  WHATSAPP_TRACKING_LABEL,
+  WhatsappTrackingStatus,
 } from "../types";
 import { BatchFirstContactModal, type BatchLead } from "./BatchFirstContactModal";
 import { humanizeSource, STATUS_TONE } from "./leadLabels";
@@ -32,11 +36,22 @@ const STATUS_OPTIONS: ReadonlyArray<string> = [
 const PRIORITY_OPTIONS: ReadonlyArray<string> = ["", "HOT", "WARM", "COLD", "BLOCKED"];
 const LOCATION_OPTIONS: ReadonlyArray<string> = ["", "BERLIN", "SAALFELD", "UNDECIDED"];
 const FUNNEL_OPTIONS: ReadonlyArray<string> = ["", "UNEMPLOYED", "EMPLOYED"];
+const WHATSAPP_OPTIONS: ReadonlyArray<string> = [
+  "",
+  ...(Object.values(WhatsappTrackingStatus) as string[]),
+];
+const QUALITY_OPTIONS: ReadonlyArray<string> = [
+  "",
+  ...(Object.values(LeadQualityStatus) as string[]),
+];
+const TEMP_OPTIONS: ReadonlyArray<string> = ["", "HOT", "WARM", "COLD"];
 
 const OPTION_LABELS: Record<string, string> = {
   ...Object.fromEntries(
     Object.entries(STATUS_TONE).map(([key, tone]) => [key, tone.label]),
   ),
+  ...WHATSAPP_TRACKING_LABEL,
+  ...LEAD_QUALITY_LABEL,
   HOT: "Hot",
   WARM: "Warm",
   COLD: "Kalt",
@@ -277,6 +292,34 @@ export function LeadList({ leads, filters, users }: LeadListProps) {
               value={filters.funnelPath}
               options={FUNNEL_OPTIONS}
             />
+            <Select
+              name="whatsapp"
+              label="WhatsApp-Status"
+              value={filters.whatsappStatus}
+              options={WHATSAPP_OPTIONS}
+            />
+            <Select
+              name="quality"
+              label="Lead-Qualität"
+              value={filters.leadQualityStatus}
+              options={QUALITY_OPTIONS}
+            />
+            <Select
+              name="temp"
+              label="Temperatur"
+              value={filters.temperature}
+              options={TEMP_OPTIONS}
+            />
+            <label className="flex items-center gap-2 self-end rounded-xl border border-ink/10 bg-surface-subtle px-3 py-2.5 text-[13px] text-ink-soft">
+              <input
+                type="checkbox"
+                name="newReply"
+                defaultChecked={filters.hasNewReply === true}
+                value="1"
+                className="rounded border-ink/20"
+              />
+              Neue Antworten
+            </label>
             <div className="flex items-end gap-2">
               <label className="flex flex-1 items-center gap-2 rounded-xl border border-ink/10 bg-surface-subtle px-3 py-2.5 text-[13px] text-ink-soft">
                 <input

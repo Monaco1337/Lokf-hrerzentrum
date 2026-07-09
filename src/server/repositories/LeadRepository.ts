@@ -16,9 +16,12 @@ import {
   type LeadFilters,
   type LeadKpis,
   type LeadPriority,
+  type LeadQualityStatus,
   LeadStatus,
   type LeadSummary,
   type PreferredLocation,
+  type WhatsappReachability,
+  type WhatsappTrackingStatus,
 } from "@/features/fairtrain-funnel/types";
 
 import { prisma } from "../db/prisma";
@@ -27,8 +30,11 @@ import {
   parseEmploymentStatus,
   parseFunnelPath,
   parseLeadPriority,
+  parseLeadQuality,
   parseLeadStatus,
   parsePreferredLocation,
+  parseWhatsappReachability,
+  parseWhatsappStatus,
 } from "./types";
 import { rowToUserRef } from "./UserRepository";
 
@@ -116,6 +122,19 @@ export interface UpdateLeadFields {
   hasDrivingLicense?: boolean | null;
   /** Soft archive: hides the lead from active lists without deleting data. */
   deletedAt?: Date | null;
+  // WhatsApp status tracking (written by the classifier / webhook pipeline).
+  whatsappStatus?: WhatsappTrackingStatus;
+  whatsappReachability?: WhatsappReachability;
+  leadQualityStatus?: LeadQualityStatus;
+  leadScore?: number;
+  lastWhatsappMessageAt?: Date | null;
+  lastWhatsappDeliveredAt?: Date | null;
+  lastWhatsappReadAt?: Date | null;
+  lastWhatsappReplyAt?: Date | null;
+  lastWhatsappErrorAt?: Date | null;
+  lastWhatsappErrorReason?: string | null;
+  lastInboundMessage?: string | null;
+  lastInboundMessageAt?: Date | null;
 }
 
 function rowToSummary(row: LeadRowWithAssignee): LeadSummary {
@@ -140,6 +159,18 @@ function rowToSummary(row: LeadRowWithAssignee): LeadSummary {
     assignedToUser: row.assignedToUser ? rowToUserRef(row.assignedToUser) : null,
     assignedAt: row.assignedAt,
     source: row.source,
+    whatsappStatus: parseWhatsappStatus(row.whatsappStatus),
+    whatsappReachability: parseWhatsappReachability(row.whatsappReachability),
+    leadQualityStatus: parseLeadQuality(row.leadQualityStatus),
+    leadScore: row.leadScore,
+    lastWhatsappMessageAt: row.lastWhatsappMessageAt,
+    lastWhatsappDeliveredAt: row.lastWhatsappDeliveredAt,
+    lastWhatsappReadAt: row.lastWhatsappReadAt,
+    lastWhatsappReplyAt: row.lastWhatsappReplyAt,
+    lastWhatsappErrorAt: row.lastWhatsappErrorAt,
+    lastWhatsappErrorReason: row.lastWhatsappErrorReason,
+    lastInboundMessage: row.lastInboundMessage,
+    lastInboundMessageAt: row.lastInboundMessageAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -302,6 +333,29 @@ export class LeadRepository {
     if (fields.hasDrivingLicense !== undefined)
       data.hasDrivingLicense = fields.hasDrivingLicense;
     if (fields.deletedAt !== undefined) data.deletedAt = fields.deletedAt;
+    if (fields.whatsappStatus !== undefined)
+      data.whatsappStatus = fields.whatsappStatus;
+    if (fields.whatsappReachability !== undefined)
+      data.whatsappReachability = fields.whatsappReachability;
+    if (fields.leadQualityStatus !== undefined)
+      data.leadQualityStatus = fields.leadQualityStatus;
+    if (fields.leadScore !== undefined) data.leadScore = fields.leadScore;
+    if (fields.lastWhatsappMessageAt !== undefined)
+      data.lastWhatsappMessageAt = fields.lastWhatsappMessageAt;
+    if (fields.lastWhatsappDeliveredAt !== undefined)
+      data.lastWhatsappDeliveredAt = fields.lastWhatsappDeliveredAt;
+    if (fields.lastWhatsappReadAt !== undefined)
+      data.lastWhatsappReadAt = fields.lastWhatsappReadAt;
+    if (fields.lastWhatsappReplyAt !== undefined)
+      data.lastWhatsappReplyAt = fields.lastWhatsappReplyAt;
+    if (fields.lastWhatsappErrorAt !== undefined)
+      data.lastWhatsappErrorAt = fields.lastWhatsappErrorAt;
+    if (fields.lastWhatsappErrorReason !== undefined)
+      data.lastWhatsappErrorReason = fields.lastWhatsappErrorReason;
+    if (fields.lastInboundMessage !== undefined)
+      data.lastInboundMessage = fields.lastInboundMessage;
+    if (fields.lastInboundMessageAt !== undefined)
+      data.lastInboundMessageAt = fields.lastInboundMessageAt;
 
     const row = await client.lead.update({
       where: { id },
@@ -347,6 +401,13 @@ export class LeadRepository {
       where.createdAt = {};
       if (filters.createdFrom) where.createdAt.gte = filters.createdFrom;
       if (filters.createdTo) where.createdAt.lte = filters.createdTo;
+    }
+    if (filters.whatsappStatus) where.whatsappStatus = filters.whatsappStatus;
+    if (filters.leadQualityStatus)
+      where.leadQualityStatus = filters.leadQualityStatus;
+    if (filters.hasNewReply) {
+      // "Neue Antworten": a reply arrived after (or without) our last outbound.
+      where.lastWhatsappReplyAt = { not: null };
     }
 
     const rows = await prisma.lead.findMany({

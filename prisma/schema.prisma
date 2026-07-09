@@ -82,6 +82,22 @@ model Lead {
   priority String // LeadPriority enum
   status   String @default("NEW") // LeadStatus enum
 
+  // WhatsApp status tracking (added 2026-07-09). Driven ONLY by real provider
+  // webhook events — never simulated. `leadScore` is the WhatsApp/engagement
+  // score and is intentionally separate from `score` (eligibility snapshot).
+  whatsappStatus          String    @default("offen") // WhatsappTrackingStatus
+  whatsappReachability     String   @default("unbekannt") // WhatsappReachability
+  leadQualityStatus        String   @default("unbewertet") // LeadQualityStatus
+  leadScore                Int       @default(0)
+  lastWhatsappMessageAt    DateTime?
+  lastWhatsappDeliveredAt  DateTime?
+  lastWhatsappReadAt       DateTime?
+  lastWhatsappReplyAt      DateTime?
+  lastWhatsappErrorAt      DateTime?
+  lastWhatsappErrorReason  String?
+  lastInboundMessage       String?
+  lastInboundMessageAt     DateTime?
+
   // SLA
   slaBreachedAt  DateTime?
   nextFollowUpAt DateTime?
@@ -126,6 +142,8 @@ model Lead {
   @@index([createdAt])
   @@index([slaBreachedAt])
   @@index([assignedToId])
+  @@index([whatsappStatus])
+  @@index([leadQualityStatus])
 }
 
 // ----------------------------------------------------------------------------
@@ -303,12 +321,44 @@ model CommunicationEvent {
   // multi-number Multichat inbox and reply-from-the-same-number routing.
   businessPhoneNumberId String?
 
+  // WhatsApp status tracking (added 2026-07-09).
+  repliedAt         DateTime? // set on the outbound msg when the lead replies
+  rawWebhookPayload String? // last provider event JSON for this message (debug)
+
   createdAt DateTime @default(now())
 
   @@index([leadId, createdAt])
   @@index([channel, direction])
   @@index([status])
   @@index([businessPhoneNumberId])
+}
+
+// ----------------------------------------------------------------------------
+// WhatsappMessageEvent — append-only ledger of RAW provider webhook events.
+//
+// Two jobs: (1) idempotency — the unique (providerMessageId, eventType) key
+// makes re-delivered webhooks a no-op; (2) debugging — the full raw payload is
+// kept here (never on the lead). Not a message store; the message itself is
+// `CommunicationEvent`.
+// ----------------------------------------------------------------------------
+
+model WhatsappMessageEvent {
+  id String @id @default(cuid())
+
+  // The CommunicationEvent this maps to (if we could correlate it).
+  messageId String?
+  leadId    String?
+
+  provider          String // e.g. "meta"
+  eventType         String // sent | delivered | read | failed | inbound | undeliverable
+  providerMessageId String
+  payload           String // raw provider event JSON
+
+  createdAt DateTime @default(now())
+
+  @@unique([providerMessageId, eventType])
+  @@index([leadId, createdAt])
+  @@index([messageId])
 }
 
 // ----------------------------------------------------------------------------

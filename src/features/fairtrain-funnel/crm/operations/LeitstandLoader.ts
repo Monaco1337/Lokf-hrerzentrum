@@ -16,6 +16,10 @@ import { salesAnalyticsService } from "@/server/services/SalesAnalyticsService";
 import { auditLogRepository } from "@/server/repositories/AuditLogRepository";
 import { statusHistoryRepository } from "@/server/repositories/StatusHistoryRepository";
 import { userRepository } from "@/server/repositories/UserRepository";
+import {
+  aggregateWhatsAppKpis,
+  type WhatsAppKpis,
+} from "@/server/repositories/WhatsAppKpisQuery";
 
 import type {
   AuditLogEntry,
@@ -39,6 +43,7 @@ export interface LivePerformance {
 export interface LeitstandData {
   user: UserSummary;
   kpis: LeadKpis;
+  whatsapp: WhatsAppKpis;
   alarms: AlarmCounts;
   funnel: FunnelData;
   priorities: ReadonlyArray<EnrichedLeadSummary>;
@@ -142,19 +147,28 @@ export async function loadLeitstand(
   const startOfToday = new Date();
   startOfToday.setHours(0, 0, 0, 0);
 
-  const [kpis, alarms, activeRaw, recentEvents, allUsers, sales, closesToday] =
-    await Promise.all([
-      leadService.kpis(),
-      loadAlarms(),
-      leadService.list(scopeActive),
-      auditLogRepository.listRecent({ limit: 25 }),
-      userRepository.list({ includeInactive: true }),
-      salesAnalyticsService.snapshot(),
-      statusHistoryRepository.countTransitionsTo(
-        LeadStatus.GUTSCHEIN_APPROVED,
-        startOfToday,
-      ),
-    ]);
+  const [
+    kpis,
+    whatsapp,
+    alarms,
+    activeRaw,
+    recentEvents,
+    allUsers,
+    sales,
+    closesToday,
+  ] = await Promise.all([
+    leadService.kpis(),
+    aggregateWhatsAppKpis(),
+    loadAlarms(),
+    leadService.list(scopeActive),
+    auditLogRepository.listRecent({ limit: 25 }),
+    userRepository.list({ includeInactive: true }),
+    salesAnalyticsService.snapshot(),
+    statusHistoryRepository.countTransitionsTo(
+      LeadStatus.GUTSCHEIN_APPROVED,
+      startOfToday,
+    ),
+  ]);
   // Quiet the no-unused-vars guard while keeping the scope around for future
   // owner-filtering on the global feed (we currently show org-wide activity).
   void scopeAll;
@@ -167,6 +181,7 @@ export async function loadLeitstand(
   return {
     user,
     kpis,
+    whatsapp,
     alarms,
     funnel,
     priorities,

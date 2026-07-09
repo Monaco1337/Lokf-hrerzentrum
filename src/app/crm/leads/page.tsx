@@ -3,10 +3,14 @@ import { LeadFilterSchema } from "@/features/fairtrain-funnel/forms/schemas";
 import {
   FunnelPathSchema,
   LeadPrioritySchema,
+  LeadQualityStatusSchema,
   LeadStatus,
   LeadStatusSchema,
+  type LeadTemperature,
+  leadTemperature,
   PreferredLocationSchema,
   type LeadFilters,
+  WhatsappTrackingStatusSchema,
 } from "@/features/fairtrain-funnel/types";
 import { requireCrmUser } from "@/server/actions/_helpers";
 import { userRepository } from "@/server/repositories/UserRepository";
@@ -60,7 +64,16 @@ export default async function LeadsPage({
       typeof sp.preferredLocation === "string" ? sp.preferredLocation : undefined,
     funnelPath: typeof sp.funnelPath === "string" ? sp.funnelPath : undefined,
     slaBreachedOnly: sp.slaBreachedOnly !== undefined,
+    whatsapp: typeof sp.whatsapp === "string" ? sp.whatsapp : undefined,
+    quality: typeof sp.quality === "string" ? sp.quality : undefined,
+    temp: typeof sp.temp === "string" ? sp.temp : undefined,
+    newReply: sp.newReply !== undefined,
   });
+
+  const temperature = ((): LeadTemperature | undefined => {
+    const t = raw.success ? raw.data.temp : undefined;
+    return t === "HOT" || t === "WARM" || t === "COLD" ? t : undefined;
+  })();
 
   const baseFilters: LeadFilters = raw.success
     ? {
@@ -72,6 +85,16 @@ export default async function LeadsPage({
         ),
         funnelPath: safeEnumParse(FunnelPathSchema, raw.data.funnelPath),
         slaBreachedOnly: raw.data.slaBreachedOnly,
+        whatsappStatus: safeEnumParse(
+          WhatsappTrackingStatusSchema,
+          raw.data.whatsapp,
+        ),
+        leadQualityStatus: safeEnumParse(
+          LeadQualityStatusSchema,
+          raw.data.quality,
+        ),
+        hasNewReply: raw.data.newReply || undefined,
+        temperature,
       }
     : {};
 
@@ -81,7 +104,11 @@ export default async function LeadsPage({
     leadService.list(filters),
     userRepository.list({ includeInactive: false }),
   ]);
-  const enriched = await leadInsightsService.enrich(leads);
+  // Temperature is derived from engagement, so it is filtered after load.
+  const scoped = temperature
+    ? leads.filter((l) => leadTemperature(l) === temperature)
+    : leads;
+  const enriched = await leadInsightsService.enrich(scoped);
   const users = userRows.map((u) => ({ id: u.id, name: u.name }));
   return <LeadList leads={enriched} filters={baseFilters} users={users} />;
 }

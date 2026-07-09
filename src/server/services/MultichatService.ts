@@ -13,6 +13,7 @@ import type {
 
 import { prisma } from "../db/prisma";
 import { whatsAppNumberRepository } from "../repositories/WhatsAppNumberRepository";
+import { parseWhatsappStatus } from "../repositories/types";
 
 interface Row {
   id: string;
@@ -29,6 +30,10 @@ interface Row {
     phone: string;
     assignedToId: string | null;
     assignedToUser: { name: string } | null;
+    leadScore: number;
+    whatsappStatus: string;
+    source: string | null;
+    lastWhatsappReplyAt: Date | null;
   } | null;
 }
 
@@ -56,6 +61,10 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
             phone: true,
             assignedToId: true,
             assignedToUser: { select: { name: true } },
+            leadScore: true,
+            whatsappStatus: true,
+            source: true,
+            lastWhatsappReplyAt: true,
           },
         },
       },
@@ -95,6 +104,10 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
         numberLabel: r.businessPhoneNumberId
           ? labelByPhoneId.get(r.businessPhoneNumberId) ?? null
           : null,
+        leadScore: r.lead.leadScore,
+        whatsappStatus: parseWhatsappStatus(r.lead.whatsappStatus),
+        source: r.lead.source,
+        hasNewReply: r.lead.lastWhatsappReplyAt !== null,
         lastAt: msg.createdAt,
         preview: previewOf(direction, r.payload),
         unread: 0,

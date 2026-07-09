@@ -14,6 +14,7 @@ import Link from "next/link";
 
 import {
   type EnrichedLeadSummary,
+  LEAD_QUALITY_LABEL,
   type LeadUrgency,
   type NextBestAction,
 } from "../types";
@@ -22,6 +23,7 @@ import { LeadRowActions } from "./LeadRowActions";
 import { STATUS_TONE } from "./leadLabels";
 import { OpenIcon, PhoneIcon, WhatsappIcon } from "./LeadListIcons";
 import { PriorityBadge } from "./PriorityBadge";
+import { WhatsAppStatusBadge } from "./WhatsAppStatusBadge";
 
 const URGENCY_RAIL: Record<LeadUrgency, string> = {
   overdue: "from-red-400 to-red-500",
@@ -185,6 +187,7 @@ export function LeadListCard({
               <span className="inline-flex items-center rounded-full bg-surface-subtle/80 px-2 py-0.5 text-[10.5px] font-semibold text-ink-soft ring-1 ring-ink/10">
                 {URGENCY_LABEL[insights.urgency]}
               </span>
+              <WhatsAppStatusBadge view={lead} />
             </div>
           </div>
         </div>
@@ -211,6 +214,21 @@ export function LeadListCard({
           <p className="mt-1.5 text-[11.5px] text-ink-muted">
             Kontakt: {relTime(insights.lastContactAt)}
           </p>
+          <p className="mt-0.5 text-[11px] text-ink-muted">
+            WA-Score{" "}
+            <span className="font-semibold tabular-nums text-ink-soft">
+              {lead.leadScore}
+            </span>{" "}
+            · {LEAD_QUALITY_LABEL[lead.leadQualityStatus]}
+          </p>
+          {lead.lastInboundMessage ? (
+            <p
+              className="mt-0.5 truncate text-[11px] italic text-emerald-700"
+              title={lead.lastInboundMessage}
+            >
+              {`„${lead.lastInboundMessage}“`}
+            </p>
+          ) : null}
         </div>
 
         {/* Action zone — re-enable pointer events; sits above the link layer */}

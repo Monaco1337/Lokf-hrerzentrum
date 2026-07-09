@@ -71,6 +71,8 @@ interface CommRow {
   failedAt: Date | null;
   failedReason: string | null;
   businessPhoneNumberId: string | null;
+  repliedAt: Date | null;
+  rawWebhookPayload: string | null;
   createdAt: Date;
 }
 
@@ -98,6 +100,8 @@ function mapRow(r: CommRow): CommunicationEntry {
     failedAt: r.failedAt,
     failedReason: r.failedReason,
     businessPhoneNumberId: r.businessPhoneNumberId ?? null,
+    repliedAt: r.repliedAt ?? null,
+    rawWebhookPayload: r.rawWebhookPayload ?? null,
     createdAt: r.createdAt,
   };
 }
@@ -125,6 +129,7 @@ export interface AppendCommunicationInput {
   failedAt?: Date | null;
   failedReason?: string | null;
   businessPhoneNumberId?: string | null;
+  rawWebhookPayload?: string | null;
 }
 
 export class CommunicationRepository {
@@ -163,6 +168,7 @@ export class CommunicationRepository {
         failedAt: input.failedAt ?? null,
         failedReason: input.failedReason ?? null,
         businessPhoneNumberId: input.businessPhoneNumberId ?? null,
+        rawWebhookPayload: input.rawWebhookPayload ?? null,
       },
     });
     return mapRow(row as CommRow);
@@ -196,7 +202,12 @@ export class CommunicationRepository {
   async setStatusByProviderId(
     providerMessageId: string,
     status: MessageStatusT,
-    opts: { at?: Date; failedReason?: string; errorCode?: string } = {},
+    opts: {
+      at?: Date;
+      failedReason?: string;
+      errorCode?: string;
+      rawWebhookPayload?: string;
+    } = {},
   ): Promise<CommunicationEntry | null> {
     const existing = await this.findByProviderMessageId(providerMessageId);
     if (!existing) return null;
@@ -224,7 +235,12 @@ export class CommunicationRepository {
   async setStatus(
     id: string,
     status: MessageStatusT,
-    opts: { at?: Date; failedReason?: string; errorCode?: string } = {},
+    opts: {
+      at?: Date;
+      failedReason?: string;
+      errorCode?: string;
+      rawWebhookPayload?: string;
+    } = {},
   ): Promise<CommunicationEntry | null> {
     const existing = await prisma.communicationEvent.findUnique({
       where: { id },
@@ -244,10 +260,35 @@ export class CommunicationRepository {
     if (status === "FAILED") {
       data.failedAt = at;
       data.failedReason = opts.failedReason ?? "Zustellung fehlgeschlagen";
-      data.errorCode = opts.errorCode ?? "SIMULATED_FAILURE";
+      // Real provider error code only — no simulated placeholder.
+      if (opts.errorCode) data.errorCode = opts.errorCode;
+    }
+    if (opts.rawWebhookPayload !== undefined) {
+      data.rawWebhookPayload = opts.rawWebhookPayload;
     }
     const row = await prisma.communicationEvent.update({ where: { id }, data });
     return mapRow(row as CommRow);
+  }
+
+  /**
+   * Mark the lead's most recent OUTBOUND WhatsApp message as replied-to. Used
+   * when an inbound message arrives so the thread shows which message earned the
+   * reply. No-op if there is no outbound message yet.
+   */
+  async markLatestOutboundReplied(
+    leadId: string,
+    at: Date,
+  ): Promise<void> {
+    const row = await prisma.communicationEvent.findFirst({
+      where: { leadId, channel: "WHATSAPP", direction: "OUT" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    if (!row) return;
+    await prisma.communicationEvent.update({
+      where: { id: row.id },
+      data: { repliedAt: at },
+    });
   }
 
   /**

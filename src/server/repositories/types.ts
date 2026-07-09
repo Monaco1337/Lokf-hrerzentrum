@@ -39,6 +39,12 @@ import {
   UploadedFileKindSchema,
   AutomationTriggerSchema,
   AutomationLogStatusSchema,
+  type LeadQualityStatus,
+  LeadQualityStatusSchema,
+  type WhatsappReachability,
+  WhatsappReachabilitySchema,
+  type WhatsappTrackingStatus,
+  WhatsappTrackingStatusSchema,
 } from "@/features/fairtrain-funnel/types";
 
 export const parseLeadStatus = (v: string): LeadStatus =>
@@ -76,6 +82,21 @@ export const parseAutomationLogStatus = (v: string) =>
 
 export const parseNullableLeadStatus = (v: string | null): LeadStatus | null =>
   v === null ? null : parseLeadStatus(v);
+
+// WhatsApp tracking columns always carry a DB default, but read defensively so
+// a legacy/odd value can never crash a lead read.
+export const parseWhatsappStatus = (v: string): WhatsappTrackingStatus => {
+  const r = WhatsappTrackingStatusSchema.safeParse(v);
+  return r.success ? r.data : "offen";
+};
+export const parseWhatsappReachability = (v: string): WhatsappReachability => {
+  const r = WhatsappReachabilitySchema.safeParse(v);
+  return r.success ? r.data : "unbekannt";
+};
+export const parseLeadQuality = (v: string): LeadQualityStatus => {
+  const r = LeadQualityStatusSchema.safeParse(v);
+  return r.success ? r.data : "unbewertet";
+};
 
 export const parseRole = (v: string): Role => RoleSchema.parse(v);
 export const parseCallOutcome = (v: string): CallOutcome =>

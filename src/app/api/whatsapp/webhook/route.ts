@@ -12,11 +12,10 @@
  * refuses to process (503/403) — the demo "Antwort simulieren" path is the
  * simulation route and lives entirely in-app.
  */
-import { createHmac, timingSafeEqual } from "node:crypto";
-
 import { NextResponse } from "next/server";
 
 import { serverEnv } from "@/server/env";
+import { whatsappService } from "@/server/services/messaging/whatsappService";
 import { whatsAppWebhookService } from "@/server/services/WhatsAppWebhookService";
 
 export const dynamic = "force-dynamic";
@@ -34,16 +33,6 @@ export async function GET(req: Request): Promise<Response> {
   return NextResponse.json({ ok: false, code: "FORBIDDEN" }, { status: 403 });
 }
 
-function verifySignature(rawBody: string, header: string | null): boolean {
-  const secret = serverEnv.WHATSAPP_APP_SECRET;
-  if (!secret || !header) return false;
-  const expected = `sha256=${createHmac("sha256", secret).update(rawBody).digest("hex")}`;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(header);
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
-}
-
 export async function POST(req: Request): Promise<Response> {
   if (!serverEnv.WHATSAPP_APP_SECRET) {
     // Not configured for real webhooks — refuse rather than process unverified.
@@ -55,7 +44,9 @@ export async function POST(req: Request): Promise<Response> {
 
   const rawBody = await req.text();
   const signature = req.headers.get("x-hub-signature-256");
-  if (!verifySignature(rawBody, signature)) {
+  // Signature verification is delegated to the active provider adapter so the
+  // HMAC scheme lives with the provider it belongs to.
+  if (!whatsappService.verifyWebhookSignature(rawBody, signature)) {
     return NextResponse.json({ ok: false, code: "FORBIDDEN" }, { status: 403 });
   }
 

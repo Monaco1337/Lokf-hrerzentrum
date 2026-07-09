@@ -64,6 +64,122 @@ export const MESSAGE_STATUS_FLOW: ReadonlyArray<MessageStatus> = [
 ];
 
 // ---------------------------------------------------------------------------
+// Lead-level WhatsApp tracking (driven by REAL provider webhook events only).
+// These live on the Lead, not the message row, and describe the last known
+// WhatsApp reachability/engagement state of that lead.
+// ---------------------------------------------------------------------------
+export const WhatsappTrackingStatus = {
+  OFFEN: "offen", // no WhatsApp attempt yet (import default)
+  GEPLANT: "geplant", // queued for sending
+  GESENDET: "gesendet", // one grey check
+  ZUGESTELLT: "zugestellt", // two grey checks
+  GELESEN: "gelesen", // two blue checks
+  BEANTWORTET: "beantwortet", // inbound reply received
+  FEHLGESCHLAGEN: "fehlgeschlagen", // generic send failure
+  NUMMER_UNGUELTIG: "nummer_ungueltig", // provider: invalid number
+  NICHT_REGISTRIERT: "nicht_registriert", // provider: not a WhatsApp user
+  BLOCKIERT: "blockiert", // manual only — Meta does NOT emit a block signal
+  NICHT_ERREICHBAR: "nicht_erreichbar", // undeliverable, reason not disambiguated
+} as const;
+export type WhatsappTrackingStatus =
+  (typeof WhatsappTrackingStatus)[keyof typeof WhatsappTrackingStatus];
+export const WhatsappTrackingStatusSchema = z.enum([
+  "offen",
+  "geplant",
+  "gesendet",
+  "zugestellt",
+  "gelesen",
+  "beantwortet",
+  "fehlgeschlagen",
+  "nummer_ungueltig",
+  "nicht_registriert",
+  "blockiert",
+  "nicht_erreichbar",
+]);
+export const WHATSAPP_TRACKING_LABEL: Record<WhatsappTrackingStatus, string> = {
+  offen: "Offen",
+  geplant: "Versand geplant",
+  gesendet: "Gesendet",
+  zugestellt: "Zugestellt",
+  gelesen: "Gelesen",
+  beantwortet: "Beantwortet",
+  fehlgeschlagen: "Fehlgeschlagen",
+  nummer_ungueltig: "Nummer ungültig",
+  nicht_registriert: "WhatsApp nicht registriert",
+  blockiert: "Blockiert",
+  nicht_erreichbar: "Nicht erreichbar",
+};
+
+export const WhatsappReachability = {
+  UNBEKANNT: "unbekannt",
+  ERREICHBAR: "erreichbar", // delivered at least once
+  AKTIV: "aktiv", // read/replied
+  NICHT_ERREICHBAR: "nicht_erreichbar",
+} as const;
+export type WhatsappReachability =
+  (typeof WhatsappReachability)[keyof typeof WhatsappReachability];
+export const WhatsappReachabilitySchema = z.enum([
+  "unbekannt",
+  "erreichbar",
+  "aktiv",
+  "nicht_erreichbar",
+]);
+
+export const LeadQualityStatus = {
+  UNBEWERTET: "unbewertet",
+  NEUTRAL: "neutral",
+  WARM: "warm",
+  REAGIERT: "reagiert",
+  SCHROTTLEAD: "schrottlead",
+  NICHT_KONTAKTIERBAR: "nicht_kontaktierbar",
+} as const;
+export type LeadQualityStatus =
+  (typeof LeadQualityStatus)[keyof typeof LeadQualityStatus];
+export const LeadQualityStatusSchema = z.enum([
+  "unbewertet",
+  "neutral",
+  "warm",
+  "reagiert",
+  "schrottlead",
+  "nicht_kontaktierbar",
+]);
+export const LEAD_QUALITY_LABEL: Record<LeadQualityStatus, string> = {
+  unbewertet: "Unbewertet",
+  neutral: "Neutral",
+  warm: "Warm",
+  reagiert: "Reagiert",
+  schrottlead: "Schrottlead",
+  nicht_kontaktierbar: "Nicht kontaktierbar",
+};
+
+/**
+ * Derived lead temperature (HOT/WARM/COLD) from engagement — never stored,
+ * always computed so it stays consistent with the underlying real signals.
+ */
+export type LeadTemperature = "HOT" | "WARM" | "COLD";
+export function leadTemperature(input: {
+  leadScore: number;
+  whatsappStatus: WhatsappTrackingStatus | string;
+  leadQualityStatus: LeadQualityStatus | string;
+}): LeadTemperature {
+  if (
+    input.leadQualityStatus === "reagiert" ||
+    input.whatsappStatus === "beantwortet" ||
+    input.leadScore >= 25
+  ) {
+    return "HOT";
+  }
+  if (
+    input.leadQualityStatus === "warm" ||
+    input.whatsappStatus === "gelesen" ||
+    input.leadScore >= 10
+  ) {
+    return "WARM";
+  }
+  return "COLD";
+}
+
+// ---------------------------------------------------------------------------
 // Who sent the message.
 // ---------------------------------------------------------------------------
 export const MessageSentBy = {
@@ -136,6 +252,29 @@ export interface WhatsAppNumberRecord {
 }
 
 // ---------------------------------------------------------------------------
+// WhatsApp dashboard KPIs (UI-safe; real DB counts filled server-side).
+// ---------------------------------------------------------------------------
+export interface WhatsAppKpis {
+  sent: number;
+  delivered: number;
+  read: number;
+  replied: number;
+  failed: number;
+  notRegistered: number;
+  invalidNumbers: number;
+  /** aussortierte Schrottleads */
+  culled: number;
+  hot: number;
+  warm: number;
+  /** delivered / sent, 0..1 */
+  deliveryRate: number;
+  /** read / sent, 0..1 */
+  readRate: number;
+  /** replied / sent, 0..1 */
+  replyRate: number;
+}
+
+// ---------------------------------------------------------------------------
 // Multichat unified inbox — UI-ready, serialisable conversation shapes.
 // ---------------------------------------------------------------------------
 
@@ -157,6 +296,14 @@ export interface MultichatConversation {
   assignedName: string | null;
   businessPhoneNumberId: string | null;
   numberLabel: string | null;
+  /** WhatsApp engagement score for the lead. */
+  leadScore: number;
+  /** Lead-level WhatsApp tracking status. */
+  whatsappStatus: WhatsappTrackingStatus;
+  /** Lead source / campaign, for the inbox row. */
+  source: string | null;
+  /** True while an inbound reply is still flagged as unhandled on the lead. */
+  hasNewReply: boolean;
   lastAt: string;
   preview: string;
   unread: number;

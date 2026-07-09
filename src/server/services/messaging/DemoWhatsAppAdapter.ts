@@ -57,6 +57,11 @@ export class DemoWhatsAppAdapter implements WhatsAppService {
     return parseMetaWebhook(payload, (s) => this.mapProviderStatus(s));
   }
 
+  /** No signature scheme in simulation — always reject real webhook traffic. */
+  verifyWebhookSignature(): boolean {
+    return false;
+  }
+
   mapProviderStatus(providerStatus: string): MessageStatusT {
     return mapMetaStatus(providerStatus);
   }

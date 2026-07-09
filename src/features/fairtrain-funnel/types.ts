@@ -10,10 +10,14 @@
 import { z } from "zod";
 
 import type {
+  LeadQualityStatus,
+  LeadTemperature,
   MessageSentBy as MessageSentByT,
   MessageStatus as MessageStatusT,
   MessageStatusChange,
   MessageType as MessageTypeT,
+  WhatsappReachability,
+  WhatsappTrackingStatus,
 } from "./messaging/types";
 
 // ---------------------------------------------------------------------------
@@ -296,12 +300,22 @@ export {
   MessageSentBySchema,
   MESSAGE_SENT_BY_LABEL,
   MessageStatusChangeSchema,
+  WhatsappTrackingStatus,
+  WhatsappTrackingStatusSchema,
+  WHATSAPP_TRACKING_LABEL,
+  WhatsappReachability,
+  WhatsappReachabilitySchema,
+  LeadQualityStatus,
+  LeadQualityStatusSchema,
+  LEAD_QUALITY_LABEL,
+  leadTemperature,
 } from "./messaging/types";
 export type {
   MessageType as MessageTypeT,
   MessageStatus as MessageStatusT,
   MessageSentBy as MessageSentByT,
   MessageStatusChange,
+  LeadTemperature,
 } from "./messaging/types";
 
 // ---------------------------------------------------------------------------
@@ -428,6 +442,19 @@ export interface LeadSummary {
   assignedToUser: UserRef | null;
   assignedAt: Date | null;
   source: string | null;
+  // WhatsApp status tracking (real provider signals only).
+  whatsappStatus: WhatsappTrackingStatus;
+  whatsappReachability: WhatsappReachability;
+  leadQualityStatus: LeadQualityStatus;
+  leadScore: number;
+  lastWhatsappMessageAt: Date | null;
+  lastWhatsappDeliveredAt: Date | null;
+  lastWhatsappReadAt: Date | null;
+  lastWhatsappReplyAt: Date | null;
+  lastWhatsappErrorAt: Date | null;
+  lastWhatsappErrorReason: string | null;
+  lastInboundMessage: string | null;
+  lastInboundMessageAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -535,6 +562,10 @@ export interface CommunicationEntry {
   failedReason: string | null;
   /** Which of our WhatsApp business numbers handled this message (or null). */
   businessPhoneNumberId: string | null;
+  /** Set on an outbound message when the lead replied to it. */
+  repliedAt: Date | null;
+  /** Last raw provider event JSON for this message (debugging only). */
+  rawWebhookPayload: string | null;
   createdAt: Date;
 }
 
@@ -582,6 +613,14 @@ export interface LeadFilters {
    * `assignedToId` this lets PARTNER_MANAGER see their leads + unassigned.
    */
   includeUnassigned?: boolean | undefined;
+  /** Filter by WhatsApp tracking status (one value). */
+  whatsappStatus?: WhatsappTrackingStatus | undefined;
+  /** Filter by lead quality classification (e.g. schrottlead). */
+  leadQualityStatus?: LeadQualityStatus | undefined;
+  /** Only leads with an unanswered inbound reply (Inbox "neue Antworten"). */
+  hasNewReply?: boolean | undefined;
+  /** Derived HOT/WARM/COLD engagement bucket — applied in-page, not in SQL. */
+  temperature?: LeadTemperature | undefined;
 }
 
 export interface LeadKpis {

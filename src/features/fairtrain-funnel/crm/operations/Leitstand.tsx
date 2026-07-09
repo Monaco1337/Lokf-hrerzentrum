@@ -24,12 +24,15 @@ import {
 } from "./LeitstandFunnel";
 import { HeutigePrioritaeten } from "./LeitstandPrioritaeten";
 import { LiveAktivitaeten } from "./LiveAktivitaeten";
+import { LeitstandWhatsApp } from "./LeitstandWhatsApp";
 import { LeitstandZones } from "./LeitstandZones";
 import type { AlarmCounts } from "./LeitstandAlarme";
+import type { WhatsAppKpis } from "../../messaging/types";
 
 export interface LeitstandProps {
   user: UserSummary;
   kpis: LeadKpis;
+  whatsapp: WhatsAppKpis;
   alarms: AlarmCounts;
   funnel: FunnelData;
   priorities: ReadonlyArray<EnrichedLeadSummary>;
@@ -53,6 +56,7 @@ const DATE_FMT = new Intl.DateTimeFormat("de-DE", {
 export function Leitstand({
   user,
   kpis,
+  whatsapp,
   alarms,
   funnel,
   priorities,
@@ -97,6 +101,9 @@ export function Leitstand({
         kpis={kpis}
         performance={livePerformance}
       />
+
+      {/* 1b) WhatsApp status tracking KPIs */}
+      <LeitstandWhatsApp kpis={whatsapp} />
 
       {/* 2) Abschluss Funnel */}
       <AbschlussFunnel funnel={funnel} />
