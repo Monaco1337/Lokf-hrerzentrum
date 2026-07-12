@@ -19,6 +19,17 @@ import { automationService } from "../services/AutomationService";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
 import { requirePermission, runAction, type Result } from "./_helpers";
 
+/**
+ * Meta WhatsApp template names may only contain lowercase letters, digits and
+ * underscores. A stray capital (e.g. "Willkommens_nachricht") makes Meta reject
+ * the send with (#132001). Normalise to the exact wire form Meta expects.
+ */
+function normalizeMetaTemplateName(value: string | null): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return trimmed.toLowerCase();
+}
+
 const UpdateTemplateSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1).max(120).optional(),
@@ -82,7 +93,8 @@ export async function updateAutomationTemplate(
     if (rest.category !== undefined) patch.category = rest.category;
     if (rest.status !== undefined) patch.status = rest.status;
     if (rest.requiresConsent !== undefined) patch.requiresConsent = rest.requiresConsent;
-    if (rest.metaTemplateName !== undefined) patch.metaTemplateName = rest.metaTemplateName;
+    if (rest.metaTemplateName !== undefined)
+      patch.metaTemplateName = normalizeMetaTemplateName(rest.metaTemplateName);
     if (rest.metaApprovalStatus !== undefined)
       patch.metaApprovalStatus = rest.metaApprovalStatus;
     if (rest.senderPhoneNumberId !== undefined) {
@@ -142,7 +154,7 @@ export async function createAutomationTemplate(
         subject: d.subject ?? null,
         body: d.body,
         requiresConsent: d.requiresConsent ?? null,
-        metaTemplateName: d.metaTemplateName ?? null,
+        metaTemplateName: normalizeMetaTemplateName(d.metaTemplateName ?? null),
         metaApprovalStatus: d.metaApprovalStatus ?? null,
         senderPhoneNumberId: sender,
         metaBodyParams: d.channel === "WHATSAPP" ? (d.metaBodyParams ?? []) : [],

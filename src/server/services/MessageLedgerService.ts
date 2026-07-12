@@ -249,7 +249,10 @@ export class MessageLedgerService {
       isWhatsapp,
       live,
       to: lead.phone,
-      templateName: template.metaTemplateName ?? template.name,
+      // Meta template names are ALWAYS lowercase [a-z0-9_]; a stray capital letter
+      // makes Meta reject the send with (#132001) "template name does not exist in
+      // the translation". Normalise defensively for any legacy data.
+      templateName: template.metaTemplateName?.trim().toLowerCase() || template.name,
       body,
       variables,
       bodyParams: metaBodyParams,
