@@ -28,11 +28,19 @@ export interface PreviewLead {
   ctx: Record<string, string>;
 }
 
+/** Active WhatsApp sender numbers offered in the "Senden über" field. */
+export interface WhatsAppSenderOption {
+  phoneNumberId: string;
+  label: string;
+  displayPhone: string;
+}
+
 interface Props {
   open: boolean;
   mode: "create" | "edit";
   template?: AutomationTemplateEntry | undefined;
   previewLeads: ReadonlyArray<PreviewLead>;
+  whatsappNumbers: ReadonlyArray<WhatsAppSenderOption>;
   onClose: () => void;
 }
 
@@ -53,6 +61,7 @@ export function TemplateEditorModal({
   mode,
   template,
   previewLeads,
+  whatsappNumbers,
   onClose,
 }: Props) {
   const router = useRouter();
@@ -73,11 +82,18 @@ export function TemplateEditorModal({
   const [metaApprovalStatus, setMetaApprovalStatus] = useState(
     template?.metaApprovalStatus ?? "not_submitted",
   );
+  const [senderPhoneNumberId, setSenderPhoneNumberId] = useState(
+    template?.senderPhoneNumberId ?? "",
+  );
   const [leadId, setLeadId] = useState(previewLeads[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
 
   const isEmail = channel === "EMAIL";
   const isInternal = channel === "INTERNAL";
+  const isWhatsapp = channel === "WHATSAPP";
+  const selectedSender = whatsappNumbers.find(
+    (n) => n.phoneNumberId === senderPhoneNumberId,
+  );
 
   const ctx = useMemo(
     () => previewLeads.find((l) => l.id === leadId)?.ctx ?? {},
@@ -110,6 +126,10 @@ export function TemplateEditorModal({
       setError("Name und Nachrichtentext sind erforderlich.");
       return;
     }
+    if (isWhatsapp && !senderPhoneNumberId) {
+      setError('Bitte unter „Senden über" eine WhatsApp-Nummer auswählen.');
+      return;
+    }
     startTransition(async () => {
       const payload = {
         name: name.trim(),
@@ -119,7 +139,9 @@ export function TemplateEditorModal({
         status,
         metaTemplateName: metaTemplateName.trim() || null,
         // Only WhatsApp templates carry a Meta approval status; email is null.
-        metaApprovalStatus: channel === "WHATSAPP" ? metaApprovalStatus : null,
+        metaApprovalStatus: isWhatsapp ? metaApprovalStatus : null,
+        // Sender ("Senden über") is stored for WhatsApp only.
+        senderPhoneNumberId: isWhatsapp ? senderPhoneNumberId : null,
       };
       const res =
         mode === "create"
@@ -243,26 +265,53 @@ export function TemplateEditorModal({
             </Field>
           </div>
 
-          {channel === "WHATSAPP" ? (
-            <Field label="Meta-Freigabestatus">
-              <select
-                className="input"
-                value={metaApprovalStatus}
-                onChange={(e) =>
-                  setMetaApprovalStatus(
-                    e.target.value as typeof metaApprovalStatus,
-                  )
-                }
-              >
-                <option value="not_submitted">Nicht eingereicht</option>
-                <option value="pending">In Prüfung</option>
-                <option value="approved">Freigegeben (Live-Versand aktiv)</option>
-                <option value="rejected">Abgelehnt</option>
-              </select>
-              <p className="mt-1 text-[11px] text-ink-muted">
-                Echter WhatsApp-Versand ist erst bei „Freigegeben“ möglich.
-              </p>
-            </Field>
+          {isWhatsapp ? (
+            <>
+              <Field label="Senden über (WhatsApp-Nummer) *">
+                <select
+                  className="input"
+                  value={senderPhoneNumberId}
+                  onChange={(e) => setSenderPhoneNumberId(e.target.value)}
+                >
+                  <option value="">— Nummer wählen —</option>
+                  {whatsappNumbers.map((n) => (
+                    <option key={n.phoneNumberId} value={n.phoneNumberId}>
+                      {n.label} · {n.displayPhone}
+                    </option>
+                  ))}
+                </select>
+                {whatsappNumbers.length === 0 ? (
+                  <p className="mt-1 text-[11px] text-danger">
+                    Keine aktive WhatsApp-Nummer vorhanden. Bitte zuerst unter
+                    „System → WhatsApp-Nummern“ eine Nummer anlegen/aktivieren.
+                  </p>
+                ) : (
+                  <p className="mt-1 text-[11px] text-ink-muted">
+                    Pflichtfeld – Nachrichten dieser Vorlage werden von genau
+                    dieser Nummer gesendet. Keine automatische Auswahl.
+                  </p>
+                )}
+              </Field>
+              <Field label="Meta-Freigabestatus">
+                <select
+                  className="input"
+                  value={metaApprovalStatus}
+                  onChange={(e) =>
+                    setMetaApprovalStatus(
+                      e.target.value as typeof metaApprovalStatus,
+                    )
+                  }
+                >
+                  <option value="not_submitted">Nicht eingereicht</option>
+                  <option value="pending">In Prüfung</option>
+                  <option value="approved">Freigegeben (Live-Versand aktiv)</option>
+                  <option value="rejected">Abgelehnt</option>
+                </select>
+                <p className="mt-1 text-[11px] text-ink-muted">
+                  Echter WhatsApp-Versand ist erst bei „Freigegeben“ möglich.
+                </p>
+              </Field>
+            </>
           ) : null}
 
           {isEmail ? (
@@ -323,6 +372,20 @@ export function TemplateEditorModal({
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
               Live-Vorschau
             </p>
+            {isWhatsapp ? (
+              <p className="mt-2 flex items-center gap-1.5 text-[11.5px] text-ink-soft">
+                <span className="font-semibold text-ink">Senden über:</span>
+                {selectedSender ? (
+                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700 ring-1 ring-emerald-200">
+                    {selectedSender.label} · {selectedSender.displayPhone}
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 font-medium text-amber-700 ring-1 ring-amber-200">
+                    Keine Nummer gewählt
+                  </span>
+                )}
+              </p>
+            ) : null}
             <div className="mt-2 rounded-lg bg-white p-3 shadow-sm ring-1 ring-ink/[0.04]">
               {isEmail && subject ? (
                 <p className="border-b border-ink/[0.06] pb-2 text-sm font-semibold text-navy-950">

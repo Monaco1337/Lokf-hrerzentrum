@@ -8,6 +8,7 @@ import {
 } from "@/features/fairtrain-funnel/types";
 
 import { ValidationError } from "../errors";
+import { automationRuleEngine } from "../services/AutomationRuleEngine";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
 import { statusMachineService } from "../services/StatusMachineService";
 import { requirePermission, runAction, type Result } from "./_helpers";
@@ -30,6 +31,20 @@ export async function updateLeadStatus(
       reason: parsed.data.reason,
       override: parsed.data.override ?? false,
     });
+
+    // Event-driven workflow rules bound to "Status geändert". Best-effort so a
+    // failing rule never blocks the status change itself.
+    try {
+      await automationRuleEngine.runForTrigger("LEAD_STATUS_CHANGED", parsed.data.leadId, {
+        actor: actor.id,
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[automation] rule LEAD_STATUS_CHANGED failed", {
+        leadId: parsed.data.leadId,
+        err,
+      });
+    }
     // Status changes ripple through every operations surface — refresh them
     // all so the dashboard, kanban, follow-ups and tasks reflect the move
     // immediately without a manual reload.

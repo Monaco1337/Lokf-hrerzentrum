@@ -7,6 +7,8 @@
  */
 import {
   AuditAction,
+  type AutomationRunLogEntry,
+  type AutomationTrigger,
   LeadPriority,
   LeadStatusSchema,
   type ConsentState,
@@ -28,6 +30,7 @@ import { automationTemplateRepository } from "../repositories/AutomationTemplate
 import { demoSeedRepository } from "../repositories/DemoSeedRepository";
 import { leadRepository } from "../repositories/LeadRepository";
 import { taskRepository } from "../repositories/TaskRepository";
+import { userRepository } from "../repositories/UserRepository";
 import { consentService } from "./ConsentService";
 import { statusMachineService } from "./StatusMachineService";
 
@@ -42,6 +45,102 @@ interface ActionResult {
 }
 
 export class AutomationRuleEngine {
+  private cachedActorId: string | null = null;
+
+  /** A real user id used as the actor for automatic (event) executions. */
+  private async systemActor(): Promise<string> {
+    if (this.cachedActorId) return this.cachedActorId;
+    const id = await userRepository.findSystemActorId();
+    this.cachedActorId = id ?? "system:automation";
+    return this.cachedActorId;
+  }
+
+  /**
+   * Event-driven execution: run every ACTIVE rule bound to `trigger` against a
+   * lead. This is what makes `status: "active"` real.
+   *
+   * `runMode` gates the side effects:
+   *   • production_ready → actions run for real (status EXECUTED)
+   *   • simulation       → dry run, no mutations, logged (status SIMULATED)
+   *   • demo             → never auto-runs (seed/demo only)
+   *
+   * Loop-safety: triggers are fired from the user/action & webhook layer, and
+   * the engine's own `changeLeadStatus` calls StatusMachineService directly
+   * (not the status action), so executing a rule can never re-fire a trigger.
+   * Best-effort by design — callers wrap this and never let it block.
+   */
+  async runForTrigger(
+    trigger: AutomationTrigger,
+    leadId: string,
+    opts: { actor?: string } = {},
+  ): Promise<AutomationRunLogEntry[]> {
+    const rules = await automationRuleRepository.listActiveByTrigger(trigger);
+    const executable = rules.filter((r) => r.runMode !== "demo");
+    if (executable.length === 0) return [];
+
+    const lead = await leadRepository.findById(leadId);
+    if (!lead) return [];
+
+    const actor = opts.actor ?? (await this.systemActor());
+    const consents = await consentService.currentStates(leadId);
+    const isDemoLead = (await demoSeedRepository.listByType("Lead")).includes(leadId);
+
+    const runs: AutomationRunLogEntry[] = [];
+    for (const rule of executable) {
+      const dryRun = rule.runMode === "simulation";
+      const conditions = rule.conditions.map((c) =>
+        this.evalCondition(c, lead, consents, isDemoLead),
+      );
+      const allPassed = conditions.every((c) => c.passed);
+
+      const actions: ActionResult[] = [];
+      let status: RunLogStatus = dryRun ? "SIMULATED" : "EXECUTED";
+      let hadError = false;
+
+      if (!allPassed) {
+        status = "SKIPPED";
+      } else {
+        for (const action of rule.actions) {
+          try {
+            actions.push(await this.runAction(action, lead, actor, dryRun));
+          } catch (err) {
+            hadError = true;
+            actions.push({
+              type: action.type,
+              result: `Fehler: ${err instanceof Error ? err.message : "unbekannt"}`,
+            });
+          }
+        }
+        if (hadError) status = "ERROR";
+      }
+
+      const verb = dryRun ? "simuliert" : "ausgeführt";
+      const summary = !allPassed
+        ? "Bedingungen nicht erfüllt – keine Aktion ausgeführt"
+        : `${actions.length} Aktion(en) ${hadError ? "mit Fehlern " : ""}${verb} für ${lead.firstName} ${lead.lastName}`;
+
+      const run = await automationRunLogRepository.append({
+        ruleId: rule.id,
+        leadId,
+        status,
+        summary,
+        detail: { conditions, actions },
+        isTest: dryRun,
+        triggeredBy: `event:${trigger}`,
+      });
+      await automationRuleRepository.recordRun(rule.id, hadError);
+      await auditLogRepository.append({
+        actor,
+        action: AuditAction.WORKFLOW_AUTOMATION,
+        entityType: "AutomationRule",
+        entityId: rule.id,
+        details: JSON.stringify({ trigger, leadId, status, dryRun, actions: actions.length }),
+      });
+      runs.push(run);
+    }
+    return runs;
+  }
+
   async simulate(ruleId: string, leadId: string, actor: string) {
     const rule = await automationRuleRepository.findById(ruleId);
     if (!rule) throw new NotFoundError("AutomationRule", ruleId);
@@ -150,11 +249,18 @@ export class AutomationRuleEngine {
     }
   }
 
+  /**
+   * Dispatch a single action. When `dryRun` is true (Testmodus / simulation
+   * runMode) NO real mutation is performed — only the human-readable result is
+   * computed, so the log shows exactly what *would* happen.
+   */
   private async runAction(
     action: RuleAction,
     lead: LeadDetail,
     actor: string,
+    dryRun = false,
   ): Promise<ActionResult> {
+    const tag = dryRun ? " (Testmodus)" : "";
     switch (action.type) {
       case "sendTemplateSimulation": {
         if (!action.templateId) return { type: action.type, result: "Keine Vorlage gewählt" };
@@ -164,7 +270,7 @@ export class AutomationRuleEngine {
           ownerName: lead.assignedTo,
         });
         const preview = renderTemplate(tpl.body, ctx).slice(0, 160);
-        await automationTemplateRepository.recordUsage(tpl.id);
+        if (!dryRun) await automationTemplateRepository.recordUsage(tpl.id);
         return {
           type: action.type,
           result: `Simulierter ${tpl.channel}-Versand · "${tpl.name}": ${preview}`,
@@ -172,6 +278,7 @@ export class AutomationRuleEngine {
       }
       case "createTask": {
         const title = action.taskTitle?.trim() || "Automatische Aufgabe";
+        if (dryRun) return { type: action.type, result: `Aufgabe würde erstellt: ${title}${tag}` };
         const task = await taskRepository.create({
           title,
           leadId: lead.id,
@@ -190,6 +297,8 @@ export class AutomationRuleEngine {
       }
       case "createFollowUp": {
         const when = new Date(Date.now() + (action.hours ?? 24) * 3_600_000);
+        const whenLabel = when.toLocaleString("de-DE");
+        if (dryRun) return { type: action.type, result: `Follow-up würde geplant: ${whenLabel}${tag}` };
         await leadRepository.update(lead.id, { nextFollowUpAt: when });
         await auditLogRepository.append({
           actor,
@@ -198,11 +307,12 @@ export class AutomationRuleEngine {
           entityId: lead.id,
           details: JSON.stringify({ when: when.toISOString(), viaAutomation: true }),
         });
-        return { type: action.type, result: `Follow-up geplant: ${when.toLocaleString("de-DE")}` };
+        return { type: action.type, result: `Follow-up geplant: ${whenLabel}` };
       }
       case "changeLeadStatus": {
         const parsed = LeadStatusSchema.safeParse(action.status);
         if (!parsed.success) return { type: action.type, result: "Ungültiger Zielstatus" };
+        if (dryRun) return { type: action.type, result: `Status → ${parsed.data}${tag}` };
         await statusMachineService.transition({
           leadId: lead.id,
           toStatus: parsed.data,
@@ -214,6 +324,7 @@ export class AutomationRuleEngine {
       }
       case "assignOwner": {
         if (!action.ownerId) return { type: action.type, result: "Kein Bearbeiter angegeben" };
+        if (dryRun) return { type: action.type, result: `Bearbeiter würde zugewiesen${tag}` };
         await leadRepository.update(lead.id, {
           assignedToId: action.ownerId,
           assignedAt: new Date(),
@@ -228,6 +339,7 @@ export class AutomationRuleEngine {
         return { type: action.type, result: `Bearbeiter zugewiesen` };
       }
       case "markEscalated": {
+        if (dryRun) return { type: action.type, result: `Würde eskaliert (Priorität: heiß)${tag}` };
         await leadRepository.update(lead.id, { priority: LeadPriority.HOT });
         await auditLogRepository.append({
           actor,
@@ -239,6 +351,7 @@ export class AutomationRuleEngine {
         return { type: action.type, result: "Als eskaliert markiert (Priorität: heiß)" };
       }
       case "addActivityLog": {
+        if (dryRun) return { type: action.type, result: `Log würde erstellt: ${action.note ?? "Eintrag"}${tag}` };
         await auditLogRepository.append({
           actor,
           action: AuditAction.WORKFLOW_AUTOMATION,

@@ -145,6 +145,30 @@ export class MessageLedgerService {
     return active[0]?.phoneNumberId ?? null;
   }
 
+  /**
+   * WhatsApp templates are sent FROM the number explicitly chosen on the
+   * template ("Senden über"). That number is honoured EXACTLY — never
+   * auto-picked. A missing or deactivated sender blocks the send with a clear,
+   * user-facing error instead of silently falling back to another number.
+   */
+  private async resolveTemplateSender(
+    senderPhoneNumberId: string | null,
+  ): Promise<string> {
+    const sender = senderPhoneNumberId?.trim();
+    if (!sender) {
+      throw new ValidationError(
+        'Kein Absender ausgewählt. Bitte in der WhatsApp-Vorlage unter „Senden über" eine Nummer wählen.',
+      );
+    }
+    const number = await whatsAppNumberRepository.findByPhoneNumberId(sender);
+    if (!number || !number.active) {
+      throw new ValidationError(
+        "Die in der Vorlage gewählte Absender-Nummer ist nicht (mehr) aktiv. Bitte eine aktive WhatsApp-Nummer auswählen.",
+      );
+    }
+    return sender;
+  }
+
   private async assertWhatsappConsent(
     leadId: string,
     actorId: string,
@@ -188,6 +212,12 @@ export class MessageLedgerService {
     const isWhatsapp = channel === CommunicationChannel.WHATSAPP;
     const live = isWhatsapp && this.whatsappLive;
 
+    // The sender is dictated by the template's "Senden über" selection and is
+    // resolved (and validated) BEFORE any dispatch — missing/inactive blocks.
+    const fromPhoneNumberId = isWhatsapp
+      ? await this.resolveTemplateSender(template.senderPhoneNumberId)
+      : null;
+
     if (live) {
       // Real WhatsApp: only approved Meta templates, only with consent.
       if (template.metaApprovalStatus !== "approved") {
@@ -199,9 +229,6 @@ export class MessageLedgerService {
     }
 
     const now = new Date();
-    const fromPhoneNumberId = isWhatsapp
-      ? await this.resolveOutboundNumber(lead)
-      : null;
     const delivery = await this.dispatchWhatsapp({
       isWhatsapp,
       live,

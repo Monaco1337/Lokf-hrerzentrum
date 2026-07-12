@@ -17,19 +17,18 @@ import {
   updateAutomationRule,
 } from "@/server/actions/automationRules";
 import {
-  ACTION_LABEL,
-  CONDITION_LABEL,
-  CONDITIONS_WITH_VALUE,
+  LeadPriority,
   LeadStatus,
   RULE_STATUS_LABEL,
-  RuleActionType,
-  RuleConditionType,
-  TRIGGER_LABEL,
   type AutomationRuleEntry,
   type AutomationTemplateEntry,
   type RuleAction,
+  type RuleActionType,
   type RuleCondition,
+  type RuleConditionType,
 } from "../../types";
+import { findEntry, type WorkflowTier } from "../../automation/workflow";
+import { CatalogPicker, ModeSwitch, toneClasses, WorkflowIcon } from "./WorkflowCatalog";
 
 // ── step types ────────────────────────────────────────────────────────────────
 
@@ -41,10 +40,8 @@ type FlowStep = TriggerStep | ConditionStep | ActionStep;
 let _seq = 0;
 const uid = () => `s${++_seq}`;
 
-const TRIGGER_KEYS  = Object.keys(TRIGGER_LABEL);
-const COND_TYPES    = Object.values(RuleConditionType);
-const ACTION_TYPES  = Object.values(RuleActionType);
 const LEAD_STATUSES = Object.values(LeadStatus);
+const LEAD_PRIORITIES = Object.values(LeadPriority);
 
 // ── main component ────────────────────────────────────────────────────────────
 
@@ -63,6 +60,7 @@ export function FlowBuilder({ mode, rule, templates, users, onClose }: Props) {
   const [name, setName]   = useState(rule?.name ?? "Neue Automation");
   const [status, setStatus] = useState(rule?.status ?? "draft");
   const [addAt, setAddAt]   = useState<number | null>(null);
+  const [wfMode, setWfMode] = useState<WorkflowTier>("pro");
 
   const [steps, setSteps] = useState<FlowStep[]>(() => {
     const init: FlowStep[] = [
@@ -108,7 +106,10 @@ export function FlowBuilder({ mode, rule, templates, users, onClose }: Props) {
     if (!actions.length) { setError("Mindestens eine Aktion ist erforderlich."); return; }
 
     start(async () => {
-      const payload = { name: name.trim(), description: null, trigger, conditions, actions, status, runMode: "demo" };
+      // Real rules are production-ready so an "active" rule actually executes
+      // on its trigger. (Demo runMode is reserved for seed data and never
+      // auto-runs.)
+      const payload = { name: name.trim(), description: null, trigger, conditions, actions, status, runMode: "production_ready" };
       const res = mode === "create"
         ? await createAutomationRule(payload)
         : await updateAutomationRule({ id: rule!.id, ...payload });
@@ -157,6 +158,8 @@ export function FlowBuilder({ mode, rule, templates, users, onClose }: Props) {
         </div>
 
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <ModeSwitch mode={wfMode} onChange={setWfMode} />
+          <span className="mx-1 h-5 w-px bg-ink/10" />
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as "draft" | "active" | "inactive")}
@@ -202,6 +205,7 @@ export function FlowBuilder({ mode, rule, templates, users, onClose }: Props) {
                   step={step}
                   templates={templates}
                   users={users}
+                  wfMode={wfMode}
                   canDelete={step.kind !== "trigger"}
                   onDelete={() => removeStep(step.id)}
                   onChange={(updated) => updateStep(step.id, updated)}
@@ -223,18 +227,23 @@ export function FlowBuilder({ mode, rule, templates, users, onClose }: Props) {
 
                   {addAt === idx ? (
                     <div className="absolute left-1/2 top-full z-10 mt-2 w-56 -translate-x-1/2 overflow-hidden rounded-xl border border-ink/[0.08] bg-white shadow-[0_8px_24px_-8px_rgba(15,23,42,0.18)]">
-                      <button
-                        type="button"
-                        onClick={() => insertAfter(idx, "condition")}
-                        className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-ink hover:bg-surface-subtle"
-                      >
-                        <FunnelIcon className="h-4 w-4 shrink-0 text-amber-500" />
-                        Filter / Bedingung
-                      </button>
+                      {wfMode !== "simple" ? (
+                        <button
+                          type="button"
+                          onClick={() => insertAfter(idx, "condition")}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-ink hover:bg-surface-subtle"
+                        >
+                          <FunnelIcon className="h-4 w-4 shrink-0 text-amber-500" />
+                          Filter / Bedingung
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => insertAfter(idx, "action")}
-                        className="flex w-full items-center gap-3 border-t border-ink/[0.06] px-4 py-3 text-left text-[13px] text-ink hover:bg-surface-subtle"
+                        className={[
+                          "flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] text-ink hover:bg-surface-subtle",
+                          wfMode !== "simple" ? "border-t border-ink/[0.06]" : "",
+                        ].join(" ")}
                       >
                         <BoltIcon className="h-4 w-4 shrink-0 text-brand-600" />
                         Aktion ausführen
@@ -264,6 +273,7 @@ function NodeCard({
   step,
   templates,
   users,
+  wfMode,
   canDelete,
   onDelete,
   onChange,
@@ -271,11 +281,12 @@ function NodeCard({
   step: FlowStep;
   templates: ReadonlyArray<AutomationTemplateEntry>;
   users: ReadonlyArray<{ id: string; name: string }>;
+  wfMode: WorkflowTier;
   canDelete: boolean;
   onDelete: () => void;
   onChange: (updated: FlowStep) => void;
 }) {
-  const meta = stepMeta(step);
+  const meta = nodeMeta(step);
 
   return (
     <div
@@ -288,12 +299,13 @@ function NodeCard({
       {/* Node header */}
       <div className="flex items-center justify-between border-b border-ink/[0.06] px-4 py-3">
         <div className="flex items-center gap-2.5">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ background: meta.iconBg }}>
-            {meta.icon}
+          <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${meta.iconBg}`}>
+            <WorkflowIcon name={meta.icon} className={`h-4 w-4 ${meta.iconText}`} />
           </span>
           <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">
-            {meta.label}
+            {meta.kindLabel}
           </span>
+          <span className="text-[13px] font-semibold text-navy-950">{meta.title}</span>
         </div>
         {canDelete ? (
           <button
@@ -312,11 +324,13 @@ function NodeCard({
         {step.kind === "trigger" ? (
           <TriggerContent
             step={step}
+            wfMode={wfMode}
             onChange={(t) => onChange({ ...step, trigger: t })}
           />
         ) : step.kind === "condition" ? (
           <ConditionContent
             step={step}
+            wfMode={wfMode}
             onChange={(data) => onChange({ ...step, data })}
           />
         ) : (
@@ -324,6 +338,7 @@ function NodeCard({
             step={step}
             templates={templates}
             users={users}
+            wfMode={wfMode}
             onChange={(data) => onChange({ ...step, data })}
           />
         )}
@@ -336,23 +351,17 @@ function NodeCard({
 
 function TriggerContent({
   step,
+  wfMode,
   onChange,
 }: {
   step: TriggerStep;
+  wfMode: WorkflowTier;
   onChange: (trigger: string) => void;
 }) {
   return (
     <div>
       <label className="mb-1.5 block text-[12px] font-semibold text-ink">Auslöser</label>
-      <select
-        className="input"
-        value={step.trigger}
-        onChange={(e) => onChange(e.target.value)}
-      >
-        {TRIGGER_KEYS.map((t) => (
-          <option key={t} value={t}>{TRIGGER_LABEL[t as keyof typeof TRIGGER_LABEL]}</option>
-        ))}
-      </select>
+      <CatalogPicker kind="trigger" value={step.trigger} mode={wfMode} onSelect={onChange} />
       <p className="mt-2 text-[12px] text-ink-muted">
         Die Automation startet, sobald dieser Auslöser eintritt.
       </p>
@@ -362,32 +371,30 @@ function TriggerContent({
 
 function ConditionContent({
   step,
+  wfMode,
   onChange,
 }: {
   step: ConditionStep;
+  wfMode: WorkflowTier;
   onChange: (data: RuleCondition) => void;
 }) {
-  const hasValue = CONDITIONS_WITH_VALUE.includes(step.data.type);
+  const entry = findEntry("condition", step.data.type);
+  const valueKind = entry?.valueKind ?? "none";
   return (
     <div className="space-y-3">
       <div>
         <label className="mb-1.5 block text-[12px] font-semibold text-ink">Bedingung</label>
-        <select
-          className="input"
+        <CatalogPicker
+          kind="condition"
           value={step.data.type}
-          onChange={(e) =>
-            onChange({ type: e.target.value as RuleConditionType, value: undefined })
-          }
-        >
-          {COND_TYPES.map((t) => (
-            <option key={t} value={t}>{CONDITION_LABEL[t]}</option>
-          ))}
-        </select>
+          mode={wfMode}
+          onSelect={(id) => onChange({ type: id as RuleConditionType, value: undefined })}
+        />
       </div>
-      {hasValue ? (
+      {valueKind !== "none" ? (
         <div>
           <label className="mb-1.5 block text-[12px] font-semibold text-ink">Wert</label>
-          {step.data.type === "leadStatus" ? (
+          {valueKind === "leadStatus" ? (
             <select
               className="input"
               value={String(step.data.value ?? "")}
@@ -396,10 +403,20 @@ function ConditionContent({
               <option value="">— wählen</option>
               {LEAD_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
+          ) : valueKind === "priority" ? (
+            <select
+              className="input"
+              value={String(step.data.value ?? "")}
+              onChange={(e) => onChange({ ...step.data, value: e.target.value })}
+            >
+              <option value="">— wählen</option>
+              {LEAD_PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
+            </select>
           ) : (
             <input
               className="input"
-              placeholder={step.data.type.includes("Hours") ? "Stunden (z.B. 24)" : "Wert"}
+              type={valueKind === "number" || valueKind === "hours" ? "number" : "text"}
+              placeholder={valueKind === "hours" ? "Stunden (z.B. 24)" : "Wert"}
               value={String(step.data.value ?? "")}
               onChange={(e) => onChange({ ...step.data, value: e.target.value })}
             />
@@ -414,28 +431,25 @@ function ActionContent({
   step,
   templates,
   users,
+  wfMode,
   onChange,
 }: {
   step: ActionStep;
   templates: ReadonlyArray<AutomationTemplateEntry>;
   users: ReadonlyArray<{ id: string; name: string }>;
+  wfMode: WorkflowTier;
   onChange: (data: RuleAction) => void;
 }) {
   return (
     <div className="space-y-3">
       <div>
         <label className="mb-1.5 block text-[12px] font-semibold text-ink">Aktion</label>
-        <select
-          className="input"
+        <CatalogPicker
+          kind="action"
           value={step.data.type}
-          onChange={(e) =>
-            onChange({ type: e.target.value as RuleActionType })
-          }
-        >
-          {ACTION_TYPES.map((t) => (
-            <option key={t} value={t}>{ACTION_LABEL[t]}</option>
-          ))}
-        </select>
+          mode={wfMode}
+          onSelect={(id) => onChange({ type: id as RuleActionType })}
+        />
       </div>
 
       {step.data.type === "sendTemplateSimulation" ? (
@@ -515,58 +529,47 @@ function ActionContent({
 
 // ── step metadata ─────────────────────────────────────────────────────────────
 
-function stepMeta(step: FlowStep): {
-  label: string;
-  icon: React.ReactNode;
+function nodeMeta(step: FlowStep): {
+  kindLabel: string;
+  title: string;
+  icon: Parameters<typeof WorkflowIcon>[0]["name"];
   iconBg: string;
+  iconText: string;
   accent: string;
 } {
   if (step.kind === "trigger") {
+    const e = findEntry("trigger", step.trigger);
+    const tone = toneClasses(e?.tone ?? "indigo");
     return {
-      label: "Auslöser",
-      icon: <BoltIcon className="h-4 w-4 text-indigo-600" />,
-      iconBg: "#eef2ff",
-      accent: "border-indigo-400",
+      kindLabel: "Auslöser",
+      title: e?.label ?? step.trigger,
+      icon: e?.icon ?? "bolt",
+      iconBg: tone.iconBg,
+      iconText: tone.iconText,
+      accent: tone.accent,
     };
   }
   if (step.kind === "condition") {
+    const e = findEntry("condition", step.data.type);
+    const tone = toneClasses(e?.tone ?? "amber");
     return {
-      label: "Bedingung",
-      icon: <FunnelIcon className="h-4 w-4 text-amber-600" />,
-      iconBg: "#fffbeb",
-      accent: "border-amber-400",
+      kindLabel: "Bedingung",
+      title: e?.label ?? step.data.type,
+      icon: e?.icon ?? "funnel",
+      iconBg: tone.iconBg,
+      iconText: tone.iconText,
+      accent: tone.accent,
     };
   }
-  const t = (step as ActionStep).data.type;
-  if (t === "sendTemplateSimulation") {
-    return {
-      label: "Nachricht senden",
-      icon: <MailIcon className="h-4 w-4 text-emerald-700" />,
-      iconBg: "#ecfdf5",
-      accent: "border-emerald-500",
-    };
-  }
-  if (t === "createTask" || t === "createFollowUp") {
-    return {
-      label: t === "createTask" ? "Aufgabe erstellen" : "Wiedervorlage",
-      icon: <CheckIcon className="h-4 w-4 text-violet-600" />,
-      iconBg: "#f5f3ff",
-      accent: "border-violet-500",
-    };
-  }
-  if (t === "changeLeadStatus" || t === "assignOwner") {
-    return {
-      label: ACTION_LABEL[t] ?? "Aktion",
-      icon: <ArrowIcon className="h-4 w-4 text-blue-600" />,
-      iconBg: "#eff6ff",
-      accent: "border-blue-400",
-    };
-  }
+  const e = findEntry("action", (step as ActionStep).data.type);
+  const tone = toneClasses(e?.tone ?? "slate");
   return {
-    label: ACTION_LABEL[t] ?? "Aktion",
-    icon: <NoteIcon className="h-4 w-4 text-slate-500" />,
-    iconBg: "#f8fafc",
-    accent: "border-slate-400",
+    kindLabel: "Aktion",
+    title: e?.label ?? (step as ActionStep).data.type,
+    icon: e?.icon ?? "note",
+    iconBg: tone.iconBg,
+    iconText: tone.iconText,
+    accent: tone.accent,
   };
 }
 
@@ -580,10 +583,6 @@ const ic = (d: React.ReactNode) =>
 
 const BoltIcon      = ic(<><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></>);
 const FunnelIcon    = ic(<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>);
-const MailIcon      = ic(<><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></>);
-const CheckIcon     = ic(<><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></>);
-const ArrowIcon     = ic(<><path d="M5 12h14M12 5l7 7-7 7"/></>);
-const NoteIcon      = ic(<><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></>);
 const PlusIcon      = ic(<><path d="M12 5v14M5 12h14"/></>);
 const TrashIcon     = ic(<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></>);
 const ChevronLeftIcon = ic(<><polyline points="15 18 9 12 15 6"/></>);

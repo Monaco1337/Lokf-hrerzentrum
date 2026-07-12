@@ -17,7 +17,10 @@ import type {
 import { AutomationStatusBadge } from "./AutomationStatusBadge";
 import { RulesManager } from "./automation/RulesManager";
 import { TemplateManager } from "./automation/TemplateManager";
-import type { PreviewLead } from "./automation/TemplateEditorModal";
+import type {
+  PreviewLead,
+  WhatsAppSenderOption,
+} from "./automation/TemplateEditorModal";
 import { channelLabel } from "./leadLabels";
 
 type Tab = "templates" | "rules" | "logs";
@@ -28,10 +31,11 @@ interface Props {
   logs: AutomationLogEntry[];
   runLogs: AutomationRunLogEntry[];
   previewLeads: PreviewLead[];
+  whatsappNumbers: WhatsAppSenderOption[];
   users: Array<{ id: string; name: string }>;
 }
 
-export function AutomationAdmin({ templates, rules, logs, runLogs, previewLeads, users }: Props) {
+export function AutomationAdmin({ templates, rules, logs, runLogs, previewLeads, whatsappNumbers, users }: Props) {
   const [tab, setTab] = useState<Tab>("templates");
 
   const activeTemplates = templates.filter((t) => t.status === "active").length;
@@ -101,7 +105,11 @@ export function AutomationAdmin({ templates, rules, logs, runLogs, previewLeads,
 
       {/* ── Tab panels ──────────────────────────────────────────────────────── */}
       {tab === "templates" ? (
-        <TemplateManager templates={templates} previewLeads={previewLeads} />
+        <TemplateManager
+          templates={templates}
+          previewLeads={previewLeads}
+          whatsappNumbers={whatsappNumbers}
+        />
       ) : tab === "rules" ? (
         <RulesManager
           rules={rules}

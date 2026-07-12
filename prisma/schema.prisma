@@ -557,6 +557,9 @@ model AutomationTemplate {
   language          String  @default("de")
   metaTemplateName  String? // future WhatsApp Business template name
   metaApprovalStatus String? // not_submitted | pending | approved | rejected
+  /// WhatsApp only: the chosen sender number (Meta `phone_number_id`) this
+  /// template is sent FROM. Required for WhatsApp sends — never auto-picked.
+  senderPhoneNumberId String?
   usageCount        Int      @default(0)
   lastUsedAt        DateTime?
 

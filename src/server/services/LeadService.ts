@@ -39,6 +39,7 @@ import { sensitiveAnswersRepository } from "../repositories/SensitiveAnswersRepo
 import { statusHistoryRepository } from "../repositories/StatusHistoryRepository";
 import { uploadedFileRepository } from "../repositories/UploadedFileRepository";
 import { auditLogService } from "./AuditLogService";
+import { automationRuleEngine } from "./AutomationRuleEngine";
 import { automationService } from "./AutomationService";
 import { REACTIVATION_CAMPAIGN_KEY } from "@/features/fairtrain-funnel/campaign/types";
 
@@ -260,6 +261,14 @@ export class LeadService {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("[automation] lead.created failed", { leadId, err });
+    }
+
+    // Event-driven workflow rules bound to "Lead erstellt". Best-effort.
+    try {
+      await automationRuleEngine.runForTrigger("LEAD_CREATED", leadId);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[automation] rule LEAD_CREATED failed", { leadId, err });
     }
 
     // Reactivation: if this wizard submission matches an active Alt-Lead

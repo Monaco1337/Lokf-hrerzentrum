@@ -15,14 +15,23 @@ import {
   TRIGGER_LABEL,
   type AutomationTemplateEntry,
 } from "../../types";
-import { TemplateEditorModal, type PreviewLead } from "./TemplateEditorModal";
+import {
+  TemplateEditorModal,
+  type PreviewLead,
+  type WhatsAppSenderOption,
+} from "./TemplateEditorModal";
 
 interface Props {
   templates: ReadonlyArray<AutomationTemplateEntry>;
   previewLeads: ReadonlyArray<PreviewLead>;
+  whatsappNumbers: ReadonlyArray<WhatsAppSenderOption>;
 }
 
-export function TemplateManager({ templates, previewLeads }: Props) {
+export function TemplateManager({
+  templates,
+  previewLeads,
+  whatsappNumbers,
+}: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [creating, setCreating] = useState(false);
@@ -84,6 +93,13 @@ export function TemplateManager({ templates, previewLeads }: Props) {
             <TemplateCard
               key={t.id}
               template={t}
+              senderLabel={
+                t.channel === "WHATSAPP"
+                  ? (whatsappNumbers.find(
+                      (n) => n.phoneNumberId === t.senderPhoneNumberId,
+                    )?.label ?? null)
+                  : null
+              }
               pending={pending}
               onToggle={() => toggle(t)}
               onDuplicate={() => duplicate(t.id)}
@@ -98,6 +114,7 @@ export function TemplateManager({ templates, previewLeads }: Props) {
           open={creating}
           mode="create"
           previewLeads={previewLeads}
+          whatsappNumbers={whatsappNumbers}
           onClose={() => setCreating(false)}
         />
       ) : null}
@@ -107,6 +124,7 @@ export function TemplateManager({ templates, previewLeads }: Props) {
           mode="edit"
           template={editing}
           previewLeads={previewLeads}
+          whatsappNumbers={whatsappNumbers}
           onClose={() => setEditing(null)}
         />
       ) : null}
@@ -118,12 +136,14 @@ export function TemplateManager({ templates, previewLeads }: Props) {
 
 function TemplateCard({
   template: t,
+  senderLabel,
   pending,
   onToggle,
   onDuplicate,
   onEdit,
 }: {
   template: AutomationTemplateEntry;
+  senderLabel: string | null;
   pending: boolean;
   onToggle: () => void;
   onDuplicate: () => void;
@@ -178,6 +198,17 @@ function TemplateCard({
           ) : (
             <span className="rounded-full bg-brand-50 px-2.5 py-0.5 text-[11px] font-medium text-brand-700 ring-1 ring-brand-200">Produktiv</span>
           )}
+          {t.channel === "WHATSAPP" ? (
+            senderLabel ? (
+              <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200">
+                Senden über: {senderLabel}
+              </span>
+            ) : (
+              <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-medium text-amber-700 ring-1 ring-amber-200">
+                Kein Absender
+              </span>
+            )
+          ) : null}
         </div>
 
         {/* Body preview */}

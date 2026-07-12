@@ -14,6 +14,7 @@ import {
 import { revalidatePath } from "next/cache";
 
 import { NotFoundError, ValidationError } from "../errors";
+import { automationTemplateRepository } from "../repositories/AutomationTemplateRepository";
 import { automationService } from "../services/AutomationService";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
 import { requirePermission, runAction, type Result } from "./_helpers";
@@ -28,6 +29,7 @@ const UpdateTemplateSchema = z.object({
   requiresConsent: ConsentTypeSchema.nullable().optional(),
   metaTemplateName: z.string().max(120).nullable().optional(),
   metaApprovalStatus: MetaApprovalStatusSchema.nullable().optional(),
+  senderPhoneNumberId: z.string().max(200).nullable().optional(),
 });
 
 const PreviewTemplateSchema = z.object({
@@ -66,6 +68,7 @@ export async function updateAutomationTemplate(
       metaApprovalStatus?:
         | import("@/features/fairtrain-funnel/types").MetaApprovalStatusType
         | null;
+      senderPhoneNumberId?: string | null;
     } = {};
     if (rest.name !== undefined) patch.name = rest.name;
     if (rest.subject !== undefined) patch.subject = rest.subject;
@@ -76,6 +79,17 @@ export async function updateAutomationTemplate(
     if (rest.metaTemplateName !== undefined) patch.metaTemplateName = rest.metaTemplateName;
     if (rest.metaApprovalStatus !== undefined)
       patch.metaApprovalStatus = rest.metaApprovalStatus;
+    if (rest.senderPhoneNumberId !== undefined) {
+      const sender = rest.senderPhoneNumberId?.trim() || null;
+      // WhatsApp templates must keep a sender ("Senden über"). Block clearing it.
+      const existing = await automationTemplateRepository.findById(id);
+      if (existing?.channel === "WHATSAPP" && !sender) {
+        throw new ValidationError(
+          'Bitte unter „Senden über" eine WhatsApp-Nummer auswählen.',
+        );
+      }
+      patch.senderPhoneNumberId = sender;
+    }
     const updated = await automationService.updateTemplate(id, patch, actor.id);
     revalidatePath("/crm/automation");
     return { id: updated.id };
@@ -92,6 +106,7 @@ const CreateTemplateSchema = z.object({
   requiresConsent: ConsentTypeSchema.nullable().optional(),
   metaTemplateName: z.string().max(120).nullable().optional(),
   metaApprovalStatus: MetaApprovalStatusSchema.nullable().optional(),
+  senderPhoneNumberId: z.string().max(200).nullable().optional(),
 });
 
 export async function createAutomationTemplate(
@@ -102,6 +117,13 @@ export async function createAutomationTemplate(
     if (!parsed.success) throw new ValidationError("Invalid template payload");
     const actor = await requirePermission("canManageAutomations");
     const d = parsed.data;
+    const sender = d.senderPhoneNumberId?.trim() || null;
+    // WhatsApp templates require an explicit sender number ("Senden über").
+    if (d.channel === "WHATSAPP" && !sender) {
+      throw new ValidationError(
+        'Bitte unter „Senden über" eine WhatsApp-Nummer auswählen.',
+      );
+    }
     const created = await automationService.createTemplate(
       {
         name: d.name,
@@ -114,6 +136,7 @@ export async function createAutomationTemplate(
         requiresConsent: d.requiresConsent ?? null,
         metaTemplateName: d.metaTemplateName ?? null,
         metaApprovalStatus: d.metaApprovalStatus ?? null,
+        senderPhoneNumberId: sender,
       },
       actor.id,
     );

@@ -295,6 +295,7 @@ export class AutomationService {
       metaApprovalStatus?:
         | import("@/features/fairtrain-funnel/types").MetaApprovalStatusType
         | null;
+      senderPhoneNumberId?: string | null;
     },
     actor: string,
   ) {
@@ -323,6 +324,7 @@ export class AutomationService {
       metaApprovalStatus:
         | import("@/features/fairtrain-funnel/types").MetaApprovalStatusType
         | null;
+      senderPhoneNumberId?: string | null;
     },
     actor: string,
   ) {
@@ -358,6 +360,7 @@ export class AutomationService {
         (source.requiresConsent as ConsentType | null) ?? null,
       metaTemplateName: source.metaTemplateName,
       metaApprovalStatus: source.metaApprovalStatus,
+      senderPhoneNumberId: source.senderPhoneNumberId,
     });
     await auditLogRepository.append({
       actor,

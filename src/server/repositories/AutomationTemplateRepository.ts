@@ -35,6 +35,7 @@ export interface UpsertAutomationTemplateInput {
   requiresConsent: ConsentType | null;
   metaTemplateName: string | null;
   metaApprovalStatus: MetaApprovalStatus | null;
+  senderPhoneNumberId?: string | null;
 }
 
 interface TemplateRow {
@@ -52,6 +53,7 @@ interface TemplateRow {
   requiresConsent: string | null;
   metaTemplateName: string | null;
   metaApprovalStatus: string | null;
+  senderPhoneNumberId: string | null;
   usageCount: number;
   lastUsedAt: Date | null;
   createdAt: Date;
@@ -78,6 +80,7 @@ function mapRow(row: TemplateRow, demoIds: ReadonlySet<string>): AutomationTempl
     metaApprovalStatus: row.metaApprovalStatus
       ? MetaApprovalStatusSchema.parse(row.metaApprovalStatus)
       : null,
+    senderPhoneNumberId: row.senderPhoneNumberId,
     usageCount: row.usageCount,
     lastUsedAt: row.lastUsedAt,
     isDemo: demoIds.has(row.id),
@@ -147,6 +150,7 @@ export class AutomationTemplateRepository {
         requiresConsent: input.requiresConsent,
         metaTemplateName: input.metaTemplateName,
         metaApprovalStatus: input.metaApprovalStatus,
+        senderPhoneNumberId: input.senderPhoneNumberId ?? null,
       },
     });
     return mapRow(row, await this.demoIds());
@@ -166,6 +170,7 @@ export class AutomationTemplateRepository {
       requiresConsent: input.requiresConsent,
       metaTemplateName: input.metaTemplateName,
       metaApprovalStatus: input.metaApprovalStatus,
+      senderPhoneNumberId: input.senderPhoneNumberId ?? null,
     };
     const row = await prisma.automationTemplate.upsert({
       where: { slug: input.slug },
@@ -186,6 +191,7 @@ export class AutomationTemplateRepository {
       requiresConsent?: ConsentType | null;
       metaTemplateName?: string | null;
       metaApprovalStatus?: MetaApprovalStatus | null;
+      senderPhoneNumberId?: string | null;
     },
   ): Promise<AutomationTemplateEntry> {
     const data: Record<string, unknown> = { ...patch };

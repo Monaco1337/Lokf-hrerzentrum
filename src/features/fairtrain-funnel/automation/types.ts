@@ -162,6 +162,8 @@ export interface AutomationTemplateEntry {
   requiresConsent: string | null;
   metaTemplateName: string | null;
   metaApprovalStatus: MetaApprovalStatus | null;
+  /** WhatsApp only: chosen sender number (Meta `phone_number_id`) to send FROM. */
+  senderPhoneNumberId: string | null;
   usageCount: number;
   lastUsedAt: Date | null;
   isDemo: boolean;
@@ -344,6 +346,7 @@ export interface AutomationRuleEntry {
 
 export const RunLogStatus = {
   SIMULATED: "SIMULATED",
+  EXECUTED: "EXECUTED",
   SKIPPED: "SKIPPED",
   ERROR: "ERROR",
 } as const;

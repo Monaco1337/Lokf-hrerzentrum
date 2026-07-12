@@ -19,6 +19,7 @@ import {
 } from "@/features/fairtrain-funnel/types";
 
 import { auditLogService } from "./AuditLogService";
+import { automationRuleEngine } from "./AutomationRuleEngine";
 import { campaignInboundService } from "./CampaignInboundService";
 import {
   classifyWhatsAppEvent,
@@ -302,6 +303,17 @@ export class WhatsAppWebhookService {
     const current = lead.nextFollowUpAt ?? null;
     if (!current || current.getTime() > soon.getTime()) {
       await leadRepository.update(lead.id, { nextFollowUpAt: soon });
+    }
+
+    // Event-driven workflow rules bound to "Antwort erhalten". Best-effort so a
+    // failing rule never breaks webhook ingestion.
+    try {
+      await automationRuleEngine.runForTrigger("MESSAGE_INBOUND", lead.id, {
+        actor: "whatsapp-webhook",
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[automation] rule MESSAGE_INBOUND failed", { leadId: lead.id, err });
     }
   }
 }

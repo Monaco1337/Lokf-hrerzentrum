@@ -101,6 +101,24 @@ export class AutomationRuleRepository {
     return rows.map((r) => mapRow(r, demoIds));
   }
 
+  /**
+   * Active rules for a given trigger — the entry point for event-driven
+   * execution. Uses the [trigger, status] index. Demo rules are intentionally
+   * NOT filtered here; the engine decides how to treat each `runMode`.
+   */
+  async listActiveByTrigger(
+    trigger: AutomationTrigger,
+  ): Promise<AutomationRuleEntry[]> {
+    const [rows, demoIds] = await Promise.all([
+      prisma.automationRule.findMany({
+        where: { trigger, status: "active" },
+        orderBy: { createdAt: "asc" },
+      }),
+      this.demoIds(),
+    ]);
+    return rows.map((r) => mapRow(r, demoIds));
+  }
+
   async findById(id: string): Promise<AutomationRuleEntry | null> {
     const [row, demoIds] = await Promise.all([
       prisma.automationRule.findUnique({ where: { id } }),
