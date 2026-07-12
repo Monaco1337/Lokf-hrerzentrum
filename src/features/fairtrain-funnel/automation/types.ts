@@ -367,6 +367,37 @@ export interface AutomationRunLogEntry {
   createdAt: Date;
 }
 
+// ── Workflow draft simulation (Testmodus) ───────────────────────────────────
+// Read-only, non-persisting dry run of an (unsaved) workflow draft against a
+// real lead. Never mutates data and never sends messages.
+
+export interface WorkflowTraceCondition {
+  type: string;
+  passed: boolean;
+  note?: string;
+}
+
+export interface WorkflowTraceAction {
+  type: string;
+  result: string;
+}
+
+export interface WorkflowSimulationResult {
+  triggerType: string;
+  recipient: {
+    id: string;
+    name: string;
+    status: string;
+    whatsappConsent: boolean;
+    emailConsent: boolean;
+  };
+  conditions: WorkflowTraceCondition[];
+  /** True when every condition passed (or there are none). */
+  allPassed: boolean;
+  /** Simulated action results — empty when conditions did not pass. */
+  actions: WorkflowTraceAction[];
+}
+
 export interface TemplateRenderContext {
   first_name: string;
   last_name: string;

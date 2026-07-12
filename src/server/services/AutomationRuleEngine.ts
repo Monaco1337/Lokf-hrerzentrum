@@ -16,6 +16,7 @@ import {
   type RuleAction,
   type RuleCondition,
   type RunLogStatus,
+  type WorkflowSimulationResult,
 } from "@/features/fairtrain-funnel/types";
 import {
   buildTemplateContext,
@@ -139,6 +140,60 @@ export class AutomationRuleEngine {
       runs.push(run);
     }
     return runs;
+  }
+
+  /**
+   * Testmodus: dry-run an (unsaved) workflow DRAFT against a real lead and
+   * return a full step-by-step trace. Never persists a run log, never mutates
+   * data, never sends a message — safe read-only operation for the builder.
+   */
+  async traceDraft(
+    draft: { trigger: string; conditions: RuleCondition[]; actions: RuleAction[] },
+    leadId: string,
+  ): Promise<WorkflowSimulationResult> {
+    const lead = await leadRepository.findById(leadId);
+    if (!lead) throw new NotFoundError("Lead", leadId);
+
+    const consents = await consentService.currentStates(leadId);
+    const isDemoLead = (await demoSeedRepository.listByType("Lead")).includes(leadId);
+
+    const conditions = draft.conditions.map((c) =>
+      this.evalCondition(c, lead, consents, isDemoLead),
+    );
+    const allPassed = conditions.every((c) => c.passed);
+
+    const actions: ActionResult[] = [];
+    if (allPassed) {
+      for (const action of draft.actions) {
+        try {
+          actions.push(await this.runAction(action, lead, "simulation", true));
+        } catch (err) {
+          actions.push({
+            type: action.type,
+            result: `Fehler: ${err instanceof Error ? err.message : "unbekannt"}`,
+          });
+        }
+      }
+    }
+
+    const granted = (t: string) => consents.find((x) => x.type === t)?.granted ?? false;
+    return {
+      triggerType: draft.trigger,
+      recipient: {
+        id: lead.id,
+        name: `${lead.firstName} ${lead.lastName}`.trim() || "Lead",
+        status: lead.status,
+        whatsappConsent: granted("WHATSAPP"),
+        emailConsent: granted("EMAIL"),
+      },
+      conditions: conditions.map((c) => ({
+        type: c.type,
+        passed: c.passed,
+        ...(c.note !== undefined ? { note: c.note } : {}),
+      })),
+      allPassed,
+      actions: actions.map((a) => ({ type: a.type, result: a.result })),
+    };
   }
 
   async simulate(ruleId: string, leadId: string, actor: string) {

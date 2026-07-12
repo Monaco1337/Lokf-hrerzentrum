@@ -29,6 +29,8 @@ import {
 } from "../../types";
 import { findEntry, type WorkflowTier } from "../../automation/workflow";
 import { CatalogPicker, ModeSwitch, toneClasses, WorkflowIcon } from "./WorkflowCatalog";
+import type { PreviewLead } from "./TemplateEditorModal";
+import { WorkflowSimulationPanel } from "./WorkflowSimulationPanel";
 
 // ── step types ────────────────────────────────────────────────────────────────
 
@@ -50,10 +52,11 @@ interface Props {
   rule?: AutomationRuleEntry;
   templates: ReadonlyArray<AutomationTemplateEntry>;
   users: ReadonlyArray<{ id: string; name: string }>;
+  previewLeads?: ReadonlyArray<PreviewLead>;
   onClose: () => void;
 }
 
-export function FlowBuilder({ mode, rule, templates, users, onClose }: Props) {
+export function FlowBuilder({ mode, rule, templates, users, previewLeads = [], onClose }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -61,6 +64,7 @@ export function FlowBuilder({ mode, rule, templates, users, onClose }: Props) {
   const [status, setStatus] = useState(rule?.status ?? "draft");
   const [addAt, setAddAt]   = useState<number | null>(null);
   const [wfMode, setWfMode] = useState<WorkflowTier>("pro");
+  const [simOpen, setSimOpen] = useState(false);
 
   const [steps, setSteps] = useState<FlowStep[]>(() => {
     const init: FlowStep[] = [
@@ -97,12 +101,21 @@ export function FlowBuilder({ mode, rule, templates, users, onClose }: Props) {
     setAddAt(null);
   }
 
+  function currentDraft() {
+    const trigger = (steps.find((s) => s.kind === "trigger") as TriggerStep).trigger;
+    const conditions = steps
+      .filter((s): s is ConditionStep => s.kind === "condition")
+      .map((s) => s.data);
+    const actions = steps
+      .filter((s): s is ActionStep => s.kind === "action")
+      .map((s) => s.data);
+    return { trigger, conditions, actions };
+  }
+
   function save() {
     setError(null);
     if (!name.trim()) { setError("Bitte einen Namen eingeben."); return; }
-    const trigger = (steps.find((s) => s.kind === "trigger") as TriggerStep).trigger;
-    const conditions = (steps.filter((s): s is ConditionStep => s.kind === "condition")).map((s) => s.data);
-    const actions    = (steps.filter((s): s is ActionStep    => s.kind === "action")).map((s) => s.data);
+    const { trigger, conditions, actions } = currentDraft();
     if (!actions.length) { setError("Mindestens eine Aktion ist erforderlich."); return; }
 
     start(async () => {
@@ -171,6 +184,14 @@ export function FlowBuilder({ mode, rule, templates, users, onClose }: Props) {
           </select>
           <button
             type="button"
+            onClick={() => setSimOpen(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-ink/10 px-3.5 py-1.5 text-[13px] font-medium text-ink hover:bg-surface-subtle"
+          >
+            <PlayIcon className="h-3.5 w-3.5" />
+            Testlauf
+          </button>
+          <button
+            type="button"
             onClick={onClose}
             className="rounded-xl border border-ink/10 px-4 py-1.5 text-[13px] font-medium text-ink hover:bg-surface-subtle"
           >
@@ -186,6 +207,13 @@ export function FlowBuilder({ mode, rule, templates, users, onClose }: Props) {
           </button>
         </div>
       </header>
+
+      <WorkflowSimulationPanel
+        open={simOpen}
+        onClose={() => setSimOpen(false)}
+        previewLeads={previewLeads}
+        draft={currentDraft()}
+      />
 
       {/* ── Canvas ──────────────────────────────────────────────────────────── */}
       <div
@@ -584,5 +612,6 @@ const ic = (d: React.ReactNode) =>
 const BoltIcon      = ic(<><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></>);
 const FunnelIcon    = ic(<><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></>);
 const PlusIcon      = ic(<><path d="M12 5v14M5 12h14"/></>);
+const PlayIcon      = ic(<><polygon points="6 4 20 12 6 20 6 4"/></>);
 const TrashIcon     = ic(<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></>);
 const ChevronLeftIcon = ic(<><polyline points="15 18 9 12 15 6"/></>);

@@ -62,10 +62,10 @@ export function RulesManager({ rules, templates, users, previewLeads, runLogs }:
   }
 
   if (creating) {
-    return <FlowBuilder mode="create" templates={templates} users={users} onClose={() => setCreating(false)} />;
+    return <FlowBuilder mode="create" templates={templates} users={users} previewLeads={previewLeads} onClose={() => setCreating(false)} />;
   }
   if (editing) {
-    return <FlowBuilder mode="edit" rule={editing} templates={templates} users={users} onClose={() => setEditing(null)} />;
+    return <FlowBuilder mode="edit" rule={editing} templates={templates} users={users} previewLeads={previewLeads} onClose={() => setEditing(null)} />;
   }
 
   return (

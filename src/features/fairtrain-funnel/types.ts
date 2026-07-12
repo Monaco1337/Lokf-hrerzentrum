@@ -281,6 +281,9 @@ export type {
   AutomationRuleEntry,
   AutomationRunLogEntry,
   RunLogStatus as RunLogStatusType,
+  WorkflowTraceCondition,
+  WorkflowTraceAction,
+  WorkflowSimulationResult,
   TemplateRenderContext,
 } from "./automation/types";
 

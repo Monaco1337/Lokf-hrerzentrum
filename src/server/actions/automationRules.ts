@@ -13,6 +13,7 @@ import {
   RuleConditionSchema,
   RuleStatusSchema,
   RunModeSchema,
+  type WorkflowSimulationResult,
 } from "@/features/fairtrain-funnel/types";
 
 import { ValidationError } from "../errors";
@@ -161,5 +162,34 @@ export async function simulateAutomationRule(
     );
     revalidatePath("/crm/automation");
     return { runId: run.id, status: run.status, summary: run.summary };
+  });
+}
+
+const DraftSimulateSchema = z.object({
+  leadId: z.string().min(1),
+  trigger: AutomationTriggerSchema,
+  conditions: z.array(RuleConditionSchema).max(20),
+  actions: z.array(RuleActionSchema).max(20),
+});
+
+/**
+ * Testmodus: dry-run an unsaved workflow draft. Read-only — no persistence, no
+ * mutations, no outbound messages. Returns a full step-by-step trace.
+ */
+export async function simulateWorkflowDraft(
+  raw: unknown,
+): Promise<Result<WorkflowSimulationResult>> {
+  return runAction(async () => {
+    const parsed = DraftSimulateSchema.safeParse(raw);
+    if (!parsed.success) throw new ValidationError("Ungültige Simulationsdaten");
+    await requirePermission("canManageAutomations");
+    return automationRuleEngine.traceDraft(
+      {
+        trigger: parsed.data.trigger,
+        conditions: parsed.data.conditions,
+        actions: parsed.data.actions,
+      },
+      parsed.data.leadId,
+    );
   });
 }
