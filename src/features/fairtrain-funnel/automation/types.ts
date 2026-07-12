@@ -164,6 +164,12 @@ export interface AutomationTemplateEntry {
   metaApprovalStatus: MetaApprovalStatus | null;
   /** WhatsApp only: chosen sender number (Meta `phone_number_id`) to send FROM. */
   senderPhoneNumberId: string | null;
+  /**
+   * WhatsApp only: ordered body parameters mapping our named variables onto
+   * Meta's numbered placeholders ({{1}}, {{2}}, …). Each entry is a template
+   * token (e.g. "{{first_name}}") or literal text. Empty = static template.
+   */
+  metaBodyParams: string[];
   usageCount: number;
   lastUsedAt: Date | null;
   isDemo: boolean;

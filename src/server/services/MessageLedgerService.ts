@@ -225,8 +225,24 @@ export class MessageLedgerService {
           "Echter WhatsApp-Versand erfordert eine von Meta freigegebene Vorlage (Status: approved).",
         );
       }
+      // Business-initiated messages MUST reference a template that exists in
+      // Meta by its exact name. Sending our internal display name almost always
+      // fails ("template name does not exist"), so require an explicit
+      // Meta-Template-Name for live sends.
+      if (!template.metaTemplateName?.trim()) {
+        throw new ValidationError(
+          "Für den echten WhatsApp-Versand fehlt der Meta-Template-Name. Trage in der Vorlage den exakt in Meta freigegebenen Template-Namen ein (Feld Meta-Template-Name, z. B. willkommen_lead).",
+        );
+      }
       await this.assertWhatsappConsent(lead.id, args.actorId);
     }
+
+    // Map our named variables onto Meta's numbered placeholders ({{1}}, {{2}},
+    // …) exactly as configured on the template. Rendered in order; an empty
+    // mapping means a static Meta template (no body parameters).
+    const metaBodyParams = template.metaBodyParams.map((token) =>
+      renderTemplate(token, ctx),
+    );
 
     const now = new Date();
     const delivery = await this.dispatchWhatsapp({
@@ -236,6 +252,7 @@ export class MessageLedgerService {
       templateName: template.metaTemplateName ?? template.name,
       body,
       variables,
+      bodyParams: metaBodyParams,
       isInternal: channel === CommunicationChannel.INTERNAL,
       fromPhoneNumberId,
     });
@@ -384,6 +401,7 @@ export class MessageLedgerService {
     templateName: string;
     body: string;
     variables: Record<string, string>;
+    bodyParams?: string[];
     isInternal: boolean;
     fromPhoneNumberId?: string | null;
   }): Promise<DeliveryOutcome> {
@@ -401,6 +419,7 @@ export class MessageLedgerService {
       templateName: args.templateName,
       body: args.body,
       variables: args.variables,
+      ...(args.bodyParams !== undefined ? { bodyParams: args.bodyParams } : {}),
       ...(args.fromPhoneNumberId ? { fromPhoneNumberId: args.fromPhoneNumberId } : {}),
     });
     return {

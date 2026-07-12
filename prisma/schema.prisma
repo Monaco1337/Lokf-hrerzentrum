@@ -560,6 +560,11 @@ model AutomationTemplate {
   /// WhatsApp only: the chosen sender number (Meta `phone_number_id`) this
   /// template is sent FROM. Required for WhatsApp sends — never auto-picked.
   senderPhoneNumberId String?
+  /// WhatsApp only: JSON array of ordered body parameters mapping our named
+  /// variables onto Meta's numbered placeholders ({{1}}, {{2}}, …). Each entry
+  /// is a template token (e.g. "{{first_name}}") or literal text, rendered in
+  /// order at send time. Empty array = static template (no variables).
+  metaBodyParams    String?
   usageCount        Int      @default(0)
   lastUsedAt        DateTime?
 

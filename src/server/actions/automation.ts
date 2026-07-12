@@ -30,6 +30,7 @@ const UpdateTemplateSchema = z.object({
   metaTemplateName: z.string().max(120).nullable().optional(),
   metaApprovalStatus: MetaApprovalStatusSchema.nullable().optional(),
   senderPhoneNumberId: z.string().max(200).nullable().optional(),
+  metaBodyParams: z.array(z.string().max(500)).max(20).optional(),
 });
 
 const PreviewTemplateSchema = z.object({
@@ -69,7 +70,9 @@ export async function updateAutomationTemplate(
         | import("@/features/fairtrain-funnel/types").MetaApprovalStatusType
         | null;
       senderPhoneNumberId?: string | null;
+      metaBodyParams?: string[];
     } = {};
+    if (rest.metaBodyParams !== undefined) patch.metaBodyParams = rest.metaBodyParams;
     if (rest.name !== undefined) patch.name = rest.name;
     if (rest.subject !== undefined) patch.subject = rest.subject;
     if (rest.body !== undefined) patch.body = rest.body;
@@ -107,6 +110,7 @@ const CreateTemplateSchema = z.object({
   metaTemplateName: z.string().max(120).nullable().optional(),
   metaApprovalStatus: MetaApprovalStatusSchema.nullable().optional(),
   senderPhoneNumberId: z.string().max(200).nullable().optional(),
+  metaBodyParams: z.array(z.string().max(500)).max(20).optional(),
 });
 
 export async function createAutomationTemplate(
@@ -137,6 +141,7 @@ export async function createAutomationTemplate(
         metaTemplateName: d.metaTemplateName ?? null,
         metaApprovalStatus: d.metaApprovalStatus ?? null,
         senderPhoneNumberId: sender,
+        metaBodyParams: d.channel === "WHATSAPP" ? (d.metaBodyParams ?? []) : [],
       },
       actor.id,
     );

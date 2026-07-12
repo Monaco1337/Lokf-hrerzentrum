@@ -98,6 +98,9 @@ export function LeadMessagingPanel({
     [templates, templateId],
   );
 
+  // A WhatsApp template with live sending configured performs a REAL Meta send.
+  const willSendReal = whatsappLive && selectedTemplate?.channel === "WHATSAPP";
+
   function run(action: () => Promise<{ ok: boolean; message?: string }>, ok: string) {
     setError(null);
     setNotice(null);
@@ -115,7 +118,7 @@ export function LeadMessagingPanel({
     <div className="space-y-5">
       {/* Template senden */}
       <div className="space-y-2">
-        <p className="label">Vorlage simuliert senden</p>
+        <p className="label">{whatsappLive ? "Vorlage senden" : "Vorlage simuliert senden"}</p>
         {templates.length === 0 ? (
           <p className="text-xs text-ink-muted">Keine aktiven Vorlagen vorhanden.</p>
         ) : (
@@ -173,16 +176,16 @@ export function LeadMessagingPanel({
             )}
             <button
               type="button"
-              className="btn-secondary"
+              className={willSendReal ? "btn-primary" : "btn-secondary"}
               disabled={pending || !templateId}
               onClick={() =>
                 run(
                   () => sendTemplateMessage({ leadId, templateId }),
-                  "Vorlage simuliert gesendet.",
+                  willSendReal ? "WhatsApp gesendet." : "Vorlage simuliert gesendet.",
                 )
               }
             >
-              {pending ? "Sende …" : "Simuliert senden"}
+              {pending ? "Sende …" : willSendReal ? "WhatsApp senden" : "Simuliert senden"}
             </button>
           </>
         )}

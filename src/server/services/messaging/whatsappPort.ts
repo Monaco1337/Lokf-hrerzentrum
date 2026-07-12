@@ -83,6 +83,14 @@ export interface SendTemplateArgs {
   templateName: string;
   body: string;
   variables: Record<string, string>;
+  /**
+   * Ordered Meta body parameters that map onto the template's numbered
+   * placeholders ({{1}}, {{2}}, …). When provided (even as an empty array),
+   * these are sent verbatim in order and take precedence over `variables`.
+   * An empty array means "static template, no parameters". When undefined the
+   * adapter falls back to the (unordered) `variables` values for compatibility.
+   */
+  bodyParams?: string[];
   /** Send FROM this business number (Meta `phone_number_id`). Falls back to
    *  the env default number when omitted. */
   fromPhoneNumberId?: string;

@@ -103,9 +103,16 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
   }
 
   async sendTemplate(args: SendTemplateArgs): Promise<ProviderSendResult> {
-    // Meta named templates carry their own approved copy; we still send the
-    // resolved variables as body parameters in order.
-    const params = Object.values(args.variables).map((text) => ({
+    // Meta named templates carry their own approved copy with NUMBERED
+    // placeholders ({{1}}, {{2}}, …). When the template defines an explicit,
+    // ordered body-parameter mapping we send exactly that (in order, incl. the
+    // empty "static template" case). Otherwise we fall back to the resolved
+    // variable values for backwards compatibility.
+    const orderedValues =
+      args.bodyParams !== undefined
+        ? args.bodyParams
+        : Object.values(args.variables);
+    const params = orderedValues.map((text) => ({
       type: "text",
       text,
     }));

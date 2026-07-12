@@ -85,6 +85,9 @@ export function TemplateEditorModal({
   const [senderPhoneNumberId, setSenderPhoneNumberId] = useState(
     template?.senderPhoneNumberId ?? "",
   );
+  const [metaBodyParams, setMetaBodyParams] = useState<string[]>(
+    template?.metaBodyParams ?? [],
+  );
   const [leadId, setLeadId] = useState(previewLeads[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
 
@@ -103,6 +106,16 @@ export function TemplateEditorModal({
     const used = extractVariables(`${subject} ${body}`);
     return used.filter((v) => !KNOWN_VARIABLE_KEYS.includes(v));
   }, [subject, body]);
+
+  function setParam(index: number, value: string) {
+    setMetaBodyParams((prev) => prev.map((p, i) => (i === index ? value : p)));
+  }
+  function addParam() {
+    setMetaBodyParams((prev) => [...prev, ""]);
+  }
+  function removeParam(index: number) {
+    setMetaBodyParams((prev) => prev.filter((_, i) => i !== index));
+  }
 
   function insertVariable(token: string) {
     const el = bodyRef.current;
@@ -142,6 +155,11 @@ export function TemplateEditorModal({
         metaApprovalStatus: isWhatsapp ? metaApprovalStatus : null,
         // Sender ("Senden über") is stored for WhatsApp only.
         senderPhoneNumberId: isWhatsapp ? senderPhoneNumberId : null,
+        // Ordered Meta body parameters ({{1}}, {{2}} …) — WhatsApp only. Empty
+        // rows are dropped so a template without variables stays "static".
+        metaBodyParams: isWhatsapp
+          ? metaBodyParams.map((p) => p.trim()).filter((p) => p.length > 0)
+          : [],
       };
       const res =
         mode === "create"
@@ -311,6 +329,54 @@ export function TemplateEditorModal({
                   Echter WhatsApp-Versand ist erst bei „Freigegeben“ möglich.
                 </p>
               </Field>
+              <Field label="Meta-Variablen (Reihenfolge = {{1}}, {{2}} …)">
+                <p className="mb-2 text-[11px] text-ink-muted">
+                  Meta nutzt <b>nummerierte</b> Platzhalter. Ordne hier jeder
+                  Position exakt die CRM-Variable zu, die im Meta-Template an
+                  Stelle {"{{1}}"}, {"{{2}}"} … steht. Keine Variablen? Einfach
+                  leer lassen (statische Vorlage).
+                </p>
+                <div className="space-y-2">
+                  {metaBodyParams.map((p, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="w-9 shrink-0 rounded-md bg-brand-50 px-1.5 py-1 text-center text-[11px] font-semibold text-brand-700 ring-1 ring-brand-200">
+                        {`{{${i + 1}}}`}
+                      </span>
+                      <select
+                        className="input flex-1"
+                        value={
+                          TEMPLATE_VARIABLES.some((v) => `{{${v.key}}}` === p)
+                            ? p
+                            : ""
+                        }
+                        onChange={(e) => setParam(i, e.target.value)}
+                      >
+                        <option value="">— CRM-Variable wählen —</option>
+                        {TEMPLATE_VARIABLES.map((v) => (
+                          <option key={v.key} value={`{{${v.key}}}`}>
+                            {v.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => removeParam(i)}
+                        className="shrink-0 rounded-md border border-ink/10 px-2 py-1 text-[12px] font-medium text-danger transition hover:bg-danger/5"
+                        aria-label={`Position ${i + 1} entfernen`}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={addParam}
+                  className="mt-2 rounded-lg border border-dashed border-ink/20 px-3 py-1.5 text-[12px] font-medium text-ink-soft transition hover:border-brand-300 hover:text-brand-700"
+                >
+                  + Variable ({`{{${metaBodyParams.length + 1}}}`})
+                </button>
+              </Field>
             </>
           ) : null}
 
@@ -385,6 +451,22 @@ export function TemplateEditorModal({
                   </span>
                 )}
               </p>
+            ) : null}
+            {isWhatsapp && metaBodyParams.some((p) => p.trim()) ? (
+              <div className="mt-2 space-y-1 rounded-lg border border-ink/[0.06] bg-white/70 p-2">
+                <p className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
+                  Meta-Variablen
+                </p>
+                {metaBodyParams.map((p, i) =>
+                  p.trim() ? (
+                    <p key={i} className="text-[11.5px] text-ink-soft">
+                      <span className="font-semibold text-brand-700">{`{{${i + 1}}}`}</span>
+                      {" = "}
+                      <span className="text-ink">{renderPreview(p, ctx)}</span>
+                    </p>
+                  ) : null,
+                )}
+              </div>
             ) : null}
             <div className="mt-2 rounded-lg bg-white p-3 shadow-sm ring-1 ring-ink/[0.04]">
               {isEmail && subject ? (

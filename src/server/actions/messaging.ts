@@ -109,6 +109,15 @@ export async function sendTemplateMessage(
       sentBy: "ADMIN",
     });
     revalidateCommunication(parsed.data.leadId);
+    // A real (non-demo) send that failed must surface the provider reason to
+    // the user instead of pretending it worked.
+    if (entry.status === "FAILED") {
+      throw new ValidationError(
+        entry.failedReason
+          ? `WhatsApp-Versand von Meta abgelehnt: ${entry.failedReason}`
+          : "WhatsApp-Versand fehlgeschlagen.",
+      );
+    }
     return { id: entry.id };
   });
 }

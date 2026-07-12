@@ -36,6 +36,18 @@ export interface UpsertAutomationTemplateInput {
   metaTemplateName: string | null;
   metaApprovalStatus: MetaApprovalStatus | null;
   senderPhoneNumberId?: string | null;
+  metaBodyParams?: string[];
+}
+
+function parseMetaBodyParams(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) return parsed.filter((x): x is string => typeof x === "string");
+  } catch {
+    /* ignore malformed JSON → empty */
+  }
+  return [];
 }
 
 interface TemplateRow {
@@ -54,6 +66,7 @@ interface TemplateRow {
   metaTemplateName: string | null;
   metaApprovalStatus: string | null;
   senderPhoneNumberId: string | null;
+  metaBodyParams: string | null;
   usageCount: number;
   lastUsedAt: Date | null;
   createdAt: Date;
@@ -81,6 +94,7 @@ function mapRow(row: TemplateRow, demoIds: ReadonlySet<string>): AutomationTempl
       ? MetaApprovalStatusSchema.parse(row.metaApprovalStatus)
       : null,
     senderPhoneNumberId: row.senderPhoneNumberId,
+    metaBodyParams: parseMetaBodyParams(row.metaBodyParams),
     usageCount: row.usageCount,
     lastUsedAt: row.lastUsedAt,
     isDemo: demoIds.has(row.id),
@@ -151,6 +165,7 @@ export class AutomationTemplateRepository {
         metaTemplateName: input.metaTemplateName,
         metaApprovalStatus: input.metaApprovalStatus,
         senderPhoneNumberId: input.senderPhoneNumberId ?? null,
+        metaBodyParams: JSON.stringify(input.metaBodyParams ?? []),
       },
     });
     return mapRow(row, await this.demoIds());
@@ -171,6 +186,7 @@ export class AutomationTemplateRepository {
       metaTemplateName: input.metaTemplateName,
       metaApprovalStatus: input.metaApprovalStatus,
       senderPhoneNumberId: input.senderPhoneNumberId ?? null,
+      metaBodyParams: JSON.stringify(input.metaBodyParams ?? []),
     };
     const row = await prisma.automationTemplate.upsert({
       where: { slug: input.slug },
@@ -192,10 +208,13 @@ export class AutomationTemplateRepository {
       metaTemplateName?: string | null;
       metaApprovalStatus?: MetaApprovalStatus | null;
       senderPhoneNumberId?: string | null;
+      metaBodyParams?: string[];
     },
   ): Promise<AutomationTemplateEntry> {
-    const data: Record<string, unknown> = { ...patch };
+    const { metaBodyParams, ...rest } = patch;
+    const data: Record<string, unknown> = { ...rest };
     if (patch.status !== undefined) data.enabled = patch.status === "active";
+    if (metaBodyParams !== undefined) data.metaBodyParams = JSON.stringify(metaBodyParams);
     const row = await prisma.automationTemplate.update({ where: { id }, data });
     return mapRow(row, await this.demoIds());
   }
