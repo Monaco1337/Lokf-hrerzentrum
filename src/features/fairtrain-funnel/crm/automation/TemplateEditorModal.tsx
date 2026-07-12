@@ -88,6 +88,7 @@ export function TemplateEditorModal({
   const [metaBodyParams, setMetaBodyParams] = useState<string[]>(
     template?.metaBodyParams ?? [],
   );
+  const [language, setLanguage] = useState(template?.language ?? "de");
   const [leadId, setLeadId] = useState(previewLeads[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
 
@@ -160,6 +161,8 @@ export function TemplateEditorModal({
         metaBodyParams: isWhatsapp
           ? metaBodyParams.map((p) => p.trim()).filter((p) => p.length > 0)
           : [],
+        // Meta template locale — must match the approved template's language.
+        language: isWhatsapp ? language : "de",
       };
       const res =
         mode === "create"
@@ -309,6 +312,27 @@ export function TemplateEditorModal({
                     dieser Nummer gesendet. Keine automatische Auswahl.
                   </p>
                 )}
+              </Field>
+              <Field label="Sprache (Meta-Locale)">
+                <select
+                  className="input"
+                  value={language}
+                  onChange={(e) => setLanguage(e.target.value)}
+                >
+                  {!["de", "de_DE", "en", "en_US", "en_GB"].includes(language) ? (
+                    <option value={language}>{language}</option>
+                  ) : null}
+                  <option value="de">Deutsch (de)</option>
+                  <option value="de_DE">Deutsch (de_DE)</option>
+                  <option value="en_US">Englisch (en_US) – Testtemplate hello_world</option>
+                  <option value="en">Englisch (en)</option>
+                  <option value="en_GB">Englisch (en_GB)</option>
+                </select>
+                <p className="mt-1 text-[11px] text-ink-muted">
+                  Muss <b>exakt</b> der Sprache des freigegebenen Meta-Templates
+                  entsprechen. Sonst lehnt Meta mit „#132001 – template name does
+                  not exist in the translation“ ab.
+                </p>
               </Field>
               <Field label="Meta-Freigabestatus">
                 <select

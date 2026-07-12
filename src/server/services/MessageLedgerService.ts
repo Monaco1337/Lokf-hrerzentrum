@@ -253,6 +253,7 @@ export class MessageLedgerService {
       body,
       variables,
       bodyParams: metaBodyParams,
+      languageCode: template.language,
       isInternal: channel === CommunicationChannel.INTERNAL,
       fromPhoneNumberId,
     });
@@ -402,6 +403,7 @@ export class MessageLedgerService {
     body: string;
     variables: Record<string, string>;
     bodyParams?: string[];
+    languageCode?: string;
     isInternal: boolean;
     fromPhoneNumberId?: string | null;
   }): Promise<DeliveryOutcome> {
@@ -420,6 +422,7 @@ export class MessageLedgerService {
       body: args.body,
       variables: args.variables,
       ...(args.bodyParams !== undefined ? { bodyParams: args.bodyParams } : {}),
+      ...(args.languageCode ? { languageCode: args.languageCode } : {}),
       ...(args.fromPhoneNumberId ? { fromPhoneNumberId: args.fromPhoneNumberId } : {}),
     });
     return {

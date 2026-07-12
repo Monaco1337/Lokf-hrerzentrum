@@ -91,6 +91,13 @@ export interface SendTemplateArgs {
    * adapter falls back to the (unordered) `variables` values for compatibility.
    */
   bodyParams?: string[];
+  /**
+   * Meta template language/locale code (e.g. "de", "de_DE", "en_US"). MUST match
+   * the locale of the approved template in Meta, otherwise Meta rejects the send
+   * with (#132001) "Template name does not exist in the translation". Defaults to
+   * "de" when omitted.
+   */
+  languageCode?: string;
   /** Send FROM this business number (Meta `phone_number_id`). Falls back to
    *  the env default number when omitted. */
   fromPhoneNumberId?: string;

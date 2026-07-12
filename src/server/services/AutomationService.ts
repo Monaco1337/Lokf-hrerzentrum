@@ -297,6 +297,7 @@ export class AutomationService {
         | null;
       senderPhoneNumberId?: string | null;
       metaBodyParams?: string[];
+      language?: string;
     },
     actor: string,
   ) {

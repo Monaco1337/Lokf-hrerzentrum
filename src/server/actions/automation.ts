@@ -31,6 +31,7 @@ const UpdateTemplateSchema = z.object({
   metaApprovalStatus: MetaApprovalStatusSchema.nullable().optional(),
   senderPhoneNumberId: z.string().max(200).nullable().optional(),
   metaBodyParams: z.array(z.string().max(500)).max(20).optional(),
+  language: z.string().min(2).max(10).optional(),
 });
 
 const PreviewTemplateSchema = z.object({
@@ -71,8 +72,10 @@ export async function updateAutomationTemplate(
         | null;
       senderPhoneNumberId?: string | null;
       metaBodyParams?: string[];
+      language?: string;
     } = {};
     if (rest.metaBodyParams !== undefined) patch.metaBodyParams = rest.metaBodyParams;
+    if (rest.language !== undefined) patch.language = rest.language;
     if (rest.name !== undefined) patch.name = rest.name;
     if (rest.subject !== undefined) patch.subject = rest.subject;
     if (rest.body !== undefined) patch.body = rest.body;
@@ -111,6 +114,7 @@ const CreateTemplateSchema = z.object({
   metaApprovalStatus: MetaApprovalStatusSchema.nullable().optional(),
   senderPhoneNumberId: z.string().max(200).nullable().optional(),
   metaBodyParams: z.array(z.string().max(500)).max(20).optional(),
+  language: z.string().min(2).max(10).optional(),
 });
 
 export async function createAutomationTemplate(
@@ -134,7 +138,7 @@ export async function createAutomationTemplate(
         channel: d.channel,
         category: d.category,
         status: d.status,
-        language: "de",
+        language: d.language ?? "de",
         subject: d.subject ?? null,
         body: d.body,
         requiresConsent: d.requiresConsent ?? null,

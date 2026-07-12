@@ -127,7 +127,7 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
         type: "template",
         template: {
           name: args.templateName,
-          language: { code: "de" },
+          language: { code: args.languageCode?.trim() || "de" },
           ...(components ? { components } : {}),
         },
       },

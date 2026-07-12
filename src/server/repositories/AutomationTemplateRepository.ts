@@ -209,6 +209,7 @@ export class AutomationTemplateRepository {
       metaApprovalStatus?: MetaApprovalStatus | null;
       senderPhoneNumberId?: string | null;
       metaBodyParams?: string[];
+      language?: string;
     },
   ): Promise<AutomationTemplateEntry> {
     const { metaBodyParams, ...rest } = patch;
