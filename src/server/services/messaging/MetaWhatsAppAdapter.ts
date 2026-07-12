@@ -12,6 +12,7 @@
  */
 import { createHmac, timingSafeEqual } from "node:crypto";
 
+import { normalizePhoneForWhatsApp } from "@/features/fairtrain-funnel/automation/PhoneNormalizer";
 import { extractVariables } from "@/features/fairtrain-funnel/automation/TemplateRenderer";
 import {
   MessageStatus,
@@ -46,6 +47,16 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
   private endpoint(fromPhoneNumberId?: string): string {
     const id = fromPhoneNumberId || this.defaultPhoneNumberId;
     return `https://graph.facebook.com/${GRAPH_VERSION}/${id}/messages`;
+  }
+
+  /**
+   * Meta requires the recipient in international E.164 WITHOUT the leading "+".
+   * Lead phones are often stored in German national format ("0176…"); sending
+   * that verbatim strips to a country-code-less number and Meta reports the
+   * message as "undeliverable". Normalise (defaults to +49) then drop the "+".
+   */
+  private recipient(to: string): string {
+    return normalizePhoneForWhatsApp(to).replace(/^\+/, "");
   }
 
   private async post(
@@ -123,7 +134,7 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
     return this.post(
       {
         messaging_product: "whatsapp",
-        to: args.to.replace(/^\+/, ""),
+        to: this.recipient(args.to),
         type: "template",
         template: {
           name: args.templateName,
@@ -139,7 +150,7 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
     return this.post(
       {
         messaging_product: "whatsapp",
-        to: args.to.replace(/^\+/, ""),
+        to: this.recipient(args.to),
         type: "text",
         text: { body: args.body },
       },
