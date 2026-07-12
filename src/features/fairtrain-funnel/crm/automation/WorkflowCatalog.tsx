@@ -8,7 +8,8 @@
  *
  * All data comes from the generic registry — nothing here is lead-specific.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   type CatalogEntry,
@@ -192,6 +193,42 @@ const KIND_PLACEHOLDER: Record<CatalogKind, string> = {
   action: "Aktion suchen …",
 };
 
+interface PanelPos {
+  left: number;
+  width: number;
+  placement: "top" | "bottom";
+  /** `top` px for bottom placement, `bottom` px for top placement. */
+  offset: number;
+  /** Max height for the scrollable list area. */
+  listMaxHeight: number;
+}
+
+/**
+ * Position the popover as a viewport-fixed panel: aligned to the field, flipped
+ * above when there isn't room below, and clamped inside the viewport. This
+ * escapes the node card's `overflow-hidden` so the menu is never clipped.
+ */
+function computePanelPos(rect: DOMRect): PanelPos {
+  const margin = 8;
+  const headerH = 60; // search box height
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const width = Math.min(Math.max(rect.width, 320), vw - margin * 2);
+  const left = Math.min(Math.max(margin, rect.left), vw - width - margin);
+
+  const spaceBelow = vh - rect.bottom - margin;
+  const spaceAbove = rect.top - margin;
+  const preferBottom = spaceBelow >= 300 || spaceBelow >= spaceAbove;
+
+  const avail = preferBottom ? spaceBelow : spaceAbove;
+  const listMaxHeight = Math.max(180, Math.min(380, avail - headerH));
+
+  return preferBottom
+    ? { left, width, placement: "bottom", offset: rect.bottom + margin, listMaxHeight }
+    : { left, width, placement: "top", offset: vh - rect.top + margin, listMaxHeight };
+}
+
 export function CatalogPicker({
   kind,
   value,
@@ -205,7 +242,9 @@ export function CatalogPicker({
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const rootRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<PanelPos | null>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const { favorites, toggle } = useFavorites(kind);
 
@@ -223,18 +262,39 @@ export function CatalogPicker({
     [groups, favorites],
   );
 
+  const reposition = useCallback(() => {
+    const btn = triggerRef.current;
+    if (btn) setPos(computePanelPos(btn.getBoundingClientRect()));
+  }, []);
+
+  useLayoutEffect(() => {
+    if (open) reposition();
+  }, [open, reposition]);
+
   useEffect(() => {
     if (!open) return;
     function onDoc(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (triggerRef.current?.contains(t) || panelRef.current?.contains(t)) return;
+      setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    window.addEventListener("resize", reposition);
+    // Capture phase catches scrolling of the canvas container, not just window.
+    window.addEventListener("scroll", reposition, true);
     const id = requestAnimationFrame(() => inputRef.current?.focus());
     return () => {
       document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("resize", reposition);
+      window.removeEventListener("scroll", reposition, true);
       cancelAnimationFrame(id);
     };
-  }, [open]);
+  }, [open, reposition]);
 
   function choose(entry: CatalogEntry) {
     if (entry.comingSoon) return;
@@ -244,8 +304,9 @@ export function CatalogPicker({
   }
 
   return (
-    <div ref={rootRef} className="relative">
+    <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-3 rounded-xl border border-ink/10 bg-white px-3 py-2.5 text-left transition hover:border-brand-300 focus:outline-none focus:ring-1 focus:ring-brand-300"
@@ -255,64 +316,78 @@ export function CatalogPicker({
         ) : (
           <span className="text-[13px] text-ink-muted">Auswählen …</span>
         )}
-        <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-ink-muted" />
+        <ChevronDown
+          className={`ml-auto h-4 w-4 shrink-0 text-ink-muted transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
-      {open ? (
-        <div className="absolute left-0 top-full z-30 mt-2 w-[360px] max-w-[90vw] overflow-hidden rounded-2xl border border-ink/[0.08] bg-white shadow-[0_16px_48px_-12px_rgba(15,23,42,0.28)]">
-          <div className="border-b border-ink/[0.06] p-2">
-            <div className="flex items-center gap-2 rounded-xl bg-surface-subtle px-3 py-2">
-              <SearchIcon className="h-4 w-4 shrink-0 text-ink-muted" />
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={KIND_PLACEHOLDER[kind]}
-                className="w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-muted"
-              />
-            </div>
-          </div>
-
-          <div className="max-h-[340px] overflow-y-auto p-1.5">
-            {favEntries.length > 0 && !query ? (
-              <Group label="Favoriten">
-                {favEntries.map((e) => (
-                  <Row
-                    key={`fav-${e.id}`}
-                    entry={e}
-                    active={e.id === value}
-                    fav={favorites.includes(e.id)}
-                    onChoose={() => choose(e)}
-                    onToggleFav={() => toggle(e.id)}
+      {open && pos
+        ? createPortal(
+            <div
+              ref={panelRef}
+              style={{
+                position: "fixed",
+                left: pos.left,
+                width: pos.width,
+                ...(pos.placement === "top" ? { bottom: pos.offset } : { top: pos.offset }),
+              }}
+              className="z-[120] overflow-hidden rounded-2xl border border-ink/[0.08] bg-white shadow-[0_16px_48px_-12px_rgba(15,23,42,0.28)]"
+            >
+              <div className="border-b border-ink/[0.06] p-2">
+                <div className="flex items-center gap-2 rounded-xl bg-surface-subtle px-3 py-2">
+                  <SearchIcon className="h-4 w-4 shrink-0 text-ink-muted" />
+                  <input
+                    ref={inputRef}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder={KIND_PLACEHOLDER[kind]}
+                    className="w-full bg-transparent text-[13px] text-ink outline-none placeholder:text-ink-muted"
                   />
-                ))}
-              </Group>
-            ) : null}
+                </div>
+              </div>
 
-            {groups.length === 0 ? (
-              <p className="px-3 py-6 text-center text-[13px] text-ink-muted">
-                Nichts gefunden.
-              </p>
-            ) : (
-              groups.map((g) => (
-                <Group key={g.category} label={g.category}>
-                  {g.entries.map((e) => (
-                    <Row
-                      key={e.id}
-                      entry={e}
-                      active={e.id === value}
-                      fav={favorites.includes(e.id)}
-                      onChoose={() => choose(e)}
-                      onToggleFav={() => toggle(e.id)}
-                    />
-                  ))}
-                </Group>
-              ))
-            )}
-          </div>
-        </div>
-      ) : null}
-    </div>
+              <div className="overflow-y-auto p-1.5" style={{ maxHeight: pos.listMaxHeight }}>
+                {favEntries.length > 0 && !query ? (
+                  <Group label="Favoriten">
+                    {favEntries.map((e) => (
+                      <Row
+                        key={`fav-${e.id}`}
+                        entry={e}
+                        active={e.id === value}
+                        fav={favorites.includes(e.id)}
+                        onChoose={() => choose(e)}
+                        onToggleFav={() => toggle(e.id)}
+                      />
+                    ))}
+                  </Group>
+                ) : null}
+
+                {groups.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-[13px] text-ink-muted">
+                    Nichts gefunden.
+                  </p>
+                ) : (
+                  groups.map((g) => (
+                    <Group key={g.category} label={g.category}>
+                      {g.entries.map((e) => (
+                        <Row
+                          key={e.id}
+                          entry={e}
+                          active={e.id === value}
+                          fav={favorites.includes(e.id)}
+                          onChoose={() => choose(e)}
+                          onToggleFav={() => toggle(e.id)}
+                        />
+                      ))}
+                    </Group>
+                  ))
+                )}
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
+    </>
   );
 }
 
