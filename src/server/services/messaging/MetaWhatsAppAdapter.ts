@@ -147,7 +147,7 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
         ],
       });
     }
-    return this.post(
+    const result = await this.post(
       {
         messaging_product: "whatsapp",
         to: this.recipient(args.to),
@@ -160,6 +160,27 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
       },
       args.fromPhoneNumberId,
     );
+    // Meta error (#132000) "number of parameters does not match" is purely a
+    // COUNT mismatch between the placeholders ({{1}}, {{2}} …) in the approved
+    // template and the parameters we send. Turn Meta's terse message into an
+    // actionable hint that tells the operator exactly what we sent + how to fix.
+    if (
+      result.status === MessageStatus.FAILED &&
+      result.failedReason &&
+      /132000/.test(result.failedReason)
+    ) {
+      return {
+        ...result,
+        failedReason:
+          `${result.failedReason} — Wir haben ${params.length} Text-Variable(n) ` +
+          `an die Meta-Vorlage "${args.templateName}" gesendet, aber die in Meta ` +
+          `freigegebene Vorlage erwartet eine andere Anzahl. Öffne die Vorlage im ` +
+          `CRM und trage unter „Meta-Variablen ({{1}}, {{2}} …)" GENAU so viele ` +
+          `Positionen ein, wie im Meta-Text nummerierte Platzhalter stehen ` +
+          `(z. B. {{1}} = Vorname).`,
+      };
+    }
+    return result;
   }
 
   async sendText(args: SendTextArgs): Promise<ProviderSendResult> {

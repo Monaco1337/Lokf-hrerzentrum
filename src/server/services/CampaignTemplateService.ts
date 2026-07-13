@@ -16,6 +16,7 @@ import {
   AutomationTrigger,
   CommunicationChannel,
   ConsentType,
+  type MetaTemplateButton,
 } from "@/features/fairtrain-funnel/types";
 
 import { automationTemplateRepository } from "../repositories/AutomationTemplateRepository";
@@ -57,12 +58,41 @@ interface SeedDef {
   subject: string | null;
   body: string;
   metaTemplateName: string | null;
+  /**
+   * Ordered Meta body parameters mapping onto the approved template's numbered
+   * placeholders ({{1}}, {{2}} …). Every reactivation WhatsApp template greets
+   * by first name, so position {{1}} is the Vorname. Must match the approved
+   * Meta template's placeholder count exactly (else Meta rejects with #132000).
+   */
+  metaBodyParams?: string[];
+  /** Interactive Meta buttons, in the approved template's order. */
+  metaButtons?: MetaTemplateButton[];
 }
+
+/**
+ * Quick-reply buttons of the approved "alt_leads_erstkontakt" template. Payload
+ * is left empty on purpose: the buttons render automatically from the approved
+ * template, and inbound classification reads the tapped button's title — so we
+ * must NOT send extra button components (which would risk a parameter error).
+ */
+const ERSTKONTAKT_BUTTONS: MetaTemplateButton[] = [
+  { type: "quick_reply", text: "Beschäftigt" },
+  { type: "quick_reply", text: "Arbeitssuchend" },
+  { type: "quick_reply", text: "Sonstige Situation" },
+];
 
 function buildSeeds(): SeedDef[] {
   const seeds: SeedDef[] = [];
   const wa = [WA_ERSTKONTAKT, WA_FOLLOWUP_1, WA_FOLLOWUP_2];
   const email = [EMAIL_ERSTKONTAKT, EMAIL_FOLLOWUP_1, EMAIL_FOLLOWUP_2];
+  // Every WhatsApp reactivation template opens with "Hallo {{firstName}}" → the
+  // approved Meta template's {{1}} is the Vorname.
+  const waBodyParams: string[][] = [
+    ["{{first_name}}"],
+    ["{{first_name}}"],
+    ["{{first_name}}"],
+  ];
+  const waButtons: MetaTemplateButton[][] = [ERSTKONTAKT_BUTTONS, [], []];
   const subjects = [
     "Ihre geförderte Weiterbildung zum Lokführer",
     "Erinnerung: Weiterbildung zum Lokführer",
@@ -77,6 +107,8 @@ function buildSeeds(): SeedDef[] {
       subject: null,
       body: wa[i] ?? WA_ERSTKONTAKT,
       metaTemplateName: s.whatsappTemplateSlug,
+      metaBodyParams: waBodyParams[i] ?? ["{{first_name}}"],
+      metaButtons: waButtons[i] ?? [],
     });
     seeds.push({
       slug: s.emailTemplateSlug,
@@ -107,7 +139,36 @@ export class CampaignTemplateService {
   private async seed(): Promise<void> {
     for (const def of buildSeeds()) {
       const existing = await automationTemplateRepository.findBySlug(def.slug);
-      if (existing) continue;
+      if (existing) {
+        // Backfill the Meta body-param mapping / buttons for WhatsApp templates
+        // that were seeded before these fields existed. Without {{1}} = Vorname
+        // Meta rejects the send with #132000. Only fill when EMPTY so operator
+        // edits are never overwritten; email templates are left untouched.
+        if (def.channel === "WHATSAPP") {
+          const patch: {
+            metaBodyParams?: string[];
+            metaButtons?: MetaTemplateButton[];
+          } = {};
+          if (
+            def.metaBodyParams &&
+            def.metaBodyParams.length > 0 &&
+            existing.metaBodyParams.length === 0
+          ) {
+            patch.metaBodyParams = def.metaBodyParams;
+          }
+          if (
+            def.metaButtons &&
+            def.metaButtons.length > 0 &&
+            existing.metaButtons.length === 0
+          ) {
+            patch.metaButtons = def.metaButtons;
+          }
+          if (Object.keys(patch).length > 0) {
+            await automationTemplateRepository.update(existing.id, patch);
+          }
+        }
+        continue;
+      }
       await automationTemplateRepository.upsert({
         slug: def.slug,
         trigger: AutomationTrigger.MANUAL,
@@ -125,6 +186,8 @@ export class CampaignTemplateService {
           def.channel === "WHATSAPP" ? ConsentType.WHATSAPP : null,
         metaTemplateName: def.metaTemplateName,
         metaApprovalStatus: def.channel === "WHATSAPP" ? "not_submitted" : null,
+        metaBodyParams: def.metaBodyParams ?? [],
+        metaButtons: def.metaButtons ?? [],
       });
     }
   }
