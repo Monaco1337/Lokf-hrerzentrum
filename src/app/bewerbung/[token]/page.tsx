@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     description: PORTAL_DESCRIPTION,
     images: [
       {
-        url: "/brand/og-lokfuehrerzentrum.png",
+        url: "/brand/og-lokfuehrerzentrum.jpg",
         width: 1200,
         height: 630,
         alt: "Lokführerzentrum.de",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: PORTAL_TITLE,
     description: PORTAL_DESCRIPTION,
-    images: ["/brand/og-lokfuehrerzentrum.png"],
+    images: ["/brand/og-lokfuehrerzentrum.jpg"],
   },
 };
 
