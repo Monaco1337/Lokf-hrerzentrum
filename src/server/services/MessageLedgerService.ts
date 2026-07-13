@@ -59,7 +59,7 @@ const SOURCE_DOMAIN = "xn--lokfhrerzentrum-2vb.de";
 // Readable IDN origin used for links SHOWN to leads in messages (WhatsApp/E-Mail).
 // Clients resolve the Unicode host via Punycode automatically, so it stays
 // clickable while looking like the real brand domain (not "xn--…").
-const PUBLIC_MESSAGE_ORIGIN = "https://lokführerzentrum.de";
+const PUBLIC_MESSAGE_ORIGIN = "https://www.lokführerzentrum.de";
 
 /** Map a template channel onto a ledger communication channel. */
 function templateChannelToComm(channel: string): CommunicationChannel {
