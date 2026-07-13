@@ -38,6 +38,13 @@ const SendWhatsAppTextSchema = z.object({
  * Free-text WhatsApp reply used by the Multichat inbox. The sending number is
  * resolved automatically (thread number → assigned rep's number → first active
  * number) inside MessageLedgerService, so the operator never picks a number.
+ *
+ * This is a HUMAN, agent-initiated reply inside an open conversation (the lead
+ * wrote to us). We therefore bypass the opt-in consent gate — requiring a
+ * separate WhatsApp consent for a manual reply to someone who just messaged us
+ * makes no sense and blocks legitimate support in the 24h service window. The
+ * opt-out guard is NOT bypassed: a lead who wrote STOP stays blocked (surfaced
+ * to the operator as a clear error).
  */
 export async function sendWhatsAppText(
   raw: unknown,
@@ -56,8 +63,18 @@ export async function sendWhatsAppText(
       body: parsed.data.body,
       actorId: actor.id,
       channel: CommunicationChannel.WHATSAPP,
+      bypassConsent: true,
     });
     revalidateCommunication(parsed.data.leadId);
+    // A real send that the provider rejected must surface the reason instead of
+    // silently pretending success.
+    if (entry.status === "FAILED") {
+      throw new ValidationError(
+        entry.failedReason
+          ? `WhatsApp-Versand fehlgeschlagen: ${entry.failedReason}`
+          : "WhatsApp-Versand fehlgeschlagen.",
+      );
+    }
     return { id: entry.id, status: entry.status, isDemo: entry.isDemo };
   });
 }
