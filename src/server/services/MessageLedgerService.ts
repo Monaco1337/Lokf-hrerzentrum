@@ -50,10 +50,16 @@ import { leadRepository } from "../repositories/LeadRepository";
 import { taskRepository } from "../repositories/TaskRepository";
 import { whatsAppNumberRepository } from "../repositories/WhatsAppNumberRepository";
 import { whatsappService } from "./messaging/whatsappService";
+import { portalService } from "./PortalService";
 
 // Punycode form of the IDN production domain `lokführerzentrum.de` so any link
 // this builds resolves in every email client.
 const SOURCE_DOMAIN = "xn--lokfhrerzentrum-2vb.de";
+
+// Readable IDN origin used for links SHOWN to leads in messages (WhatsApp/E-Mail).
+// Clients resolve the Unicode host via Punycode automatically, so it stays
+// clickable while looking like the real brand domain (not "xn--…").
+const PUBLIC_MESSAGE_ORIGIN = "https://lokführerzentrum.de";
 
 /** Map a template channel onto a ledger communication channel. */
 function templateChannelToComm(channel: string): CommunicationChannel {
@@ -194,8 +200,24 @@ export class MessageLedgerService {
     const template = await automationTemplateRepository.findById(args.templateId);
     if (!template) throw new NotFoundError("Template", args.templateId);
 
+    // Build a REAL, working document-upload link (the token-secured
+    // Bewerberbereich at /bewerbung/<token>) for this lead — only when the
+    // template actually uses {{upload_link}}. Shown with the readable IDN host
+    // instead of the Punycode form, per request. "/m/upload" was a dead
+    // placeholder and is no longer used.
+    const usesUploadLink =
+      template.body.includes("upload_link") ||
+      (template.subject?.includes("upload_link") ?? false) ||
+      template.metaBodyParams.some((p) => p.includes("upload_link"));
+    let uploadLink: string | undefined;
+    if (usesUploadLink) {
+      const { url } = await portalService.createLink(lead.id, args.actorId);
+      uploadLink = url.replace(/^https?:\/\/[^/]+/, PUBLIC_MESSAGE_ORIGIN);
+    }
+
     const ctx = buildTemplateContext(lead, SOURCE_DOMAIN, {
       ownerName: lead.assignedTo,
+      ...(uploadLink ? { uploadLink } : {}),
     });
     const body = renderTemplate(template.body, ctx);
     const subject = template.subject ? renderTemplate(template.subject, ctx) : null;
