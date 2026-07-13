@@ -6,11 +6,13 @@
  */
 import {
   ALLOWED_TRANSITIONS,
+  isTerminal,
   isTransitionAllowed,
+  PIPELINE_RANK,
 } from "@/features/fairtrain-funnel/statusMachine";
 import {
   AuditAction,
-  type LeadStatus,
+  LeadStatus,
 } from "@/features/fairtrain-funnel/types";
 
 import { prisma } from "../db/prisma";
@@ -121,6 +123,78 @@ export class StatusMachineService {
 
   allowedNextFor(status: LeadStatus): ReadonlyArray<LeadStatus> {
     return ALLOWED_TRANSITIONS[status];
+  }
+
+  /**
+   * Auto-advance a lead FORWARD on a real engagement signal (we contacted them
+   * via WhatsApp, or they replied). This is what keeps the Leitstand honest:
+   * once a HOT lead is actually messaged, it must leave "Hot offen" and enter
+   * the pipeline.
+   *
+   * Guarantees:
+   *  - never regresses (only moves to a strictly higher pipeline rank),
+   *  - never touches terminal leads (CLOSED/LOST/REJECTED/BLOCKED),
+   *  - only follows a legal transition (no rule-skipping override),
+   *  - is fully best-effort: a failure returns null and NEVER breaks the
+   *    caller (message send / inbound webhook must always succeed).
+   *
+   * Returns the new status when it advanced, or null when it was a no-op.
+   */
+  async advanceOnEngagement(input: {
+    leadId: string;
+    target: LeadStatus;
+    actor: string;
+    reason: string;
+  }): Promise<LeadStatus | null> {
+    try {
+      const lead = await leadRepository.findById(input.leadId);
+      if (!lead) return null;
+      const from = parseLeadStatus(lead.status);
+      if (isTerminal(from)) return null;
+
+      const fromRank = PIPELINE_RANK[from];
+      const targetRank = PIPELINE_RANK[input.target];
+      if (fromRank === undefined || targetRank === undefined) return null;
+      if (fromRank >= targetRank) return null; // already there or further along
+      if (!isTransitionAllowed(from, input.target)) return null;
+
+      return await this.transition({
+        leadId: input.leadId,
+        toStatus: input.target,
+        actor: input.actor,
+        reason: input.reason,
+      });
+    } catch {
+      // Best-effort: status advancement must never break a message send or an
+      // inbound webhook. The next signal will retry the advance.
+      return null;
+    }
+  }
+
+  /**
+   * Reconcile historical data: every lead that was provably contacted via
+   * WhatsApp (or replied) but is still stuck in a pre-contact status gets
+   * advanced to CONTACTED. Idempotent and safe to run repeatedly — a lead that
+   * is already contacted/further along is skipped by `advanceOnEngagement`.
+   *
+   * This is what makes the Leitstand catch up for leads that were messaged
+   * BEFORE auto-advance existed (e.g. the current "Hot offen" backlog).
+   */
+  async reconcileWhatsappContacted(
+    limit = 5000,
+  ): Promise<{ scanned: number; advanced: number }> {
+    const ids = await leadRepository.idsNeedingContactReconcile(limit);
+    let advanced = 0;
+    for (const id of ids) {
+      const result = await this.advanceOnEngagement({
+        leadId: id,
+        target: LeadStatus.CONTACTED,
+        actor: "system-reconcile",
+        reason: "Abgleich: WhatsApp-Kontakt bereits erfolgt",
+      });
+      if (result) advanced += 1;
+    }
+    return { scanned: ids.length, advanced };
   }
 }
 

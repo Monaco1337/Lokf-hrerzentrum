@@ -19,6 +19,9 @@ export const ALLOWED_TRANSITIONS: Readonly<
     LeadStatus.QUALIFIED,
     LeadStatus.HOT,
     LeadStatus.CONTACT_PENDING,
+    // A first outbound WhatsApp/message IS contact, so a brand-new lead may go
+    // straight to CONTACTED (auto-advance on send). Keeps the Leitstand honest.
+    LeadStatus.CONTACTED,
     LeadStatus.BLOCKED,
     LeadStatus.REJECTED,
     LeadStatus.LOST,
@@ -128,3 +131,27 @@ export const TERMINAL_STATUSES: ReadonlySet<LeadStatus> = new Set([
 export function isTerminal(status: LeadStatus): boolean {
   return TERMINAL_STATUSES.has(status);
 }
+
+/**
+ * Linear progress rank of the happy-path pipeline. Used to decide whether an
+ * automatic engagement signal (we contacted them / they replied) may advance a
+ * lead FORWARD — it must never pull a lead backwards. Terminal statuses are
+ * intentionally absent (rank `undefined`) so auto-advance never touches them.
+ */
+export const PIPELINE_RANK: Partial<Record<LeadStatus, number>> = {
+  [LeadStatus.NEW]: 0,
+  [LeadStatus.QUALIFIED]: 1,
+  [LeadStatus.HOT]: 1,
+  [LeadStatus.CONTACT_PENDING]: 2,
+  [LeadStatus.CONTACTED]: 3,
+  [LeadStatus.CALL_SCHEDULED]: 4,
+  [LeadStatus.BRIEFING_SENT]: 5,
+  [LeadStatus.DOC_PENDING]: 6,
+  [LeadStatus.DOC_READY]: 7,
+  [LeadStatus.AA_APPOINTMENT_PENDING]: 8,
+  [LeadStatus.AA_APPOINTMENT_DONE]: 9,
+  [LeadStatus.GUTSCHEIN_PENDING]: 10,
+  [LeadStatus.GUTSCHEIN_APPROVED]: 11,
+  [LeadStatus.ENROLLED]: 12,
+  [LeadStatus.STARTED]: 13,
+};

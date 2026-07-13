@@ -464,6 +464,44 @@ export class LeadRepository {
     await prisma.lead.delete({ where: { id } });
   }
 
+  /**
+   * IDs of leads that were provably contacted via WhatsApp (or that replied)
+   * yet are still stuck in a pre-contact pipeline status. Used to reconcile
+   * historical data so the Leitstand stops showing leads as "offen" after they
+   * were actually messaged. Returns ids only — the caller advances each via the
+   * status machine (which enforces legality + history).
+   */
+  async idsNeedingContactReconcile(limit = 5000): Promise<string[]> {
+    const rows = await prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        status: {
+          in: [
+            LeadStatus.NEW,
+            LeadStatus.QUALIFIED,
+            LeadStatus.HOT,
+            LeadStatus.CONTACT_PENDING,
+          ] as string[],
+        },
+        OR: [
+          { lastWhatsappMessageAt: { not: null } },
+          { lastWhatsappReplyAt: { not: null } },
+          { firstContactSentAt: { not: null } },
+          { communicationStarted: true },
+          {
+            whatsappStatus: {
+              in: ["gesendet", "zugestellt", "gelesen", "beantwortet"],
+            },
+          },
+        ],
+      },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true },
+      take: limit,
+    });
+    return rows.map((r) => r.id);
+  }
+
   async list(
     filters: LeadFilters,
     opts: { limit?: number; offset?: number } = {},

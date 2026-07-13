@@ -15,6 +15,7 @@ import {
 import { LeadPriority, type LeadSummary } from "@/features/fairtrain-funnel/types";
 
 import { leadRepository } from "../repositories/LeadRepository";
+import { statusMachineService } from "./StatusMachineService";
 
 export { evaluateSla, HOT_SLA_MINUTES };
 export type { SlaEvaluation };
@@ -28,7 +29,14 @@ export class SlaService {
    * Background sweep: mark breached HOT leads. Intended to be invoked from
    * a cron endpoint (Vercel Cron or VPS crontab).
    */
-  async sweep(now: Date = new Date()): Promise<{ marked: number }> {
+  async sweep(
+    now: Date = new Date(),
+  ): Promise<{ marked: number; reconciled: number }> {
+    // Self-heal first: advance leads that were already contacted via WhatsApp
+    // but are stuck in a pre-contact status, so SLA math + the Leitstand reflect
+    // reality before we evaluate breaches.
+    const { advanced } = await statusMachineService.reconcileWhatsappContacted();
+
     const candidates = await leadRepository.list(
       {
         priority: LeadPriority.HOT,
@@ -44,7 +52,7 @@ export class SlaService {
         marked += 1;
       }
     }
-    return { marked };
+    return { marked, reconciled: advanced };
   }
 }
 

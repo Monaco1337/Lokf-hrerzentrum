@@ -26,6 +26,11 @@ function revalidateCommunication(leadId?: string): void {
   revalidatePath("/crm/communication/email");
   revalidatePath("/crm/communication/log");
   revalidatePath("/crm/multichat");
+  // Sending / replying can auto-advance the lead's pipeline status, so refresh
+  // the surfaces that count by status (Leitstand, Leads, Pipeline).
+  revalidatePath("/crm");
+  revalidatePath("/crm/leads");
+  revalidatePath("/crm/pipeline");
   if (leadId) revalidatePath(`/crm/leads/${leadId}`);
 }
 

@@ -21,6 +21,7 @@ import {
   CommunicationDirection,
   ConsentType,
   type CommunicationEntry,
+  LeadStatus,
   MESSAGE_STATUS_FLOW,
   type MessageSentByT,
   MessageStatus,
@@ -45,6 +46,7 @@ import type { LeadSummary } from "@/features/fairtrain-funnel/types";
 import { auditLogService } from "./AuditLogService";
 import { classifyOutboundSend } from "./LeadWhatsAppClassifier";
 import { consentService } from "./ConsentService";
+import { statusMachineService } from "./StatusMachineService";
 import { automationTemplateRepository } from "../repositories/AutomationTemplateRepository";
 import { communicationRepository } from "../repositories/CommunicationRepository";
 import { leadRepository } from "../repositories/LeadRepository";
@@ -364,6 +366,9 @@ export class MessageLedgerService {
       await this.trackOutboundWhatsapp(lead, delivery, now);
     }
     if (delivery.status !== MessageStatus.FAILED) {
+      if (isWhatsapp) {
+        await this.advanceOnWhatsappContact(lead.id, args.actorId);
+      }
       await this.applyTemplateSideEffect(template.category, lead.id, args.actorId);
     }
     return entry;
@@ -387,6 +392,24 @@ export class MessageLedgerService {
           : "SENT";
     const fields = classifyOutboundSend(lead, ack, at, delivery.failedReason);
     await leadRepository.update(lead.id, fields);
+  }
+
+  /**
+   * A successful outbound WhatsApp message IS first contact — advance the
+   * lead's pipeline status to CONTACTED so it leaves "Hot offen" / "Lead
+   * erhalten" and enters "Kontakt hergestellt". Forward-only and best-effort
+   * (never regresses, never touches terminal leads, never breaks the send).
+   */
+  private async advanceOnWhatsappContact(
+    leadId: string,
+    actorId: string,
+  ): Promise<void> {
+    await statusMachineService.advanceOnEngagement({
+      leadId,
+      target: LeadStatus.CONTACTED,
+      actor: actorId,
+      reason: "WhatsApp-Kontakt hergestellt",
+    });
   }
 
   async sendText(args: SendTextArgs): Promise<CommunicationEntry> {
@@ -461,6 +484,9 @@ export class MessageLedgerService {
     });
     if (isWhatsapp) {
       await this.trackOutboundWhatsapp(lead, delivery, now);
+      if (delivery.status !== MessageStatus.FAILED) {
+        await this.advanceOnWhatsappContact(lead.id, args.actorId);
+      }
     }
     return entry;
   }

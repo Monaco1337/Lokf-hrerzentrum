@@ -15,10 +15,12 @@ import {
   AuditAction,
   CommunicationChannel,
   CommunicationDirection,
+  LeadStatus,
   MessageStatus,
 } from "@/features/fairtrain-funnel/types";
 
 import { auditLogService } from "./AuditLogService";
+import { statusMachineService } from "./StatusMachineService";
 import { automationRuleEngine } from "./AutomationRuleEngine";
 import { campaignInboundService } from "./CampaignInboundService";
 import {
@@ -280,6 +282,16 @@ export class WhatsAppWebhookService {
     });
     if (priorityHigh) fields.priority = "HOT";
     await leadRepository.update(lead.id, fields);
+
+    // A reply is engagement: make sure the lead is at least CONTACTED so it
+    // leaves "Hot offen" and moves into the pipeline (forward-only, no-op if it
+    // is already further along; never touches terminal/closed leads).
+    await statusMachineService.advanceOnEngagement({
+      leadId: lead.id,
+      target: LeadStatus.CONTACTED,
+      actor: "whatsapp-webhook",
+      reason: "WhatsApp-Antwort erhalten",
+    });
 
     // Reactivation campaign: an inbound reply / quick-reply button stops the
     // sequence (cancel follow-ups) and, for buttons, classifies the lead.

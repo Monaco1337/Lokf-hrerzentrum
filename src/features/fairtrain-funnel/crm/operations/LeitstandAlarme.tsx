@@ -9,6 +9,8 @@
 import Link from "next/link";
 import type { Route } from "next";
 
+import { SyncPipelineButton } from "./SyncPipelineButton";
+
 export interface AlarmCounts {
   hotUncontacted: number;
   callbacksOverdue: number;
@@ -113,7 +115,7 @@ const TONE_MAP = {
 export function KritischeAlarme({ alarms }: { alarms: AlarmCounts }) {
   return (
     <section aria-labelledby="alarme-heading">
-      <header className="mb-3 flex items-end justify-between">
+      <header className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="ops-eyebrow">Kritische operative Alarme</p>
           <h2
@@ -123,6 +125,7 @@ export function KritischeAlarme({ alarms }: { alarms: AlarmCounts }) {
             Was jetzt eingreift, sichert den Abschluss
           </h2>
         </div>
+        <SyncPipelineButton />
       </header>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {ALARMS.map((alarm) => {
