@@ -402,10 +402,13 @@ export function TemplateEditorModal({
               </Field>
               <Field label="Meta-Variablen (Reihenfolge = {{1}}, {{2}} …)">
                 <p className="mb-2 text-[11px] text-ink-muted">
-                  Meta nutzt <b>nummerierte</b> Platzhalter. Ordne hier jeder
-                  Position exakt die CRM-Variable zu, die im Meta-Template an
-                  Stelle {"{{1}}"}, {"{{2}}"} … steht. Keine Variablen? Einfach
-                  leer lassen (statische Vorlage).
+                  Lege hier <b>genau so viele</b> Positionen an, wie das
+                  freigegebene Meta-Template nummerierte Platzhalter hat
+                  ({"{{1}}"}, {"{{2}}"} …). Pro Position entweder eine{" "}
+                  <b>CRM-Variable</b> (z. B. Vorname) wählen <b>oder</b> einen{" "}
+                  <b>festen Wert/URL</b> eintippen (z. B.{" "}
+                  <code>https://www.lokführerzentrum.de/eignungscheck</code>).
+                  Keine Platzhalter im Meta-Text? Dann leer lassen.
                 </p>
                 <div className="space-y-2">
                   {metaBodyParams.map((p, i) => (
@@ -413,16 +416,25 @@ export function TemplateEditorModal({
                       <span className="w-9 shrink-0 rounded-md bg-brand-50 px-1.5 py-1 text-center text-[11px] font-semibold text-brand-700 ring-1 ring-brand-200">
                         {`{{${i + 1}}}`}
                       </span>
-                      <select
+                      <input
                         className="input flex-1"
+                        value={p}
+                        onChange={(e) => setParam(i, e.target.value)}
+                        placeholder="fester Text/URL – oder rechts CRM-Variable wählen"
+                      />
+                      <select
+                        className="input w-[128px] shrink-0"
                         value={
                           TEMPLATE_VARIABLES.some((v) => `{{${v.key}}}` === p)
                             ? p
                             : ""
                         }
-                        onChange={(e) => setParam(i, e.target.value)}
+                        onChange={(e) => {
+                          if (e.target.value) setParam(i, e.target.value);
+                        }}
+                        aria-label={`CRM-Variable für Position ${i + 1}`}
                       >
-                        <option value="">— CRM-Variable wählen —</option>
+                        <option value="">Variable …</option>
                         {TEMPLATE_VARIABLES.map((v) => (
                           <option key={v.key} value={`{{${v.key}}}`}>
                             {v.label}
@@ -445,7 +457,7 @@ export function TemplateEditorModal({
                   onClick={addParam}
                   className="mt-2 rounded-lg border border-dashed border-ink/20 px-3 py-1.5 text-[12px] font-medium text-ink-soft transition hover:border-brand-300 hover:text-brand-700"
                 >
-                  + Variable ({`{{${metaBodyParams.length + 1}}}`})
+                  + Position ({`{{${metaBodyParams.length + 1}}}`})
                 </button>
               </Field>
               <Field label="Buttons (Meta-Komponenten)">
