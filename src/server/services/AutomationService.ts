@@ -62,6 +62,18 @@ export interface AutomationPreviewResult {
 export const WELCOME_EMAIL_SLUG = "lead_welcome_email";
 export const UPLOAD_REQUEST_EMAIL_SLUG = "lead_upload_request_email";
 
+// Origin for links SHOWN to leads. MUST be the resolvable ASCII/Punycode host
+// with `www`: WhatsApp's iOS in-app browser cannot open an Umlaut host
+// (www.lokführerzentrum.de) and renders a 404 when tapped, and the bare host
+// would trigger a cross-host 308 the webview doesn't follow. This exact host
+// resolves directly (200) everywhere.
+const PUBLIC_MESSAGE_ORIGIN = "https://www.xn--lokfhrerzentrum-2vb.de";
+
+/** Rewrite an absolute link's origin onto the resolvable public message host. */
+function toPublicMessageUrl(url: string): string {
+  return url.replace(/^https?:\/\/[^/]+/, PUBLIC_MESSAGE_ORIGIN);
+}
+
 const WELCOME_EMAIL_BODY = `Guten Tag {{firstName}},
 
 vielen Dank für Ihre Anfrage beim Lokführerzentrum.
@@ -554,7 +566,7 @@ export class AutomationService {
     if (needsUploadLink && isRealLead) {
       try {
         const { url } = await portalService.createLink(lead.id, "system", 30);
-        uploadLink = url;
+        uploadLink = toPublicMessageUrl(url);
       } catch (err) {
         // Never let link creation break the send — fall back to a generic link.
         // eslint-disable-next-line no-console
