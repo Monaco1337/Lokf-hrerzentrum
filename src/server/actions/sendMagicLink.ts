@@ -1,5 +1,6 @@
 "use server";
 import { SendMagicLinkSchema } from "@/features/fairtrain-funnel/forms/schemas";
+import { renderEmailHtml } from "@/features/fairtrain-funnel/automation/TemplateRenderer";
 import {
   CommunicationChannel,
   MagicLinkScopeSchema,
@@ -42,11 +43,12 @@ export async function sendMagicLink(
         message,
       });
     } else {
+      const emailBody = `Hallo ${lead.firstName},\n\nbitte vervollständige deine Angaben für deine geförderte Lokführer-Weiterbildung über den folgenden sicheren Link:\n\n${url}`;
       await communicationService.sendEmail({
         leadId: lead.id,
         to: lead.email,
-        subject: "Deine Lokführer-Weiterbildung - nächster Schritt",
-        html: `<p>${message}</p>`,
+        subject: "Deine Lokführer-Weiterbildung – nächster Schritt",
+        html: renderEmailHtml(emailBody),
       });
     }
 
