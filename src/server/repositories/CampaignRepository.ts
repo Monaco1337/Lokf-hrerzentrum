@@ -234,6 +234,26 @@ export class CampaignRepository {
     });
     return rows.map(toJobRecord);
   }
+
+  /** Count still-failed jobs for a campaign (surfaced in the UI as retryable). */
+  async countFailedJobs(campaign: string): Promise<number> {
+    return prisma.campaignMessageJob.count({
+      where: { campaign, status: "failed" },
+    });
+  }
+
+  /**
+   * Reset every failed job of a campaign back to "queued" (due now) so the next
+   * run retries them. Used after fixing a template (e.g. Meta approval) so leads
+   * whose first attempt failed are not permanently stuck.
+   */
+  async requeueFailedJobs(campaign: string, now: Date): Promise<number> {
+    const res = await prisma.campaignMessageJob.updateMany({
+      where: { campaign, status: "failed" },
+      data: { status: "queued", reason: null, scheduledFor: now },
+    });
+    return res.count;
+  }
 }
 
 export const campaignRepository = new CampaignRepository();

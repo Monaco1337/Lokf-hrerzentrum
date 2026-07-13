@@ -16,6 +16,7 @@ import type {
 import { RELEASE_TIER_LABEL } from "@/features/fairtrain-funnel/campaign/types";
 import {
   releaseCampaign,
+  requeueFailedCampaignJobs,
   sendDueCampaignJobs,
 } from "@/server/actions/campaign";
 
@@ -42,12 +43,14 @@ export function ReactivationCampaign({
   kpis,
   readyCount,
   dueCount,
+  failedCount,
   templates,
   whatsappLive,
 }: {
   kpis: CampaignKpis;
   readyCount: number;
   dueCount: number;
+  failedCount: number;
   templates: CampaignTemplateInfo[];
   whatsappLive: boolean;
 }) {
@@ -97,6 +100,22 @@ export function ReactivationCampaign({
       const s = res.data;
       setNotice(
         `Verarbeitet: ${s.processed} · gesendet: ${s.sent} · fehlgeschlagen: ${s.failed} · übersprungen: ${s.skipped} · finalisiert: ${s.finalized}.`,
+      );
+      router.refresh();
+    });
+  }
+
+  function doRequeueFailed() {
+    setError(null);
+    setNotice(null);
+    startTransition(async () => {
+      const res = await requeueFailedCampaignJobs();
+      if (!res.ok) {
+        setError(res.message);
+        return;
+      }
+      setNotice(
+        `${res.data.requeued} fehlgeschlagene Job(s) erneut in die Warteschlange gestellt. Jetzt „Fällige jetzt senden“ ausführen.`,
       );
       router.refresh();
     });
@@ -257,15 +276,38 @@ export function ReactivationCampaign({
         <p className="mt-1 text-sm text-[#6B7280]">
           <strong>{dueCount}</strong> fällige Jobs in der Warteschlange. Läuft
           automatisch per Cron – hier manuell auslösbar.
+          {failedCount > 0 ? (
+            <>
+              {" "}
+              <span className="text-[#B45309]">
+                {failedCount} fehlgeschlagene Job(s) – nach dem Freigeben der
+                Vorlage erneut senden.
+              </span>
+            </>
+          ) : null}
         </p>
-        <button
-          type="button"
-          onClick={doSendDue}
-          disabled={pending}
-          className="mt-3 rounded-lg border border-[#D1D5DB] px-4 py-2 text-sm font-medium text-[#374151] transition hover:bg-[#F9FAFB] disabled:opacity-50"
-        >
-          {pending ? "Verarbeite…" : "Fällige jetzt senden"}
-        </button>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={doSendDue}
+            disabled={pending}
+            className="rounded-lg border border-[#D1D5DB] px-4 py-2 text-sm font-medium text-[#374151] transition hover:bg-[#F9FAFB] disabled:opacity-50"
+          >
+            {pending ? "Verarbeite…" : "Fällige jetzt senden"}
+          </button>
+          {failedCount > 0 ? (
+            <button
+              type="button"
+              onClick={doRequeueFailed}
+              disabled={pending}
+              className="rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-4 py-2 text-sm font-medium text-[#9A3412] transition hover:bg-[#FFEDD5] disabled:opacity-50"
+            >
+              {pending
+                ? "Verarbeite…"
+                : `Fehlgeschlagene erneut senden (${failedCount})`}
+            </button>
+          ) : null}
+        </div>
       </section>
     </div>
   );

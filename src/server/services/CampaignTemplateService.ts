@@ -57,12 +57,20 @@ interface SeedDef {
   name: string;
   subject: string | null;
   body: string;
+  /** The value the CRM template points to (the EXACT approved Meta name). */
   metaTemplateName: string | null;
+  /**
+   * The historical default we seeded before (= the slug). Used as a guard when
+   * upgrading existing rows: we only rewrite `metaTemplateName` when it is still
+   * this legacy value (or empty), never when an operator set a custom name.
+   */
+  legacyMetaTemplateName?: string | null;
   /**
    * Ordered Meta body parameters mapping onto the approved template's numbered
    * placeholders ({{1}}, {{2}} …). Every reactivation WhatsApp template greets
-   * by first name, so position {{1}} is the Vorname. Must match the approved
-   * Meta template's placeholder count exactly (else Meta rejects with #132000).
+   * by first name ({{1}}); the follow-ups additionally carry the Eignungscheck
+   * URL as {{2}}. Must match the approved template's placeholder count exactly
+   * (else Meta rejects with #132000).
    */
   metaBodyParams?: string[];
   /** Interactive Meta buttons, in the approved template's order. */
@@ -70,7 +78,7 @@ interface SeedDef {
 }
 
 /**
- * Quick-reply buttons of the approved "alt_leads_erstkontakt" template. Payload
+ * Quick-reply buttons of the approved "alt_leads_erstkontakt_1" template. Payload
  * is left empty on purpose: the buttons render automatically from the approved
  * template, and inbound classification reads the tapped button's title — so we
  * must NOT send extra button components (which would risk a parameter error).
@@ -81,18 +89,34 @@ const ERSTKONTAKT_BUTTONS: MetaTemplateButton[] = [
   { type: "quick_reply", text: "Sonstige Situation" },
 ];
 
+/**
+ * Eignungscheck link used as {{2}} in the approved follow-up templates. Punycode
+ * host on purpose: WhatsApp's in-app browser (iOS) does not reliably resolve the
+ * Umlaut host, so a Unicode link 404s when tapped — the Punycode form always
+ * resolves and still lands the user on lokführerzentrum.de/eignungscheck.
+ */
+const EIGNUNGSCHECK_URL = "https://www.xn--lokfhrerzentrum-2vb.de/eignungscheck";
+
+/** EXACT approved Meta template names, per reactivation step (index 0/1/2). */
+const WA_APPROVED_META_NAMES = [
+  "alt_leads_erstkontakt_1",
+  "alt_leads_followup_1_v3",
+  "alt_leads_followup_2_v2",
+] as const;
+
+/** Ordered body params per step: Erstkontakt = {{1}} only; follow-ups += URL. */
+const WA_BODY_PARAMS: string[][] = [
+  ["{{first_name}}"],
+  ["{{first_name}}", EIGNUNGSCHECK_URL],
+  ["{{first_name}}", EIGNUNGSCHECK_URL],
+];
+
+const WA_BUTTONS: MetaTemplateButton[][] = [ERSTKONTAKT_BUTTONS, [], []];
+
 function buildSeeds(): SeedDef[] {
   const seeds: SeedDef[] = [];
   const wa = [WA_ERSTKONTAKT, WA_FOLLOWUP_1, WA_FOLLOWUP_2];
   const email = [EMAIL_ERSTKONTAKT, EMAIL_FOLLOWUP_1, EMAIL_FOLLOWUP_2];
-  // Every WhatsApp reactivation template opens with "Hallo {{firstName}}" → the
-  // approved Meta template's {{1}} is the Vorname.
-  const waBodyParams: string[][] = [
-    ["{{first_name}}"],
-    ["{{first_name}}"],
-    ["{{first_name}}"],
-  ];
-  const waButtons: MetaTemplateButton[][] = [ERSTKONTAKT_BUTTONS, [], []];
   const subjects = [
     "Ihre geförderte Weiterbildung zum Lokführer",
     "Erinnerung: Weiterbildung zum Lokführer",
@@ -106,9 +130,10 @@ function buildSeeds(): SeedDef[] {
       name: `Reaktivierung ${s.label} (WhatsApp)`,
       subject: null,
       body: wa[i] ?? WA_ERSTKONTAKT,
-      metaTemplateName: s.whatsappTemplateSlug,
-      metaBodyParams: waBodyParams[i] ?? ["{{first_name}}"],
-      metaButtons: waButtons[i] ?? [],
+      metaTemplateName: WA_APPROVED_META_NAMES[i] ?? s.whatsappTemplateSlug,
+      legacyMetaTemplateName: s.whatsappTemplateSlug,
+      metaBodyParams: WA_BODY_PARAMS[i] ?? ["{{first_name}}"],
+      metaButtons: WA_BUTTONS[i] ?? [],
     });
     seeds.push({
       slug: s.emailTemplateSlug,
@@ -140,22 +165,45 @@ export class CampaignTemplateService {
     for (const def of buildSeeds()) {
       const existing = await automationTemplateRepository.findBySlug(def.slug);
       if (existing) {
-        // Backfill the Meta body-param mapping / buttons for WhatsApp templates
-        // that were seeded before these fields existed. Without {{1}} = Vorname
-        // Meta rejects the send with #132000. Only fill when EMPTY so operator
-        // edits are never overwritten; email templates are left untouched.
+        // Align the campaign's WhatsApp templates with their approved Meta
+        // counterparts (name + numbered params + buttons). We NEVER touch the
+        // approval flag or the chosen sender number — those stay operator-owned.
+        // Guards make this safe/idempotent: the name is only rewritten while it
+        // is still the legacy default (or empty), and params only while they are
+        // empty or the legacy 1-param default — a real operator customisation is
+        // always preserved. Email templates are left untouched.
         if (def.channel === "WHATSAPP") {
           const patch: {
+            metaTemplateName?: string | null;
             metaBodyParams?: string[];
             metaButtons?: MetaTemplateButton[];
           } = {};
+
+          const nameIsDefault =
+            existing.metaTemplateName == null ||
+            existing.metaTemplateName === def.legacyMetaTemplateName;
+          if (
+            def.metaTemplateName &&
+            nameIsDefault &&
+            existing.metaTemplateName !== def.metaTemplateName
+          ) {
+            patch.metaTemplateName = def.metaTemplateName;
+          }
+
+          const paramsAreDefault =
+            existing.metaBodyParams.length === 0 ||
+            (existing.metaBodyParams.length === 1 &&
+              existing.metaBodyParams[0] === "{{first_name}}");
           if (
             def.metaBodyParams &&
             def.metaBodyParams.length > 0 &&
-            existing.metaBodyParams.length === 0
+            paramsAreDefault &&
+            JSON.stringify(existing.metaBodyParams) !==
+              JSON.stringify(def.metaBodyParams)
           ) {
             patch.metaBodyParams = def.metaBodyParams;
           }
+
           if (
             def.metaButtons &&
             def.metaButtons.length > 0 &&
@@ -163,6 +211,7 @@ export class CampaignTemplateService {
           ) {
             patch.metaButtons = def.metaButtons;
           }
+
           if (Object.keys(patch).length > 0) {
             await automationTemplateRepository.update(existing.id, patch);
           }

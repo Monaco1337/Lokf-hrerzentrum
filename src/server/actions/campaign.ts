@@ -91,3 +91,14 @@ export async function sendDueCampaignJobs(): Promise<Result<RunSummary>> {
     return summary;
   });
 }
+
+export async function requeueFailedCampaignJobs(): Promise<
+  Result<{ requeued: number }>
+> {
+  return runAction(async () => {
+    await requirePermission("canManageLeads");
+    const requeued = await campaignService.requeueFailed();
+    revalidate();
+    return { requeued };
+  });
+}

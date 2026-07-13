@@ -121,6 +121,14 @@ export class CampaignService {
   }
 
   /**
+   * Reset all failed jobs of the reactivation campaign back to "queued" so the
+   * next run retries them (e.g. after a WhatsApp template was finally approved).
+   */
+  async requeueFailed(now: Date = new Date()): Promise<number> {
+    return campaignRepository.requeueFailedJobs(REACTIVATION_CAMPAIGN_KEY, now);
+  }
+
+  /**
    * Process every due job (cron + manual button). Each send is re-checked
    * against the stop-rules first, then dispatched. On a successful send we
    * advance the lead and enqueue the next step. Finally, stale leads at the

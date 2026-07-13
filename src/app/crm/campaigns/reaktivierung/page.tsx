@@ -22,10 +22,11 @@ export default async function ReactivationCampaignPage() {
     redirect("/crm");
   }
 
-  const [kpis, readyCount, dueCount, templates] = await Promise.all([
+  const [kpis, readyCount, dueCount, failedCount, templates] = await Promise.all([
     aggregateCampaignKpis(REACTIVATION_CAMPAIGN_KEY),
     leadRepository.countReadyCampaignLeads(REACTIVATION_CAMPAIGN_KEY),
     campaignRepository.countDueJobs(new Date()),
+    campaignRepository.countFailedJobs(REACTIVATION_CAMPAIGN_KEY),
     campaignTemplateService.resolveTemplates(),
   ]);
 
@@ -34,6 +35,7 @@ export default async function ReactivationCampaignPage() {
       kpis={kpis}
       readyCount={readyCount}
       dueCount={dueCount}
+      failedCount={failedCount}
       templates={templates}
       whatsappLive={messageLedgerService.whatsappLive}
     />
