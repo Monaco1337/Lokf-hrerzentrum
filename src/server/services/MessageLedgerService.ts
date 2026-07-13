@@ -97,6 +97,14 @@ export interface SendTemplateArgs {
   templateId: string;
   actorId: string;
   sentBy?: MessageSentByT;
+  /**
+   * Skip the WhatsApp opt-in consent gate. Used by the Alt-Lead reactivation
+   * campaign: those contacts entered via other channels and have no explicit
+   * WhatsApp consent, but are still contacted (business decision / bestehender
+   * Kontakt). The opt-out guard is NEVER bypassed — an abgemeldeter Lead stays
+   * blocked.
+   */
+  bypassConsent?: boolean;
 }
 
 export interface LogManualArgs {
@@ -279,7 +287,9 @@ export class MessageLedgerService {
           "Für den echten WhatsApp-Versand fehlt der Meta-Template-Name. Trage in der Vorlage den exakt in Meta freigegebenen Template-Namen ein (Feld Meta-Template-Name, z. B. willkommen_lead).",
         );
       }
-      await this.assertWhatsappConsent(lead.id, args.actorId);
+      if (!args.bypassConsent) {
+        await this.assertWhatsappConsent(lead.id, args.actorId);
+      }
     }
 
     // Map our named variables onto Meta's numbered placeholders ({{1}}, {{2}},

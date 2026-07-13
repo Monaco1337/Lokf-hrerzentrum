@@ -206,6 +206,10 @@ export class CampaignService {
           templateId: template.id,
           actorId,
           sentBy: "AUTOMATION",
+          // Alt-Leads kamen über andere Kanäle und haben keine explizite
+          // WhatsApp-Einwilligung – Reaktivierung kontaktiert sie dennoch.
+          // Der Opt-out-Schutz bleibt hiervon unberührt.
+          bypassConsent: true,
         });
         if (entry.status === MessageStatus.FAILED) {
           await campaignRepository.updateJob(job.id, {
