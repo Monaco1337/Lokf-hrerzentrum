@@ -26,7 +26,10 @@ function revalidate(): void {
   revalidatePath("/crm");
 }
 
-const ReleaseSchema = z.object({ tier: ReleaseTierSchema });
+const ReleaseSchema = z.object({
+  tier: ReleaseTierSchema,
+  whatsappOnly: z.boolean().optional(),
+});
 
 export interface ReleaseResult {
   tier: ReleaseTier;
@@ -51,7 +54,10 @@ export async function releaseCampaign(
       REACTIVATION_CAMPAIGN_KEY,
       limit,
     );
-    const result = await campaignService.enqueueTag0(leads.map((l) => l.id));
+    const result = await campaignService.enqueueTag0(
+      leads.map((l) => l.id),
+      { whatsappOnly: parsed.data.whatsappOnly ?? false },
+    );
 
     // Mark the newest still-open import batch as released (best-effort audit).
     const batches = await campaignRepository.listBatches(

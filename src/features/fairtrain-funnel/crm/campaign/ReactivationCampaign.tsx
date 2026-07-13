@@ -53,6 +53,7 @@ export function ReactivationCampaign({
 }) {
   const router = useRouter();
   const [tier, setTier] = useState<ReleaseTier>("300");
+  const [whatsappOnly, setWhatsappOnly] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -63,15 +64,16 @@ export function ReactivationCampaign({
     setError(null);
     setNotice(null);
     const label = RELEASE_TIER_LABEL[chosen];
+    const channelLabel = whatsappOnly ? "nur WhatsApp" : "WhatsApp + E-Mail";
     if (
       !window.confirm(
-        `Kampagne freigeben – ${label}?\n\nDie ausgewählten versandbereiten Alt-Leads erhalten den Erstkontakt (WhatsApp + E-Mail). Fortfahren?`,
+        `Kampagne freigeben – ${label}?\n\nDie ausgewählten versandbereiten Alt-Leads erhalten den Erstkontakt (${channelLabel}). Fortfahren?`,
       )
     ) {
       return;
     }
     startTransition(async () => {
-      const res = await releaseCampaign({ tier: chosen });
+      const res = await releaseCampaign({ tier: chosen, whatsappOnly });
       if (!res.ok) {
         setError(res.message);
         return;
@@ -182,9 +184,9 @@ export function ReactivationCampaign({
       <section className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
         <h2 className="text-sm font-semibold text-[#111827]">Kampagne freigeben</h2>
         <p className="mt-1 text-sm text-[#6B7280]">
-          <strong>{readyCount}</strong> Alt-Leads sind versandbereit. Kanäle:
-          WhatsApp + E-Mail. Importierte Alt-Leads werden erst nach dieser
-          Bestätigung kontaktiert.
+          <strong>{readyCount}</strong> Alt-Leads sind versandbereit. Kanal:{" "}
+          {whatsappOnly ? "nur WhatsApp" : "WhatsApp + E-Mail"}. Importierte
+          Alt-Leads werden erst nach dieser Bestätigung kontaktiert.
         </p>
         {!whatsappLive ? (
           <p className="mt-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-[13px] text-[#9A3412]">
@@ -213,6 +215,19 @@ export function ReactivationCampaign({
                   {RELEASE_TIER_LABEL[t]}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block text-[12px] font-medium uppercase tracking-wide text-[#6B7280]">
+              Kanal
+            </span>
+            <select
+              value={whatsappOnly ? "whatsapp" : "all"}
+              onChange={(e) => setWhatsappOnly(e.target.value === "whatsapp")}
+              className="rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#111827]"
+            >
+              <option value="whatsapp">Nur WhatsApp</option>
+              <option value="all">WhatsApp + E-Mail</option>
             </select>
           </label>
           <button

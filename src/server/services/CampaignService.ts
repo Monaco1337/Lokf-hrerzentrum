@@ -58,11 +58,19 @@ export class CampaignService {
   }
 
   /**
-   * Release leads into the campaign: enqueue the Tag-0 Erstkontakt (WhatsApp +
-   * Email) for each lead, un-pause automation and mark them "versandbereit".
-   * Idempotent — re-enqueuing an already-queued job is a no-op.
+   * Release leads into the campaign: enqueue the Tag-0 Erstkontakt for each lead,
+   * un-pause automation and mark them "versandbereit". Idempotent — re-enqueuing
+   * an already-queued job is a no-op.
+   *
+   * `whatsappOnly` skips the parallel E-Mail step entirely; the chosen channels
+   * are inherited by later follow-ups (derived from the enqueued jobs), so a
+   * WhatsApp-only lead never receives a campaign e-mail.
    */
-  async enqueueTag0(leadIds: string[]): Promise<EnqueueResult> {
+  async enqueueTag0(
+    leadIds: string[],
+    options?: { whatsappOnly?: boolean },
+  ): Promise<EnqueueResult> {
+    const whatsappOnly = options?.whatsappOnly ?? false;
     await campaignTemplateService.ensureTemplates();
     let enqueued = 0;
     let skipped = 0;
@@ -86,7 +94,7 @@ export class CampaignService {
         });
         did = true;
       }
-      if (lead.email) {
+      if (lead.email && !whatsappOnly) {
         await campaignRepository.enqueueJob({
           leadId,
           campaign: REACTIVATION_CAMPAIGN_KEY,
@@ -262,13 +270,18 @@ export class CampaignService {
       nextCampaignActionAt: now,
     });
 
-    // Enqueue the next step, anchored on the first-contact date.
+    // Enqueue the next step, anchored on the first-contact date. Follow-ups
+    // inherit exactly the channels this lead was released with: we derive them
+    // from the already-enqueued jobs, so a WhatsApp-only release never spawns an
+    // e-mail follow-up (and vice versa) — no per-lead flag needed.
     const next = campaignStepConfig(step + 1);
     if (next && firstContactSentAt) {
       const scheduledFor = new Date(
         firstContactSentAt.getTime() + next.dayOffset * DAY_MS,
       );
-      if (lead.phone) {
+      const existingJobs = await campaignRepository.listJobsForLead(lead.id);
+      const usedChannels = new Set(existingJobs.map((j) => j.channel));
+      if (lead.phone && usedChannels.has("WHATSAPP")) {
         await campaignRepository.enqueueJob({
           leadId: lead.id,
           campaign: REACTIVATION_CAMPAIGN_KEY,
@@ -277,7 +290,7 @@ export class CampaignService {
           scheduledFor,
         });
       }
-      if (lead.email) {
+      if (lead.email && usedChannels.has("EMAIL")) {
         await campaignRepository.enqueueJob({
           leadId: lead.id,
           campaign: REACTIVATION_CAMPAIGN_KEY,
