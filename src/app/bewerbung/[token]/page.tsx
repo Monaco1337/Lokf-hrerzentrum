@@ -7,11 +7,29 @@ import { portalService } from "@/server/services/PortalService";
 
 export const dynamic = "force-dynamic";
 
+const PORTAL_TITLE = "Sicherer Bewerberbereich · Lokführerzentrum.de";
+const PORTAL_DESCRIPTION =
+  "Lade hier sicher deine Unterlagen (z. B. Lebenslauf) für deine geförderte Lokführer-Weiterbildung hoch. Verschlüsselt und DSGVO-konform.";
+
 export const metadata: Metadata = {
-  title: "Mein Bewerberbereich – Lokführer.de",
-  description:
-    "Vervollständige sicher deine Angaben und Unterlagen für die geförderte Lokführer-Weiterbildung.",
+  title: "Mein Bewerberbereich – Lokführerzentrum.de",
+  description: PORTAL_DESCRIPTION,
   robots: { index: false, follow: false },
+  // Own, trustworthy link-preview card so messengers don't inherit the generic
+  // homepage preview. (Note: the IDN host still renders as Punycode in preview
+  // cards — that's an anti-phishing behaviour of the clients, not a bug.)
+  openGraph: {
+    type: "website",
+    locale: "de_DE",
+    siteName: "Lokführerzentrum.de",
+    title: PORTAL_TITLE,
+    description: PORTAL_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary",
+    title: PORTAL_TITLE,
+    description: PORTAL_DESCRIPTION,
+  },
 };
 
 interface PageProps {
