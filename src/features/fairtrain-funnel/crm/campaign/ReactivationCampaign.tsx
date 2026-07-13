@@ -44,6 +44,7 @@ export function ReactivationCampaign({
   readyCount,
   dueCount,
   failedCount,
+  failedReasons,
   templates,
   whatsappLive,
 }: {
@@ -51,6 +52,7 @@ export function ReactivationCampaign({
   readyCount: number;
   dueCount: number;
   failedCount: number;
+  failedReasons: { reason: string; count: number }[];
   templates: CampaignTemplateInfo[];
   whatsappLive: boolean;
 }) {
@@ -61,7 +63,13 @@ export function ReactivationCampaign({
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const waSendable = templates.some((t) => t.channel === "WHATSAPP" && t.sendable);
+  const waTemplates = templates.filter((t) => t.channel === "WHATSAPP");
+  const waSendable = waTemplates.some((t) => t.sendable);
+  // Approved by Meta but missing a sender number → the #1 reason a "freigegeben"
+  // template still fails every send.
+  const waMissingSender = waTemplates.some(
+    (t) => t.metaApprovalStatus === "approved" && !t.senderConfigured,
+  );
 
   function doRelease(chosen: ReleaseTier) {
     setError(null);
@@ -187,6 +195,11 @@ export function ReactivationCampaign({
                     <span className="text-[#15803D]">Versandbereit</span>
                   ) : t.sendable ? (
                     <span className="text-[#15803D]">Meta: freigegeben</span>
+                  ) : t.metaApprovalStatus === "approved" &&
+                    !t.senderConfigured ? (
+                    <span className="text-[#B45309]">
+                      Absender fehlt – „Senden über“ wählen
+                    </span>
                   ) : (
                     <span className="text-[#B45309]">
                       Meta: {t.metaApprovalStatus ?? "nicht eingereicht"}
@@ -211,6 +224,12 @@ export function ReactivationCampaign({
           <p className="mt-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-[13px] text-[#9A3412]">
             WhatsApp ist aktuell nicht live (Simulation). E-Mail wird real
             versendet, WhatsApp-Schritte werden simuliert.
+          </p>
+        ) : waMissingSender ? (
+          <p className="mt-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-[13px] text-[#9A3412]">
+            Eine freigegebene WhatsApp-Vorlage hat noch keine Absendernummer.
+            Bitte die Vorlage öffnen und unter „Senden über“ eine aktive Nummer
+            wählen – sonst schlägt jeder WhatsApp-Versand fehl.
           </p>
         ) : !waSendable ? (
           <p className="mt-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-[13px] text-[#9A3412]">
@@ -286,6 +305,20 @@ export function ReactivationCampaign({
             </>
           ) : null}
         </p>
+        {failedReasons.length > 0 ? (
+          <div className="mt-3 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[#9A3412]">
+              Warum fehlgeschlagen?
+            </p>
+            <ul className="mt-1 space-y-1">
+              {failedReasons.map((r) => (
+                <li key={r.reason} className="text-sm text-[#7C2D12]">
+                  <strong>{r.count}×</strong> {r.reason}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <div className="mt-3 flex flex-wrap gap-2">
           <button
             type="button"

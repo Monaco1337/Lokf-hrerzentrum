@@ -22,13 +22,15 @@ export default async function ReactivationCampaignPage() {
     redirect("/crm");
   }
 
-  const [kpis, readyCount, dueCount, failedCount, templates] = await Promise.all([
-    aggregateCampaignKpis(REACTIVATION_CAMPAIGN_KEY),
-    leadRepository.countReadyCampaignLeads(REACTIVATION_CAMPAIGN_KEY),
-    campaignRepository.countDueJobs(new Date()),
-    campaignRepository.countFailedJobs(REACTIVATION_CAMPAIGN_KEY),
-    campaignTemplateService.resolveTemplates(),
-  ]);
+  const [kpis, readyCount, dueCount, failedCount, failedReasons, templates] =
+    await Promise.all([
+      aggregateCampaignKpis(REACTIVATION_CAMPAIGN_KEY),
+      leadRepository.countReadyCampaignLeads(REACTIVATION_CAMPAIGN_KEY),
+      campaignRepository.countDueJobs(new Date()),
+      campaignRepository.countFailedJobs(REACTIVATION_CAMPAIGN_KEY),
+      campaignRepository.failedReasonBreakdown(REACTIVATION_CAMPAIGN_KEY),
+      campaignTemplateService.resolveTemplates(),
+    ]);
 
   return (
     <ReactivationCampaign
@@ -36,6 +38,7 @@ export default async function ReactivationCampaignPage() {
       readyCount={readyCount}
       dueCount={dueCount}
       failedCount={failedCount}
+      failedReasons={failedReasons}
       templates={templates}
       whatsappLive={messageLedgerService.whatsappLive}
     />

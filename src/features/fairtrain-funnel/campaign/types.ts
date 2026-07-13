@@ -296,5 +296,11 @@ export interface CampaignTemplateInfo {
   metaApprovalStatus: string | null;
   /** True when this template can actually be sent live (WA needs approval). */
   sendable: boolean;
+  /**
+   * WhatsApp only: whether a sender number ("Senden über") is chosen. A template
+   * can be Meta-approved but still fail every send without a sender — surfaced so
+   * operators spot the missing number before blasting a campaign.
+   */
+  senderConfigured: boolean;
 }
 

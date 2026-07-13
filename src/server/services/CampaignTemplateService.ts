@@ -247,6 +247,7 @@ export class CampaignTemplateService {
     for (const def of buildSeeds()) {
       const t = await automationTemplateRepository.findBySlug(def.slug);
       const approved = t?.metaApprovalStatus === "approved";
+      const senderConfigured = Boolean(t?.senderPhoneNumberId?.trim());
       out.push({
         slug: def.slug,
         name: t?.name ?? def.name,
@@ -254,8 +255,12 @@ export class CampaignTemplateService {
         step: def.step,
         exists: Boolean(t),
         metaApprovalStatus: t?.metaApprovalStatus ?? null,
-        // Email is always sendable; WhatsApp needs Meta approval.
-        sendable: def.channel === "EMAIL" ? Boolean(t) : approved,
+        // Email is always sendable; WhatsApp needs Meta approval AND a sender.
+        sendable:
+          def.channel === "EMAIL"
+            ? Boolean(t)
+            : approved && senderConfigured,
+        senderConfigured: def.channel === "EMAIL" ? true : senderConfigured,
       });
     }
     return out;

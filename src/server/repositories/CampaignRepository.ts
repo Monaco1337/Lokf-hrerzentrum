@@ -243,6 +243,26 @@ export class CampaignRepository {
   }
 
   /**
+   * Group failed jobs by their stored reason so the UI can show operators the
+   * EXACT cause ("99× Kein Absender ausgewählt …") instead of a bare count.
+   */
+  async failedReasonBreakdown(
+    campaign: string,
+  ): Promise<{ reason: string; count: number }[]> {
+    const grouped = await prisma.campaignMessageJob.groupBy({
+      by: ["reason"],
+      where: { campaign, status: "failed" },
+      _count: { _all: true },
+    });
+    return grouped
+      .map((g) => ({
+        reason: g.reason ?? "Unbekannter Fehler",
+        count: g._count._all,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }
+
+  /**
    * Reset every failed job of a campaign back to "queued" (due now) so the next
    * run retries them. Used after fixing a template (e.g. Meta approval) so leads
    * whose first attempt failed are not permanently stuck.
