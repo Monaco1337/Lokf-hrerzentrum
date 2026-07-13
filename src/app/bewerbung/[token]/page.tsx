@@ -55,8 +55,15 @@ export default async function PortalPage({ params }: PageProps) {
   const { token } = await params;
   const ctx = await portalService.resolveContext(token);
 
+  // Emit og:url with the readable Umlaut host VERBATIM. We cannot use Next's
+  // Metadata API here because `new URL()` always converts the IDN host to
+  // Punycode (xn--…). Rendering the tag directly keeps "www.lokführerzentrum.de"
+  // — this is the value messengers show as the preview-card domain.
+  const readableUrl = `https://www.lokführerzentrum.de/bewerbung/${token}`;
+
   return (
     <div className="min-h-screen bg-surface-subtle">
+      <meta property="og:url" content={readableUrl} />
       <header className="sticky top-0 z-40 border-b border-ink/10 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3 sm:px-6 sm:py-4">
           <Link href="/" className="inline-flex items-center gap-3" aria-label="Lokführer.de">
