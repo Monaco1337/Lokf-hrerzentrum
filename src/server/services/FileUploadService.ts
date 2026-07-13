@@ -61,7 +61,45 @@ export class FileUploadService {
     meta: UploadFileInput;
     payload: Buffer;
   }): Promise<PersistedUpload> {
-    const { meta, payload } = args;
+    return this.persistInternal({
+      meta: args.meta,
+      payload: args.payload,
+      target: { leadId: null, draftId: args.meta.leadDraftId },
+    });
+  }
+
+  /**
+   * Persist a file directly against an EXISTING lead (applicant portal). The
+   * caller has already resolved the lead from a secure token — the client never
+   * passes a lead id.
+   */
+  async persistForLead(args: {
+    leadId: string;
+    kind: PersistedUpload["kind"];
+    originalName: string;
+    mimeType: string;
+    payload: Buffer;
+  }): Promise<PersistedUpload> {
+    const meta: UploadFileInput = {
+      leadDraftId: "portal",
+      kind: args.kind,
+      originalName: args.originalName,
+      mimeType: args.mimeType as UploadFileInput["mimeType"],
+      sizeBytes: args.payload.byteLength,
+    };
+    return this.persistInternal({
+      meta,
+      payload: args.payload,
+      target: { leadId: args.leadId, draftId: null },
+    });
+  }
+
+  private async persistInternal(args: {
+    meta: UploadFileInput;
+    payload: Buffer;
+    target: { leadId: string | null; draftId: string | null };
+  }): Promise<PersistedUpload> {
+    const { meta, payload, target } = args;
 
     if (payload.byteLength !== meta.sizeBytes) {
       throw new Error("Größe stimmt nicht mit Datei überein");
@@ -84,21 +122,27 @@ export class FileUploadService {
     const sha256 = createHash("sha256").update(payload).digest("hex");
     const storageKey = buildContentKey(sha256);
 
-    await filesystemStorageAdapter.put(storageKey, payload);
+    // Best-effort filesystem mirror (local dev). On serverless hosts the FS is
+    // read-only/ephemeral, so a failure here MUST NOT abort the upload — the
+    // durable copy lives in Postgres (`data`).
+    try {
+      await filesystemStorageAdapter.put(storageKey, payload);
+    } catch {
+      // ignored: Postgres holds the durable payload
+    }
 
     const cleanName = sanitizeFileName(meta.originalName);
 
-    // Lead does not exist yet — keep leadId null and track the draft id so the
-    // submit step can attach the file (and a janitor can purge orphans).
     const entry = await uploadedFileRepository.create({
-      leadId: null,
-      draftId: meta.leadDraftId,
+      leadId: target.leadId,
+      draftId: target.draftId,
       kind: meta.kind,
       originalName: cleanName,
       mimeType: meta.mimeType,
       sizeBytes: meta.sizeBytes,
       storageKey,
       sha256,
+      data: payload,
     });
 
     await auditLogRepository.append({
@@ -110,7 +154,8 @@ export class FileUploadService {
         kind: entry.kind,
         sizeBytes: entry.sizeBytes,
         mimeType: entry.mimeType,
-        draftId: meta.leadDraftId,
+        draftId: target.draftId,
+        leadId: target.leadId,
       }),
     });
 
@@ -140,11 +185,14 @@ export class FileUploadService {
     file: UploadedFileEntry;
     payload: Buffer;
   } | null> {
-    const file = await uploadedFileRepository.findById(fileId);
-    if (!file || file.deletedAt) return null;
-    const payload = await filesystemStorageAdapter.get(file.storageKey);
+    const found = await uploadedFileRepository.findPayloadById(fileId);
+    if (!found || found.entry.deletedAt) return null;
+    // Durable copy lives in Postgres; fall back to the filesystem mirror for
+    // any legacy rows uploaded before DB storage existed.
+    const payload =
+      found.data ?? (await filesystemStorageAdapter.get(found.entry.storageKey));
     if (!payload) return null;
-    return { file, payload };
+    return { file: found.entry, payload };
   }
 
   async deleteFile(fileId: string, actor: string): Promise<void> {

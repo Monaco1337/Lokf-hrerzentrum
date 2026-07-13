@@ -27,9 +27,33 @@ export interface CreateUploadedFileInput {
   sizeBytes: number;
   storageKey: string;
   sha256: string;
+  /** Raw bytes, persisted in Postgres (durable on serverless hosts). */
+  data?: Buffer | null;
 }
 
-function rowToEntry(row: PrismaUploadedFile): UploadedFileEntry {
+/**
+ * Column selection for metadata reads. Deliberately EXCLUDES `data` so lists and
+ * lookups never pull megabytes of file bytes into memory — only the dedicated
+ * payload reader fetches `data`.
+ */
+const METADATA_SELECT = {
+  id: true,
+  kind: true,
+  originalName: true,
+  mimeType: true,
+  sizeBytes: true,
+  storageKey: true,
+  sha256: true,
+  uploadedAt: true,
+  deletedAt: true,
+} as const;
+
+type MetadataRow = Pick<
+  PrismaUploadedFile,
+  keyof typeof METADATA_SELECT & keyof PrismaUploadedFile
+>;
+
+function rowToEntry(row: MetadataRow): UploadedFileEntry {
   return {
     id: row.id,
     kind: parseUploadedFileKind(row.kind),
@@ -59,7 +83,9 @@ export class UploadedFileRepository {
         sizeBytes: input.sizeBytes,
         storageKey: input.storageKey,
         sha256: input.sha256,
+        data: input.data ?? null,
       },
+      select: METADATA_SELECT,
     });
     return rowToEntry(row);
   }
@@ -67,14 +93,32 @@ export class UploadedFileRepository {
   async findById(id: string): Promise<UploadedFileEntry | null> {
     const row = await prisma.uploadedFile.findFirst({
       where: { id },
+      select: METADATA_SELECT,
     });
     return row ? rowToEntry(row) : null;
+  }
+
+  /** Fetch metadata AND raw bytes for a single file (download/stream only). */
+  async findPayloadById(
+    id: string,
+  ): Promise<{ entry: UploadedFileEntry; data: Buffer | null } | null> {
+    const row = await prisma.uploadedFile.findFirst({
+      where: { id },
+      select: { ...METADATA_SELECT, data: true },
+    });
+    if (!row) return null;
+    const { data, ...meta } = row;
+    return {
+      entry: rowToEntry(meta),
+      data: data ? Buffer.from(data) : null,
+    };
   }
 
   async listByLead(leadId: string): Promise<UploadedFileEntry[]> {
     const rows = await prisma.uploadedFile.findMany({
       where: { leadId, deletedAt: null },
       orderBy: { uploadedAt: "desc" },
+      select: METADATA_SELECT,
     });
     return rows.map(rowToEntry);
   }
@@ -83,6 +127,7 @@ export class UploadedFileRepository {
     if (ids.length === 0) return [];
     const rows = await prisma.uploadedFile.findMany({
       where: { id: { in: [...ids] }, deletedAt: null },
+      select: METADATA_SELECT,
     });
     return rows.map(rowToEntry);
   }
@@ -104,9 +149,10 @@ export class UploadedFileRepository {
   }
 
   async softDelete(id: string): Promise<void> {
+    // Purge the bytes on delete (DSGVO erasure + storage) but keep the audit row.
     await prisma.uploadedFile.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: new Date(), data: null },
     });
   }
 }

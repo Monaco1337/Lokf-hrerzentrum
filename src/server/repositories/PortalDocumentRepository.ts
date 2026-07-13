@@ -120,6 +120,7 @@ export class PortalDocumentRepository {
     data: {
       status: PortalDocumentStatus;
       fileName?: string | null;
+      uploadedFileId?: string | null;
       reviewerNote?: string | null;
       reviewerId?: string | null;
       requestedAt?: Date | null;

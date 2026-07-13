@@ -200,6 +200,12 @@ model UploadedFile {
   storageKey   String
   sha256       String
 
+  // Actual bytes, stored in Postgres so uploads survive on ephemeral/serverless
+  // hosts (Vercel) where the local filesystem is not persistent. The filesystem
+  // adapter remains a best-effort mirror for local dev. NEVER select this column
+  // in list queries — only when streaming a single file.
+  data Bytes?
+
   uploadedAt DateTime  @default(now())
   deletedAt  DateTime?
 

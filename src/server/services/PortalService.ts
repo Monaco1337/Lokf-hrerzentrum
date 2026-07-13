@@ -23,14 +23,26 @@ import {
   PortalFormSchema,
   type PortalFormValues,
   type PortalLinkEntry,
+  type UploadedFileKind,
 } from "@/features/fairtrain-funnel/types";
 
 import { leadRepository } from "../repositories/LeadRepository";
 import { portalDocumentRepository } from "../repositories/PortalDocumentRepository";
 import { portalLinkRepository } from "../repositories/PortalLinkRepository";
 import { auditLogService } from "./AuditLogService";
+import { fileUploadService } from "./FileUploadService";
 import { portalTokenService } from "./PortalTokenService";
 import { statusMachineService } from "./StatusMachineService";
+
+/** Map a checklist document kind onto the storage-level UploadedFileKind. */
+const PORTAL_KIND_TO_UPLOAD_KIND: Record<PortalDocumentKind, UploadedFileKind> = {
+  LEBENSLAUF: "CV",
+  AUSWEIS: "ID",
+  FUEHRERSCHEIN: "ID",
+  ZEUGNISSE: "CERTIFICATE",
+  BILDUNGSGUTSCHEIN: "OTHER",
+  SONSTIGES: "OTHER",
+};
 
 /** Lead statuses before "documents ready" — safe to auto-advance from. */
 const PRE_DOC_READY = new Set([
@@ -294,6 +306,69 @@ export class PortalService {
 
     const completion = await this.maybeComplete(link.entry.id, link.leadId);
     return { ok: true, completionPercent: completion };
+  }
+
+  /**
+   * Real, token-scoped document upload from the applicant portal. The lead is
+   * resolved server-side from the token (never trusted from the client). The
+   * file bytes are persisted (Postgres-durable) and linked onto the checklist
+   * row for this document kind.
+   */
+  async uploadDocument(
+    token: string,
+    kind: PortalDocumentKind,
+    file: { originalName: string; mimeType: string; payload: Buffer },
+  ): Promise<{
+    ok: boolean;
+    completionPercent: number;
+    fileName?: string;
+    fileId?: string;
+  }> {
+    const link = await this.resolveLink(token);
+    if (!link.ok) return { ok: false, completionPercent: 0 };
+
+    await portalDocumentRepository.ensureChecklist(link.leadId);
+
+    const persisted = await fileUploadService.persistForLead({
+      leadId: link.leadId,
+      kind: PORTAL_KIND_TO_UPLOAD_KIND[kind],
+      originalName: file.originalName,
+      mimeType: file.mimeType,
+      payload: file.payload,
+    });
+
+    await portalDocumentRepository.upsert(link.leadId, kind, {
+      status: "UPLOADED",
+      uploadedAt: new Date(),
+      fileName: persisted.originalName,
+      uploadedFileId: persisted.id,
+      // A fresh upload supersedes any prior rejection.
+      reviewerNote: null,
+      reviewedAt: null,
+    });
+
+    await auditLogService.append({
+      actor: "applicant",
+      action: AuditAction.PORTAL_UPLOAD_ADDED,
+      entityType: "Lead",
+      entityId: link.leadId,
+      details: { kind, fileId: persisted.id },
+    });
+    await auditLogService.append({
+      actor: "applicant",
+      action: AuditAction.DOCUMENT_UPLOADED,
+      entityType: "Lead",
+      entityId: link.leadId,
+      details: { kind, fileId: persisted.id, simulated: false },
+    });
+
+    const completion = await this.maybeComplete(link.entry.id, link.leadId);
+    return {
+      ok: true,
+      completionPercent: completion,
+      fileName: persisted.originalName,
+      fileId: persisted.id,
+    };
   }
 
   // -------------------------------------------------------------------------

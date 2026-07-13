@@ -1,23 +1,17 @@
 "use client";
 /**
  * Applicant self-service wizard (public). Token-scoped: every persisting call
- * sends only the opaque token + form values — never a lead id. Demo uploads are
- * simulated server-side as placeholder metadata.
+ * sends only the opaque token + form values — never a lead id. Document uploads
+ * go through the real, durable upload pipeline (see PortalDocumentsStep).
  */
 import { useState, useTransition } from "react";
 
 import {
-  PORTAL_DOCUMENT_STATUS_LABEL,
   type PortalContext,
-  type PortalDocumentKind,
   type PortalDocumentStatus,
   type PortalFormValues,
 } from "../types";
-import {
-  savePortalForm,
-  simulatePortalUpload,
-  submitPortalForm,
-} from "@/server/actions/portal";
+import { savePortalForm, submitPortalForm } from "@/server/actions/portal";
 import {
   AGENCY_OPTIONS,
   EMPLOYMENT_OPTIONS,
@@ -26,8 +20,11 @@ import {
   TextField,
   YesNoField,
 } from "./PortalFields";
+import { PortalDocumentsStep } from "./PortalDocumentsStep";
 
-type DocView = NonNullable<PortalContext["documents"]>[number];
+type DocView = NonNullable<PortalContext["documents"]>[number] & {
+  fileName?: string | null;
+};
 
 const STEPS: ReadonlyArray<{ title: string; subtitle: string }> = [
   { title: "Willkommen", subtitle: "Dein persönlicher Bewerberbereich" },
@@ -76,18 +73,14 @@ export function PortalWizard({
     setStep((s) => Math.max(s - 1, 0));
   };
 
-  const upload = (kind: PortalDocumentKind) =>
-    startTransition(async () => {
-      const res = await simulatePortalUpload({ token, kind });
-      if (res.ok && res.data.ok) {
-        setDocs((ds) =>
-          ds.map((d) =>
-            d.kind === kind ? { ...d, status: "UPLOADED" as PortalDocumentStatus } : d,
-          ),
-        );
-        setCompletion(res.data.completionPercent);
-      }
-    });
+  const markUploaded = (kind: DocView["kind"], fileName: string | null) =>
+    setDocs((ds) =>
+      ds.map((d) =>
+        d.kind === kind
+          ? { ...d, status: "UPLOADED" as PortalDocumentStatus, fileName }
+          : d,
+      ),
+    );
 
   const submit = () =>
     startTransition(async () => {
@@ -263,7 +256,15 @@ export function PortalWizard({
         );
       case 5:
         return (
-          <DocumentsStep docs={docs} completion={completion} pending={pending} onUpload={upload} />
+          <PortalDocumentsStep
+            token={token}
+            docs={docs}
+            completion={completion}
+            onUploaded={(kind, fileName, pct) => {
+              markUploaded(kind, fileName);
+              setCompletion(pct);
+            }}
+          />
         );
       case 6:
         return <ReviewStep form={form} docs={docs} completion={completion} />;
@@ -286,78 +287,6 @@ export function PortalWizard({
         return null;
     }
   }
-}
-
-function StatusChip({ status }: { status: PortalDocumentStatus }) {
-  const tone =
-    status === "APPROVED" || status === "UPLOADED"
-      ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
-      : status === "REJECTED"
-        ? "bg-rose-50 text-rose-700 ring-rose-200"
-        : status === "REQUESTED"
-          ? "bg-amber-50 text-amber-700 ring-amber-200"
-          : "bg-slate-100 text-slate-600 ring-slate-200";
-  return (
-    <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${tone}`}>
-      {PORTAL_DOCUMENT_STATUS_LABEL[status]}
-    </span>
-  );
-}
-
-function DocumentsStep({
-  docs,
-  completion,
-  pending,
-  onUpload,
-}: {
-  docs: DocView[];
-  completion: number;
-  pending: boolean;
-  onUpload: (kind: PortalDocumentKind) => void;
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-800 ring-1 ring-brand-100">
-        Pflichtunterlagen vollständig: <strong>{completion}%</strong>
-      </div>
-      {docs.map((d) => {
-        const done = d.status === "UPLOADED" || d.status === "APPROVED";
-        return (
-          <div
-            key={d.kind}
-            className="flex items-center justify-between gap-3 rounded-xl border border-ink/10 bg-white px-4 py-3"
-          >
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-ink">
-                {d.label}
-                {d.required ? <span className="ml-1 text-rose-500">*</span> : null}
-              </p>
-              <div className="mt-1">
-                <StatusChip status={d.status} />
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => onUpload(d.kind)}
-              disabled={pending}
-              className={
-                "shrink-0 rounded-lg px-3.5 py-2 text-sm font-semibold transition " +
-                (done
-                  ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
-                  : "bg-brand-600 text-white hover:bg-brand-700")
-              }
-            >
-              {done ? "Erneut" : "Hochladen"}
-            </button>
-          </div>
-        );
-      })}
-      <p className="text-xs text-ink-muted">
-        * Pflichtunterlage. Im Demo-Modus wird der Upload sicher simuliert – es
-        wird keine echte Datei übertragen.
-      </p>
-    </div>
-  );
 }
 
 function ReviewStep({

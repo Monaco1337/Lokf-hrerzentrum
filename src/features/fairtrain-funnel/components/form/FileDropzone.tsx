@@ -34,7 +34,8 @@ type ClientFileState =
   | { status: "error"; tempId: string; name: string; sizeBytes: number; error: string };
 
 export interface FileDropzoneProps {
-  leadDraftId: string;
+  /** Draft id for the default (funnel) upload path. Omit when using `uploadHandler`. */
+  leadDraftId?: string;
   /** Document category this dropzone uploads under. */
   kind: UploadedFileKind;
   /** Files already uploaded under this `kind` to display in the list. */
@@ -43,6 +44,12 @@ export interface FileDropzoneProps {
   onRemove: (id: string) => void;
   /** Optional context label shown inside the drop area (e.g. category name). */
   contextLabel?: string;
+  /**
+   * Custom upload transport. When provided it fully replaces the default
+   * `uploadFile` Server Action (used by the token-scoped applicant portal, which
+   * has no draft id). Must resolve to the persisted file reference or throw.
+   */
+  uploadHandler?: (file: File) => Promise<UploadedFileRef>;
 }
 
 const ACCEPT_MAP: Record<string, string[]> = {
@@ -59,6 +66,7 @@ export function FileDropzone({
   onAdd,
   onRemove,
   contextLabel,
+  uploadHandler,
 }: FileDropzoneProps) {
   const [pending, setPending] = useState<ClientFileState[]>([]);
 
@@ -80,22 +88,27 @@ export function FileDropzone({
       ]);
 
       try {
-        const fd = new FormData();
-        fd.set("file", file);
-        fd.set("leadDraftId", leadDraftId);
-        fd.set("kind", kind);
+        let ref: UploadedFileRef;
+        if (uploadHandler) {
+          ref = await uploadHandler(file);
+        } else {
+          const fd = new FormData();
+          fd.set("file", file);
+          fd.set("leadDraftId", leadDraftId ?? "");
+          fd.set("kind", kind);
 
-        const result = await uploadFile(fd);
-        if (!result.ok) {
-          throw new Error(result.message);
+          const result = await uploadFile(fd);
+          if (!result.ok) {
+            throw new Error(result.message);
+          }
+          ref = {
+            id: result.data.id,
+            kind: result.data.kind,
+            originalName: result.data.originalName,
+            sizeBytes: result.data.sizeBytes,
+            mimeType: result.data.mimeType,
+          };
         }
-        const ref: UploadedFileRef = {
-          id: result.data.id,
-          kind: result.data.kind,
-          originalName: result.data.originalName,
-          sizeBytes: result.data.sizeBytes,
-          mimeType: result.data.mimeType,
-        };
         onAdd(ref);
         setPending((prev) => prev.filter((p) => p.tempId !== tempId));
       } catch (err) {
@@ -116,7 +129,7 @@ export function FileDropzone({
         );
       }
     },
-      [kind, leadDraftId, onAdd],
+      [kind, leadDraftId, onAdd, uploadHandler],
     );
 
   const onDrop = useCallback(
