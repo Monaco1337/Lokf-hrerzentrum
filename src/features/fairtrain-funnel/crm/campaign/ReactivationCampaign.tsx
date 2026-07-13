@@ -28,7 +28,15 @@ function Tile({ label, value, tone }: { label: string; value: number; tone?: str
   );
 }
 
-const TIER_ORDER: ReleaseTier[] = ["test5", "10", "50", "100", "all"];
+const TIER_ORDER: ReleaseTier[] = [
+  "test5",
+  "10",
+  "50",
+  "100",
+  "300",
+  "500",
+  "all",
+];
 
 export function ReactivationCampaign({
   kpis,
@@ -44,7 +52,7 @@ export function ReactivationCampaign({
   whatsappLive: boolean;
 }) {
   const router = useRouter();
-  const [tier, setTier] = useState<ReleaseTier>("50");
+  const [tier, setTier] = useState<ReleaseTier>("300");
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();

@@ -110,15 +110,27 @@ export const ReleaseTier = {
   T10: "10",
   T50: "50",
   T100: "100",
+  T300: "300",
+  T500: "500",
   ALL: "all",
 } as const;
 export type ReleaseTier = (typeof ReleaseTier)[keyof typeof ReleaseTier];
-export const ReleaseTierSchema = z.enum(["test5", "10", "50", "100", "all"]);
+export const ReleaseTierSchema = z.enum([
+  "test5",
+  "10",
+  "50",
+  "100",
+  "300",
+  "500",
+  "all",
+]);
 export const RELEASE_TIER_LABEL: Record<ReleaseTier, string> = {
   test5: "Testversand (5 Leads)",
   "10": "10 Leads",
   "50": "50 Leads",
   "100": "100 Leads",
+  "300": "300 Leads",
+  "500": "500 Leads",
   all: "Alle versandbereiten Leads",
 };
 /** Numeric cap for a tier ("all" => Infinity, "test5" => 5). */
@@ -132,6 +144,10 @@ export function releaseTierLimit(tier: ReleaseTier): number {
       return 50;
     case "100":
       return 100;
+    case "300":
+      return 300;
+    case "500":
+      return 500;
     case "all":
       return Number.POSITIVE_INFINITY;
   }
