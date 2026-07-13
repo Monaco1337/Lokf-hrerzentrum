@@ -24,11 +24,20 @@ export const metadata: Metadata = {
     siteName: "Lokführerzentrum.de",
     title: PORTAL_TITLE,
     description: PORTAL_DESCRIPTION,
+    images: [
+      {
+        url: "/brand/og-lokfuehrerzentrum.png",
+        width: 1200,
+        height: 630,
+        alt: "Lokführerzentrum.de",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: PORTAL_TITLE,
     description: PORTAL_DESCRIPTION,
+    images: ["/brand/og-lokfuehrerzentrum.png"],
   },
 };
 
