@@ -8,6 +8,7 @@ import {
   CommunicationChannel,
   ConsentTypeSchema,
   MetaApprovalStatusSchema,
+  MetaTemplateButtonSchema,
   TemplateCategorySchema,
   TemplateStatusSchema,
 } from "@/features/fairtrain-funnel/types";
@@ -42,6 +43,7 @@ const UpdateTemplateSchema = z.object({
   metaApprovalStatus: MetaApprovalStatusSchema.nullable().optional(),
   senderPhoneNumberId: z.string().max(200).nullable().optional(),
   metaBodyParams: z.array(z.string().max(500)).max(20).optional(),
+  metaButtons: z.array(MetaTemplateButtonSchema).max(10).optional(),
   language: z.string().min(2).max(10).optional(),
 });
 
@@ -83,9 +85,11 @@ export async function updateAutomationTemplate(
         | null;
       senderPhoneNumberId?: string | null;
       metaBodyParams?: string[];
+      metaButtons?: import("@/features/fairtrain-funnel/types").MetaTemplateButton[];
       language?: string;
     } = {};
     if (rest.metaBodyParams !== undefined) patch.metaBodyParams = rest.metaBodyParams;
+    if (rest.metaButtons !== undefined) patch.metaButtons = rest.metaButtons;
     if (rest.language !== undefined) patch.language = rest.language;
     if (rest.name !== undefined) patch.name = rest.name;
     if (rest.subject !== undefined) patch.subject = rest.subject;
@@ -126,6 +130,7 @@ const CreateTemplateSchema = z.object({
   metaApprovalStatus: MetaApprovalStatusSchema.nullable().optional(),
   senderPhoneNumberId: z.string().max(200).nullable().optional(),
   metaBodyParams: z.array(z.string().max(500)).max(20).optional(),
+  metaButtons: z.array(MetaTemplateButtonSchema).max(10).optional(),
   language: z.string().min(2).max(10).optional(),
 });
 
@@ -158,6 +163,7 @@ export async function createAutomationTemplate(
         metaApprovalStatus: d.metaApprovalStatus ?? null,
         senderPhoneNumberId: sender,
         metaBodyParams: d.channel === "WHATSAPP" ? (d.metaBodyParams ?? []) : [],
+        metaButtons: d.channel === "WHATSAPP" ? (d.metaButtons ?? []) : [],
       },
       actor.id,
     );

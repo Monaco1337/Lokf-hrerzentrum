@@ -311,6 +311,8 @@ export interface MultichatConversation {
   source: string | null;
   /** True while an inbound reply is still flagged as unhandled on the lead. */
   hasNewReply: boolean;
+  /** Lead has opted out of WhatsApp (stop keyword). No sends allowed. */
+  optOut: boolean;
   lastAt: string;
   preview: string;
   unread: number;

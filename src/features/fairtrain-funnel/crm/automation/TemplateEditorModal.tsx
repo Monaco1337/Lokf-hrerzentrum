@@ -13,7 +13,10 @@ import {
 } from "@/server/actions/automation";
 import {
   TEMPLATE_CATEGORY_LABEL,
+  META_BUTTON_TYPE_LABEL,
   type AutomationTemplateEntry,
+  type MetaTemplateButton,
+  type MetaTemplateButtonType,
 } from "../../types";
 import {
   KNOWN_VARIABLE_KEYS,
@@ -56,6 +59,28 @@ function renderPreview(text: string, ctx: Record<string, string>): string {
   });
 }
 
+/** Normalise buttons before saving: require a label, keep only relevant fields. */
+function cleanButtons(buttons: MetaTemplateButton[]): MetaTemplateButton[] {
+  const out: MetaTemplateButton[] = [];
+  for (const b of buttons) {
+    const text = b.text.trim();
+    if (!text) continue;
+    if (b.type === "url") {
+      const url = (b.url ?? "").trim();
+      if (!url) continue;
+      out.push({ type: "url", text, url });
+    } else if (b.type === "phone_number") {
+      const phoneNumber = (b.phoneNumber ?? "").trim();
+      if (!phoneNumber) continue;
+      out.push({ type: "phone_number", text, phoneNumber });
+    } else {
+      const payload = (b.payload ?? "").trim();
+      out.push(payload ? { type: "quick_reply", text, payload } : { type: "quick_reply", text });
+    }
+  }
+  return out;
+}
+
 export function TemplateEditorModal({
   open,
   mode,
@@ -88,6 +113,9 @@ export function TemplateEditorModal({
   const [metaBodyParams, setMetaBodyParams] = useState<string[]>(
     template?.metaBodyParams ?? [],
   );
+  const [metaButtons, setMetaButtons] = useState<MetaTemplateButton[]>(
+    template?.metaButtons ?? [],
+  );
   const [language, setLanguage] = useState(template?.language ?? "de");
   const [leadId, setLeadId] = useState(previewLeads[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -116,6 +144,22 @@ export function TemplateEditorModal({
   }
   function removeParam(index: number) {
     setMetaBodyParams((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function addButton() {
+    setMetaButtons((prev) =>
+      prev.length >= 10
+        ? prev
+        : [...prev, { type: "quick_reply", text: "" }],
+    );
+  }
+  function updateButton(index: number, patch: Partial<MetaTemplateButton>) {
+    setMetaButtons((prev) =>
+      prev.map((b, i) => (i === index ? { ...b, ...patch } : b)),
+    );
+  }
+  function removeButton(index: number) {
+    setMetaButtons((prev) => prev.filter((_, i) => i !== index));
   }
 
   function insertVariable(token: string) {
@@ -161,6 +205,9 @@ export function TemplateEditorModal({
         metaBodyParams: isWhatsapp
           ? metaBodyParams.map((p) => p.trim()).filter((p) => p.length > 0)
           : [],
+        // Interactive Meta buttons (WhatsApp only). Drop rows without a label,
+        // and only keep the field relevant to each button type.
+        metaButtons: isWhatsapp ? cleanButtons(metaButtons) : [],
         // Meta template locale — must match the approved template's language.
         language: isWhatsapp ? language : "de",
       };
@@ -401,6 +448,106 @@ export function TemplateEditorModal({
                   + Variable ({`{{${metaBodyParams.length + 1}}}`})
                 </button>
               </Field>
+              <Field label="Buttons (Meta-Komponenten)">
+                <p className="mb-2 text-[11px] text-ink-muted">
+                  Schnellantwort-, Website- und Anruf-Buttons. Sie müssen{" "}
+                  <b>exakt</b> (Reihenfolge & Typ) dem freigegebenen Meta-Template
+                  entsprechen. Website-Buttons mit einer Variable (z.&nbsp;B.{" "}
+                  {"{{upload_link}}"}) werden dynamisch befüllt.
+                </p>
+                <div className="space-y-2">
+                  {metaButtons.map((b, i) => (
+                    <div
+                      key={i}
+                      className="rounded-lg border border-ink/[0.08] bg-white/60 p-2.5"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 shrink-0 rounded-md bg-ink/5 px-1.5 py-1 text-center text-[11px] font-semibold text-ink-soft">
+                          {i + 1}
+                        </span>
+                        <select
+                          className="input flex-1"
+                          value={b.type}
+                          onChange={(e) =>
+                            updateButton(i, {
+                              type: e.target.value as MetaTemplateButtonType,
+                              url: undefined,
+                              phoneNumber: undefined,
+                              payload: undefined,
+                            })
+                          }
+                        >
+                          {(
+                            Object.keys(
+                              META_BUTTON_TYPE_LABEL,
+                            ) as MetaTemplateButtonType[]
+                          ).map((t) => (
+                            <option key={t} value={t}>
+                              {META_BUTTON_TYPE_LABEL[t]}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => removeButton(i)}
+                          className="shrink-0 rounded-md border border-ink/10 px-2 py-1 text-[12px] font-medium text-danger transition hover:bg-danger/5"
+                          aria-label={`Button ${i + 1} entfernen`}
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <input
+                        className="input mt-2"
+                        placeholder="Button-Text (max. 25 Zeichen)"
+                        maxLength={25}
+                        value={b.text}
+                        onChange={(e) => updateButton(i, { text: e.target.value })}
+                      />
+                      {b.type === "url" ? (
+                        <input
+                          className="input mt-2"
+                          placeholder="https://… (optional mit {{upload_link}})"
+                          value={b.url ?? ""}
+                          onChange={(e) => updateButton(i, { url: e.target.value })}
+                        />
+                      ) : null}
+                      {b.type === "phone_number" ? (
+                        <input
+                          className="input mt-2"
+                          placeholder="+491701234567"
+                          value={b.phoneNumber ?? ""}
+                          onChange={(e) =>
+                            updateButton(i, { phoneNumber: e.target.value })
+                          }
+                        />
+                      ) : null}
+                      {b.type === "quick_reply" ? (
+                        <input
+                          className="input mt-2"
+                          placeholder="Payload (optional, z.B. INTERESSE_JA)"
+                          value={b.payload ?? ""}
+                          onChange={(e) =>
+                            updateButton(i, { payload: e.target.value })
+                          }
+                        />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+                {metaButtons.length < 10 ? (
+                  <button
+                    type="button"
+                    onClick={addButton}
+                    className="mt-2 rounded-lg border border-dashed border-ink/20 px-3 py-1.5 text-[12px] font-medium text-ink-soft transition hover:border-brand-300 hover:text-brand-700"
+                  >
+                    + Button
+                  </button>
+                ) : (
+                  <p className="mt-2 text-[11px] text-ink-muted">
+                    Maximal 10 Buttons je Vorlage (Meta-Limit).
+                  </p>
+                )}
+              </Field>
             </>
           ) : null}
 
@@ -501,12 +648,62 @@ export function TemplateEditorModal({
               <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink">
                 {body ? renderPreview(body, ctx) : "Noch kein Text."}
               </p>
+              {isWhatsapp && metaButtons.some((b) => b.text.trim()) ? (
+                <div className="mt-2 -mx-3 border-t border-ink/[0.06]">
+                  {metaButtons
+                    .filter((b) => b.text.trim())
+                    .map((b, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-center gap-1.5 border-b border-ink/[0.06] px-3 py-2 text-[13px] font-medium text-[#0284c7] last:border-b-0"
+                      >
+                        <ButtonGlyph type={b.type} />
+                        <span className="truncate">{b.text.trim()}</span>
+                      </div>
+                    ))}
+                </div>
+              ) : null}
             </div>
           </div>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
         </div>
       </div>
     </Modal>
+  );
+}
+
+/** Small WhatsApp-style glyph shown next to each button in the live preview. */
+function ButtonGlyph({ type }: { type: MetaTemplateButtonType }) {
+  const common = {
+    width: 13,
+    height: 13,
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+  if (type === "url") {
+    return (
+      <svg {...common}>
+        <path d="M10 14a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+        <path d="M14 10a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+      </svg>
+    );
+  }
+  if (type === "phone_number") {
+    return (
+      <svg {...common}>
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...common}>
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
   );
 }
 

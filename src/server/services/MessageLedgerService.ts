@@ -24,6 +24,7 @@ import {
   MESSAGE_STATUS_FLOW,
   type MessageSentByT,
   MessageStatus,
+  type MetaTemplateButton,
   TemplateChannel,
 } from "@/features/fairtrain-funnel/types";
 import {
@@ -50,6 +51,7 @@ import { leadRepository } from "../repositories/LeadRepository";
 import { taskRepository } from "../repositories/TaskRepository";
 import { whatsAppNumberRepository } from "../repositories/WhatsAppNumberRepository";
 import { whatsappService } from "./messaging/whatsappService";
+import type { MetaButtonSendParam } from "./messaging/whatsappPort";
 import { portalService } from "./PortalService";
 
 // Punycode form of the IDN production domain `lokführerzentrum.de` so any link
@@ -117,7 +119,18 @@ export interface SendTextArgs {
   body: string;
   actorId: string;
   channel?: CommunicationChannel;
+  /** Bypass the WhatsApp opt-out guard (only the opt-out confirmation does). */
+  bypassOptOut?: boolean;
+  /** Bypass the WhatsApp consent gate (only the opt-out confirmation does). */
+  bypassConsent?: boolean;
 }
+
+/**
+ * Thrown when an outbound WhatsApp message is blocked because the lead opted
+ * out. Callers surface a clear message; automations log a controlled skip.
+ */
+export const OPT_OUT_BLOCK_MESSAGE =
+  "Lead hat WhatsApp abgemeldet (Opt-out) – es wird keine WhatsApp-Nachricht gesendet.";
 
 interface DeliveryOutcome {
   providerMessageId: string | null;
@@ -238,6 +251,12 @@ export class MessageLedgerService {
     const isWhatsapp = channel === CommunicationChannel.WHATSAPP;
     const live = isWhatsapp && this.whatsappLive;
 
+    // Opt-out guard: a lead that abgemeldet has is never contacted via WhatsApp
+    // again. Blocks BEFORE any dispatch/side effect.
+    if (isWhatsapp && lead.optOut) {
+      throw new ValidationError(OPT_OUT_BLOCK_MESSAGE);
+    }
+
     // The sender is dictated by the template's "Senden über" selection and is
     // resolved (and validated) BEFORE any dispatch — missing/inactive blocks.
     const fromPhoneNumberId = isWhatsapp
@@ -270,6 +289,10 @@ export class MessageLedgerService {
       renderTemplate(token, ctx),
     );
 
+    // Resolve dynamic button components (quick-reply payloads + dynamic URL
+    // suffixes). Static buttons render from the approved template automatically.
+    const buttonParams = this.resolveButtonSendParams(template.metaButtons, ctx);
+
     const now = new Date();
     const delivery = await this.dispatchWhatsapp({
       isWhatsapp,
@@ -282,6 +305,7 @@ export class MessageLedgerService {
       body,
       variables,
       bodyParams: metaBodyParams,
+      buttons: buttonParams,
       languageCode: template.language,
       isInternal: channel === CommunicationChannel.INTERNAL,
       fromPhoneNumberId,
@@ -362,7 +386,14 @@ export class MessageLedgerService {
     const isWhatsapp = channel === CommunicationChannel.WHATSAPP;
     const live = isWhatsapp && this.whatsappLive;
 
-    if (live) await this.assertWhatsappConsent(lead.id, args.actorId);
+    // Opt-out guard: blocked unless this is the opt-out confirmation itself.
+    if (isWhatsapp && lead.optOut && !args.bypassOptOut) {
+      throw new ValidationError(OPT_OUT_BLOCK_MESSAGE);
+    }
+
+    if (live && !args.bypassConsent) {
+      await this.assertWhatsappConsent(lead.id, args.actorId);
+    }
 
     const now = new Date();
     let delivery: DeliveryOutcome;
@@ -424,6 +455,36 @@ export class MessageLedgerService {
     return entry;
   }
 
+  /**
+   * Turn the template's configured buttons into the DYNAMIC send parameters Meta
+   * expects. Only quick-reply payloads and dynamic URL suffixes are emitted;
+   * static URL/call buttons render from the approved template automatically and
+   * are skipped. `index` is the button's position in the approved template.
+   */
+  private resolveButtonSendParams(
+    buttons: readonly MetaTemplateButton[],
+    ctx: TemplateRenderContext,
+  ): MetaButtonSendParam[] {
+    const out: MetaButtonSendParam[] = [];
+    buttons.forEach((btn, index) => {
+      if (btn.type === "quick_reply") {
+        const payload = renderTemplate(btn.payload ?? "", ctx).trim();
+        if (payload) out.push({ subType: "quick_reply", index, value: payload });
+        return;
+      }
+      if (btn.type === "url") {
+        const url = btn.url ?? "";
+        const match = /\{\{\s*([a-z_]+)\s*\}\}/i.exec(url);
+        if (!match) return; // fully static URL → rendered by the approved template
+        const value = renderTemplate(`{{${match[1]}}}`, ctx).trim();
+        if (value) out.push({ subType: "url", index, value });
+        return;
+      }
+      // phone_number / call buttons are always static — never sent.
+    });
+    return out;
+  }
+
   private async dispatchWhatsapp(args: {
     isWhatsapp: boolean;
     live: boolean;
@@ -432,6 +493,7 @@ export class MessageLedgerService {
     body: string;
     variables: Record<string, string>;
     bodyParams?: string[];
+    buttons?: MetaButtonSendParam[];
     languageCode?: string;
     isInternal: boolean;
     fromPhoneNumberId?: string | null;
@@ -451,6 +513,7 @@ export class MessageLedgerService {
       body: args.body,
       variables: args.variables,
       ...(args.bodyParams !== undefined ? { bodyParams: args.bodyParams } : {}),
+      ...(args.buttons && args.buttons.length > 0 ? { buttons: args.buttons } : {}),
       ...(args.languageCode ? { languageCode: args.languageCode } : {}),
       ...(args.fromPhoneNumberId ? { fromPhoneNumberId: args.fromPhoneNumberId } : {}),
     });

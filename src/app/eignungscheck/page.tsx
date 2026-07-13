@@ -3,6 +3,9 @@ import Link from "next/link";
 
 import { EligibilityWizard } from "@/features/fairtrain-funnel/components/EligibilityWizard";
 import { FairtrainLogo } from "@/features/fairtrain-funnel/components/FairtrainLogo";
+import type { WhatsAppContact } from "@/features/fairtrain-funnel/components/wizard/Step6Result";
+import { normalizePhoneForWhatsApp } from "@/features/fairtrain-funnel/automation/PhoneNormalizer";
+import { whatsAppNumberRepository } from "@/server/repositories/WhatsAppNumberRepository";
 
 export const metadata: Metadata = {
   title: "Eignungscheck – Lokführer-Weiterbildung",
@@ -11,7 +14,32 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function EignungscheckPage() {
+// The primary WhatsApp number is read from the DB on each request so the
+// funnel always reflects the current "Nummer 1" configured in the CRM.
+export const dynamic = "force-dynamic";
+
+/**
+ * Resolves "Nummer 1" — the first active WhatsApp sender — into a contact that
+ * the result screen can turn into a wa.me deep link. Returns null when no
+ * active number exists, so the CTA simply hides.
+ */
+async function loadPrimaryWhatsAppContact(): Promise<WhatsAppContact | null> {
+  try {
+    const active = await whatsAppNumberRepository.listActive();
+    const primary = active[0];
+    if (!primary) return null;
+    const e164 = normalizePhoneForWhatsApp(primary.displayPhone);
+    const waId = e164.replace(/\D/g, "");
+    if (!waId) return null;
+    return { display: primary.displayPhone, waId };
+  } catch {
+    return null;
+  }
+}
+
+export default async function EignungscheckPage() {
+  const whatsappContact = await loadPrimaryWhatsAppContact();
+
   return (
     <div className="min-h-screen bg-surface-subtle">
       <header className="sticky top-0 z-40 border-b border-ink/10 bg-white/90 backdrop-blur-md">
@@ -38,7 +66,7 @@ export default function EignungscheckPage() {
       </header>
 
       <main>
-        <EligibilityWizard />
+        <EligibilityWizard whatsappContact={whatsappContact} />
       </main>
     </div>
   );

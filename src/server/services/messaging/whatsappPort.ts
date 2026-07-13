@@ -78,6 +78,20 @@ export interface TemplateValidationResult {
   errors: string[];
 }
 
+/**
+ * A resolved, ready-to-send Meta template button component. Only DYNAMIC parts
+ * are ever sent: quick-reply payloads and dynamic URL suffixes. Static buttons
+ * (fixed URL / call) render automatically from the approved template and must
+ * NOT be sent as parameters, so they never appear here. `index` matches the
+ * button's position in the approved Meta template.
+ */
+export interface MetaButtonSendParam {
+  subType: "quick_reply" | "url";
+  index: number;
+  /** quick_reply → the payload; url → the dynamic URL suffix value. */
+  value: string;
+}
+
 export interface SendTemplateArgs {
   to: string;
   templateName: string;
@@ -98,6 +112,12 @@ export interface SendTemplateArgs {
    * "de" when omitted.
    */
   languageCode?: string;
+  /**
+   * Resolved dynamic button components (quick-reply payloads + dynamic URL
+   * suffixes), in approved-template order. Static buttons render automatically
+   * and are NOT included. Undefined/empty = no button components sent.
+   */
+  buttons?: MetaButtonSendParam[];
   /** Send FROM this business number (Meta `phone_number_id`). Falls back to
    *  the env default number when omitted. */
   fromPhoneNumberId?: string;

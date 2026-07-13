@@ -69,6 +69,12 @@ export function ConversationRow({
               Antwort
             </span>
           ) : null}
+          {convo.optOut ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF2F2] px-2 py-0.5 text-[10.5px] font-semibold text-[#B91C1C] ring-1 ring-inset ring-[#FECACA]">
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" />
+              Abgemeldet
+            </span>
+          ) : null}
           {convo.unread > 0 ? (
             <span className="ml-auto rounded-full bg-[#16A34A] px-2 py-0.5 text-[10.5px] font-semibold text-white">
               {convo.unread}
@@ -121,9 +127,17 @@ export function Thread({
               {` · Score ${convo.leadScore}`}
             </div>
           </div>
-          <span className="shrink-0 rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] font-medium text-[#374151]">
-            {WHATSAPP_TRACKING_LABEL[convo.whatsappStatus]}
-          </span>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {convo.optOut ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF2F2] px-2.5 py-1 text-[11px] font-semibold text-[#B91C1C] ring-1 ring-inset ring-[#FECACA]">
+                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" />
+                WhatsApp abgemeldet
+              </span>
+            ) : null}
+            <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] font-medium text-[#374151]">
+              {WHATSAPP_TRACKING_LABEL[convo.whatsappStatus]}
+            </span>
+          </div>
         </div>
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <Link href={`/crm/leads/${convo.leadId}`} className={actionCls}>
@@ -135,7 +149,7 @@ export function Thread({
           <button
             type="button"
             onClick={onSelfCheck}
-            disabled={pending}
+            disabled={pending || convo.optOut}
             className={actionCls}
           >
             Selbstcheck-Link senden
@@ -187,6 +201,12 @@ export function Thread({
             {error}
           </p>
         ) : null}
+        {convo.optOut ? (
+          <p className="mb-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-1.5 text-[13px] font-medium text-[#B91C1C]">
+            Dieser Lead hat sich per WhatsApp abgemeldet (Opt-out). Es können
+            keine WhatsApp-Nachrichten mehr gesendet werden.
+          </p>
+        ) : null}
         {!live ? (
           <p className="mb-2 text-[12px] text-[#92400E]">
             Simulationsmodus – Nachrichten werden protokolliert, aber nicht real
@@ -204,13 +224,18 @@ export function Thread({
               }
             }}
             rows={2}
-            placeholder="Antwort schreiben… (⌘/Strg + Enter zum Senden)"
-            className="min-h-[44px] flex-1 resize-y rounded-lg border border-[#E5E7EB] px-3 py-2 text-sm outline-none focus:border-[#111827]"
+            disabled={convo.optOut}
+            placeholder={
+              convo.optOut
+                ? "Lead abgemeldet – Versand deaktiviert"
+                : "Antwort schreiben… (⌘/Strg + Enter zum Senden)"
+            }
+            className="min-h-[44px] flex-1 resize-y rounded-lg border border-[#E5E7EB] px-3 py-2 text-sm outline-none focus:border-[#111827] disabled:cursor-not-allowed disabled:bg-[#F9FAFB]"
           />
           <button
             type="button"
             onClick={onSend}
-            disabled={pending || !draft.trim()}
+            disabled={pending || !draft.trim() || convo.optOut}
             className="h-[44px] shrink-0 rounded-lg bg-[#16A34A] px-4 text-sm font-medium text-white transition hover:bg-[#15803D] disabled:opacity-50"
           >
             {pending ? "Sendet…" : "Senden"}

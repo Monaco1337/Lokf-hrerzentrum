@@ -10,6 +10,7 @@ import { NotFoundError, ValidationError } from "../errors";
 import { leadRepository } from "../repositories/LeadRepository";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
 import { communicationService } from "../services/CommunicationService";
+import { OPT_OUT_BLOCK_MESSAGE } from "../services/MessageLedgerService";
 import { magicLinkTokenService } from "../services/MagicLinkTokenService";
 import { requirePermission, runAction, type Result } from "./_helpers";
 
@@ -37,6 +38,10 @@ export async function sendMagicLink(
       `Hallo ${lead.firstName}, bitte vervollständige deine Angaben für die Lokführer-Weiterbildung über folgenden Link: ${url}`;
 
     if (parsed.data.channel === CommunicationChannel.WHATSAPP) {
+      // Opt-out guard: never send WhatsApp to a lead that abgemeldet has.
+      if (lead.optOut) {
+        throw new ValidationError(OPT_OUT_BLOCK_MESSAGE);
+      }
       await communicationService.sendWhatsapp({
         leadId: lead.id,
         to: lead.phone,

@@ -34,6 +34,7 @@ interface Row {
     whatsappStatus: string;
     source: string | null;
     lastWhatsappReplyAt: Date | null;
+    optOut: boolean;
   } | null;
 }
 
@@ -65,6 +66,7 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
             whatsappStatus: true,
             source: true,
             lastWhatsappReplyAt: true,
+            optOut: true,
           },
         },
       },
@@ -108,6 +110,7 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
         whatsappStatus: parseWhatsappStatus(r.lead.whatsappStatus),
         source: r.lead.source,
         hasNewReply: r.lead.lastWhatsappReplyAt !== null,
+        optOut: r.lead.optOut,
         lastAt: msg.createdAt,
         preview: previewOf(direction, r.payload),
         unread: 0,

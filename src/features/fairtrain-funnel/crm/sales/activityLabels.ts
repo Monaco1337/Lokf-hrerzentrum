@@ -77,6 +77,8 @@ export const ACTIVITY_LABEL: Record<AuditAction, ActivityVisual> = {
   MESSAGE_RECEIVED: { label: "Antwort erhalten", icon: "message", tint: "accent" },
   MESSAGE_FAILED: { label: "Nachricht fehlgeschlagen", icon: "send", tint: "rose" },
   WORKFLOW_AUTOMATION: { label: "Automatische Aktion", icon: "spark", tint: "indigo" },
+  WHATSAPP_OPT_OUT: { label: "WhatsApp abgemeldet (Opt-out)", icon: "x", tint: "rose" },
+  WHATSAPP_SEND_SKIPPED_OPT_OUT: { label: "WhatsApp übersprungen (Opt-out)", icon: "x", tint: "slate" },
 };
 
 const TINT_BG: Record<ActivityVisual["tint"], string> = {

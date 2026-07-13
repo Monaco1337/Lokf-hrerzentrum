@@ -146,6 +146,11 @@ export interface UpdateLeadFields {
   lastWhatsappErrorReason?: string | null;
   lastInboundMessage?: string | null;
   lastInboundMessageAt?: Date | null;
+  // WhatsApp opt-out.
+  optOut?: boolean;
+  optOutAt?: Date | null;
+  whatsappMarketing?: boolean;
+  tags?: string[];
   // Reactivation campaign layer (additive).
   leadType?: string;
   campaign?: string | null;
@@ -193,6 +198,10 @@ function rowToSummary(row: LeadRowWithAssignee): LeadSummary {
     lastWhatsappErrorReason: row.lastWhatsappErrorReason,
     lastInboundMessage: row.lastInboundMessage,
     lastInboundMessageAt: row.lastInboundMessageAt,
+    optOut: row.optOut,
+    optOutAt: row.optOutAt,
+    whatsappMarketing: row.whatsappMarketing,
+    tags: row.tags ?? [],
     leadType: row.leadType,
     campaign: row.campaign,
     campaignStatus: row.campaignStatus,
@@ -414,6 +423,11 @@ export class LeadRepository {
       data.lastInboundMessage = fields.lastInboundMessage;
     if (fields.lastInboundMessageAt !== undefined)
       data.lastInboundMessageAt = fields.lastInboundMessageAt;
+    if (fields.optOut !== undefined) data.optOut = fields.optOut;
+    if (fields.optOutAt !== undefined) data.optOutAt = fields.optOutAt;
+    if (fields.whatsappMarketing !== undefined)
+      data.whatsappMarketing = fields.whatsappMarketing;
+    if (fields.tags !== undefined) data.tags = { set: fields.tags };
     if (fields.leadType !== undefined) data.leadType = fields.leadType;
     if (fields.campaign !== undefined) data.campaign = fields.campaign;
     if (fields.campaignStatus !== undefined)

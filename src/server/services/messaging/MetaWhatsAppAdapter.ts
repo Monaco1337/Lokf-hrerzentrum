@@ -127,10 +127,26 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
       type: "text",
       text,
     }));
-    const components =
-      params.length > 0
-        ? [{ type: "body", parameters: params }]
-        : undefined;
+    const components: Array<Record<string, unknown>> = [];
+    if (params.length > 0) {
+      components.push({ type: "body", parameters: params });
+    }
+    // Dynamic button components. Each entry maps onto one approved button by its
+    // `index`. Quick-reply carries a payload; URL carries the dynamic suffix.
+    // Static buttons (fixed URL / call) are rendered by Meta automatically and
+    // are intentionally never sent here.
+    for (const btn of args.buttons ?? []) {
+      components.push({
+        type: "button",
+        sub_type: btn.subType,
+        index: String(btn.index),
+        parameters: [
+          btn.subType === "quick_reply"
+            ? { type: "payload", payload: btn.value }
+            : { type: "text", text: btn.value },
+        ],
+      });
+    }
     return this.post(
       {
         messaging_product: "whatsapp",
@@ -139,7 +155,7 @@ export class MetaWhatsAppAdapter implements WhatsAppService {
         template: {
           name: args.templateName,
           language: { code: args.languageCode?.trim() || "de" },
-          ...(components ? { components } : {}),
+          ...(components.length > 0 ? { components } : {}),
         },
       },
       args.fromPhoneNumberId,

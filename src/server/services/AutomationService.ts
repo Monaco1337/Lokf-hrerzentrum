@@ -309,6 +309,7 @@ export class AutomationService {
         | null;
       senderPhoneNumberId?: string | null;
       metaBodyParams?: string[];
+      metaButtons?: import("@/features/fairtrain-funnel/types").MetaTemplateButton[];
       language?: string;
     },
     actor: string,
@@ -340,6 +341,7 @@ export class AutomationService {
         | null;
       senderPhoneNumberId?: string | null;
       metaBodyParams?: string[];
+      metaButtons?: import("@/features/fairtrain-funnel/types").MetaTemplateButton[];
     },
     actor: string,
   ) {
@@ -377,6 +379,7 @@ export class AutomationService {
       metaApprovalStatus: source.metaApprovalStatus,
       senderPhoneNumberId: source.senderPhoneNumberId,
       metaBodyParams: source.metaBodyParams,
+      metaButtons: source.metaButtons,
     });
     await auditLogRepository.append({
       actor,
@@ -468,6 +471,28 @@ export class AutomationService {
           triggeredBy,
         });
       }
+    }
+
+    // Opt-out guard: never send a WhatsApp automation to an opted-out lead.
+    // Logged as a controlled skip so the workflow trail shows exactly why.
+    if (
+      template.channel === CommunicationChannel.WHATSAPP &&
+      lead.optOut &&
+      !isTest
+    ) {
+      return automationLogRepository.append({
+        leadId: lead.id,
+        templateId: template.id,
+        trigger: template.trigger,
+        channel: template.channel,
+        status: AutomationLogStatus.SKIPPED,
+        renderedSubject: template.subject,
+        renderedBody: template.body,
+        errorCode: "OPT_OUT",
+        errorMessage: "Lead hat WhatsApp abgemeldet (Opt-out)",
+        isTest,
+        triggeredBy,
+      });
     }
 
     const needsUploadLink =
@@ -720,6 +745,10 @@ export class AutomationService {
       lastWhatsappErrorReason: null,
       lastInboundMessage: null,
       lastInboundMessageAt: null,
+      optOut: false,
+      optOutAt: null,
+      whatsappMarketing: true,
+      tags: [],
       leadType: "neu",
       campaign: null,
       campaignStatus: null,

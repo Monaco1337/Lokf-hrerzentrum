@@ -9,6 +9,8 @@ import {
   type AutomationTrigger,
   type MetaApprovalStatus,
   MetaApprovalStatusSchema,
+  type MetaTemplateButton,
+  MetaTemplateButtonSchema,
   type TemplateCategory,
   TemplateCategorySchema,
   type TemplateChannel,
@@ -37,6 +39,7 @@ export interface UpsertAutomationTemplateInput {
   metaApprovalStatus: MetaApprovalStatus | null;
   senderPhoneNumberId?: string | null;
   metaBodyParams?: string[];
+  metaButtons?: MetaTemplateButton[];
 }
 
 function parseMetaBodyParams(raw: string | null): string[] {
@@ -48,6 +51,23 @@ function parseMetaBodyParams(raw: string | null): string[] {
     /* ignore malformed JSON → empty */
   }
   return [];
+}
+
+/** Parse the stored JSON button array, dropping anything malformed. */
+function parseMetaButtons(raw: string | null): MetaTemplateButton[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    const out: MetaTemplateButton[] = [];
+    for (const item of parsed) {
+      const res = MetaTemplateButtonSchema.safeParse(item);
+      if (res.success) out.push(res.data);
+    }
+    return out;
+  } catch {
+    return [];
+  }
 }
 
 interface TemplateRow {
@@ -67,6 +87,7 @@ interface TemplateRow {
   metaApprovalStatus: string | null;
   senderPhoneNumberId: string | null;
   metaBodyParams: string | null;
+  metaButtons: string | null;
   usageCount: number;
   lastUsedAt: Date | null;
   createdAt: Date;
@@ -95,6 +116,7 @@ function mapRow(row: TemplateRow, demoIds: ReadonlySet<string>): AutomationTempl
       : null,
     senderPhoneNumberId: row.senderPhoneNumberId,
     metaBodyParams: parseMetaBodyParams(row.metaBodyParams),
+    metaButtons: parseMetaButtons(row.metaButtons),
     usageCount: row.usageCount,
     lastUsedAt: row.lastUsedAt,
     isDemo: demoIds.has(row.id),
@@ -166,6 +188,7 @@ export class AutomationTemplateRepository {
         metaApprovalStatus: input.metaApprovalStatus,
         senderPhoneNumberId: input.senderPhoneNumberId ?? null,
         metaBodyParams: JSON.stringify(input.metaBodyParams ?? []),
+        metaButtons: JSON.stringify(input.metaButtons ?? []),
       },
     });
     return mapRow(row, await this.demoIds());
@@ -187,6 +210,7 @@ export class AutomationTemplateRepository {
       metaApprovalStatus: input.metaApprovalStatus,
       senderPhoneNumberId: input.senderPhoneNumberId ?? null,
       metaBodyParams: JSON.stringify(input.metaBodyParams ?? []),
+      metaButtons: JSON.stringify(input.metaButtons ?? []),
     };
     const row = await prisma.automationTemplate.upsert({
       where: { slug: input.slug },
@@ -209,13 +233,15 @@ export class AutomationTemplateRepository {
       metaApprovalStatus?: MetaApprovalStatus | null;
       senderPhoneNumberId?: string | null;
       metaBodyParams?: string[];
+      metaButtons?: MetaTemplateButton[];
       language?: string;
     },
   ): Promise<AutomationTemplateEntry> {
-    const { metaBodyParams, ...rest } = patch;
+    const { metaBodyParams, metaButtons, ...rest } = patch;
     const data: Record<string, unknown> = { ...rest };
     if (patch.status !== undefined) data.enabled = patch.status === "active";
     if (metaBodyParams !== undefined) data.metaBodyParams = JSON.stringify(metaBodyParams);
+    if (metaButtons !== undefined) data.metaButtons = JSON.stringify(metaButtons);
     const row = await prisma.automationTemplate.update({ where: { id }, data });
     return mapRow(row, await this.demoIds());
   }

@@ -66,6 +66,8 @@ export const AuditAction = {
   MESSAGE_RECEIVED: "MESSAGE_RECEIVED",
   MESSAGE_FAILED: "MESSAGE_FAILED",
   WORKFLOW_AUTOMATION: "WORKFLOW_AUTOMATION",
+  WHATSAPP_OPT_OUT: "WHATSAPP_OPT_OUT",
+  WHATSAPP_SEND_SKIPPED_OPT_OUT: "WHATSAPP_SEND_SKIPPED_OPT_OUT",
 } as const;
 export type AuditAction = (typeof AuditAction)[keyof typeof AuditAction];
 export const AuditActionSchema = z.enum(

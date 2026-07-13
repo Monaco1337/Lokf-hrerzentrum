@@ -95,6 +95,8 @@ const ACTION_LABEL: Record<AuditAction, { label: string; tone: TimelineEvent["to
   MESSAGE_RECEIVED: { label: "Antwort erhalten", tone: "positive" },
   MESSAGE_FAILED: { label: "Nachricht fehlgeschlagen", tone: "danger" },
   WORKFLOW_AUTOMATION: { label: "Automatische Aktion", tone: "info" },
+  WHATSAPP_OPT_OUT: { label: "WhatsApp abgemeldet (Opt-out)", tone: "danger" },
+  WHATSAPP_SEND_SKIPPED_OPT_OUT: { label: "WhatsApp übersprungen (Opt-out)", tone: "neutral" },
 };
 
 function relative(d: Date, now = Date.now()): string {

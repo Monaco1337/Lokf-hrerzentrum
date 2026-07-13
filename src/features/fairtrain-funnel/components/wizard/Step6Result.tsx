@@ -9,6 +9,16 @@ interface ResultState {
   message?: string;
 }
 
+export interface WhatsAppContact {
+  /** Human-readable number shown to the lead, e.g. "+49 170 6620044". */
+  display: string;
+  /** wa.me id: E.164 digits without "+" or spaces, e.g. "491706620044". */
+  waId: string;
+}
+
+const WHATSAPP_PREFILL =
+  "Hallo, ich habe gerade den Eignungscheck ausgefüllt und habe eine kurze Frage.";
+
 interface Variant {
   badge: string;
   badgeClass: string;
@@ -48,7 +58,13 @@ const VARIANTS: Record<LeadPriority, Variant> = {
   },
 };
 
-export function Step6Result({ result }: { result: ResultState }) {
+export function Step6Result({
+  result,
+  whatsappContact,
+}: {
+  result: ResultState;
+  whatsappContact?: WhatsAppContact | null | undefined;
+}) {
   if (result.status === "loading") {
     return (
       <div className="bg-gradient-to-b from-surface-subtle via-white to-surface-subtle/60">
@@ -118,6 +134,32 @@ export function Step6Result({ result }: { result: ResultState }) {
             {variant.body}
           </p>
 
+          {whatsappContact ? (
+            <div className="mx-auto mt-8 max-w-md rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5">
+              <p className="text-sm font-semibold text-navy-950">
+                Direkt eine Frage? Schreib uns auf WhatsApp.
+              </p>
+              <p className="mt-1 text-[13px] leading-relaxed text-ink-soft">
+                Unser Team antwortet dir persönlich – schnell und
+                unkompliziert.
+              </p>
+              <a
+                href={`https://wa.me/${whatsappContact.waId}?text=${encodeURIComponent(
+                  WHATSAPP_PREFILL,
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-700"
+              >
+                <WhatsAppIcon />
+                WhatsApp starten
+              </a>
+              <p className="mt-3 text-[12px] font-medium text-ink-soft">
+                {whatsappContact.display}
+              </p>
+            </div>
+          ) : null}
+
           <div className="mx-auto mt-8 flex max-w-md flex-col gap-2 sm:flex-row sm:justify-center">
             <Link
               href="/"
@@ -134,6 +176,19 @@ export function Step6Result({ result }: { result: ResultState }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function WhatsAppIcon() {
+  return (
+    <svg
+      aria-hidden
+      className="h-5 w-5"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+    >
+      <path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.91-4.45 9.91-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm0 1.82c2.16 0 4.19.84 5.72 2.37a8.05 8.05 0 0 1 2.37 5.72c0 4.46-3.63 8.09-8.09 8.09-1.48 0-2.93-.4-4.19-1.15l-.3-.18-3.11.82.83-3.04-.2-.31a8.02 8.02 0 0 1-1.23-4.28c0-4.46 3.63-8.09 8.09-8.09Zm-2.79 4.35c-.15 0-.39.06-.6.28-.2.22-.79.77-.79 1.87 0 1.1.81 2.17.92 2.32.11.15 1.57 2.4 3.81 3.37.53.23.95.37 1.27.47.53.17 1.02.15 1.4.09.43-.06 1.31-.54 1.5-1.06.19-.52.19-.96.13-1.06-.06-.09-.2-.15-.43-.26-.22-.11-1.31-.65-1.51-.72-.2-.07-.35-.11-.5.11-.15.22-.57.72-.7.87-.13.15-.26.17-.48.06-.22-.11-.94-.35-1.79-1.11-.66-.59-1.11-1.32-1.24-1.54-.13-.22-.01-.34.1-.45.1-.1.22-.26.33-.39.11-.13.15-.22.22-.37.07-.15.04-.28-.02-.39-.06-.11-.5-1.21-.68-1.65-.18-.43-.36-.37-.5-.38-.13-.01-.28-.01-.43-.01Z" />
+    </svg>
   );
 }
 

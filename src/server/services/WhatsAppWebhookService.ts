@@ -22,6 +22,10 @@ import { auditLogService } from "./AuditLogService";
 import { automationRuleEngine } from "./AutomationRuleEngine";
 import { campaignInboundService } from "./CampaignInboundService";
 import {
+  isOptOutMessage,
+  whatsAppOptOutService,
+} from "./WhatsAppOptOutService";
+import {
   classifyWhatsAppEvent,
   type WhatsAppClassifierEvent,
 } from "./LeadWhatsAppClassifier";
@@ -253,6 +257,20 @@ export class WhatsAppWebhookService {
         businessPhoneNumberId: event.businessPhoneNumberId ?? null,
       },
     });
+
+    // Opt-out ("Abmelden"): a stop keyword blocks ALL future WhatsApp contact
+    // and stops every automation/campaign. Handled before any lead-warming
+    // classification so an opt-out never marks the lead HOT or re-engages it.
+    if (
+      isOptOutMessage({ body: event.body, buttonTitle: event.buttonTitle })
+    ) {
+      await whatsAppOptOutService.applyOptOut(lead.id, {
+        originalMessage: event.body,
+        at: event.at,
+        actor: "whatsapp-webhook",
+      });
+      return;
+    }
 
     // Classify: reply received → beantwortet, quality reagiert, +25, priority HOT.
     const { fields, priorityHigh } = classifyWhatsAppEvent(lead, {

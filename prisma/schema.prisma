@@ -98,6 +98,15 @@ model Lead {
   lastInboundMessage       String?
   lastInboundMessageAt     DateTime?
 
+  // WhatsApp opt-out (added 2026-07-13). Driven by real inbound stop keywords
+  // (STOP/STOPP/ABMELDEN/…). When `optOut` is true the lead is NEVER contacted
+  // via WhatsApp again (marketing + automation + campaigns all skip), but stays
+  // fully in the CRM. `tags` is a free-form label set incl. `whatsapp_opt_out`.
+  optOut               Boolean   @default(false)
+  optOutAt             DateTime?
+  whatsappMarketing    Boolean   @default(true)
+  tags                 String[]  @default([])
+
   // Reactivation campaign layer (added 2026-07-09). Additive to the pipeline
   // status/state-machine — `campaignStatus` is a SEPARATE German lifecycle for
   // the Alt-Lead reactivation flow and never touches `status`.
@@ -159,6 +168,7 @@ model Lead {
   @@index([assignedToId])
   @@index([whatsappStatus])
   @@index([leadQualityStatus])
+  @@index([optOut])
   @@index([leadType])
   @@index([campaign])
   @@index([campaignStatus])
@@ -565,6 +575,10 @@ model AutomationTemplate {
   /// is a template token (e.g. "{{first_name}}") or literal text, rendered in
   /// order at send time. Empty array = static template (no variables).
   metaBodyParams    String?
+  /// WhatsApp only: JSON array of interactive Meta template buttons
+  /// (Quick Reply / URL / Call) in approved order. Rendered into
+  /// `template.components` at send time. Empty/null = no buttons.
+  metaButtons       String?
   usageCount        Int      @default(0)
   lastUsedAt        DateTime?
 

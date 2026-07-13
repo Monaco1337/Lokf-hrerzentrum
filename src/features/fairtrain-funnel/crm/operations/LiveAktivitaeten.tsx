@@ -92,6 +92,8 @@ const ACTION_PHRASE: Record<AuditAction, { verb: string; tint: string; dot: stri
   MESSAGE_RECEIVED: { verb: "Antwort erhalten", tint: "text-emerald-300", dot: "bg-emerald-500" },
   MESSAGE_FAILED: { verb: "Nachricht fehlgeschlagen", tint: "text-red-300", dot: "bg-red-500" },
   WORKFLOW_AUTOMATION: { verb: "Automatische Aktion", tint: "text-emerald-300", dot: "bg-emerald-500" },
+  WHATSAPP_OPT_OUT: { verb: "WhatsApp abgemeldet (Opt-out)", tint: "text-red-300", dot: "bg-red-500" },
+  WHATSAPP_SEND_SKIPPED_OPT_OUT: { verb: "WhatsApp übersprungen (Opt-out)", tint: "text-zinc-300", dot: "bg-zinc-500" },
 };
 
 function entityHref(e: AuditLogEntry): Route | null {

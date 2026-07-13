@@ -20,6 +20,7 @@ import {
 } from "../types";
 import { InlineDeleteControl } from "./InlineDeleteControl";
 import { LeadRowActions } from "./LeadRowActions";
+import { OptOutBadge } from "./OptOutBadge";
 import { STATUS_TONE } from "./leadLabels";
 import { OpenIcon, PhoneIcon, WhatsappIcon } from "./LeadListIcons";
 import { PriorityBadge } from "./PriorityBadge";
@@ -188,6 +189,7 @@ export function LeadListCard({
                 {URGENCY_LABEL[insights.urgency]}
               </span>
               <WhatsAppStatusBadge view={lead} />
+              {lead.optOut ? <OptOutBadge /> : null}
             </div>
           </div>
         </div>

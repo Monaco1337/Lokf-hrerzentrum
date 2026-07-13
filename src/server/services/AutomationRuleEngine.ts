@@ -9,6 +9,7 @@ import {
   AuditAction,
   type AutomationRunLogEntry,
   type AutomationTrigger,
+  CommunicationChannel,
   LeadPriority,
   LeadStatusSchema,
   type ConsentState,
@@ -321,6 +322,14 @@ export class AutomationRuleEngine {
         if (!action.templateId) return { type: action.type, result: "Keine Vorlage gewählt" };
         const tpl = await automationTemplateRepository.findById(action.templateId);
         if (!tpl) return { type: action.type, result: "Vorlage nicht gefunden" };
+        // Opt-out guard: every WhatsApp send is checked for opt_out == false.
+        // An opted-out lead is skipped and the skip is protocolled in the run log.
+        if (tpl.channel === CommunicationChannel.WHATSAPP && lead.optOut) {
+          return {
+            type: action.type,
+            result: `Übersprungen: Lead hat WhatsApp abgemeldet (Opt-out)${tag}`,
+          };
+        }
         const ctx = buildTemplateContext(lead, "xn--lokfhrerzentrum-2vb.de", {
           ownerName: lead.assignedTo,
         });

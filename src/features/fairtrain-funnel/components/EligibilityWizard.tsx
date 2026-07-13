@@ -19,7 +19,7 @@ import { Step2Employment } from "./wizard/Step2Employment";
 import { Step3Location } from "./wizard/Step3Location";
 import { Step4Eligibility } from "./wizard/Step4Eligibility";
 import { Step5Consent } from "./wizard/Step5Consent";
-import { Step6Result } from "./wizard/Step6Result";
+import { Step6Result, type WhatsAppContact } from "./wizard/Step6Result";
 import { INITIAL_STATE, type WizardState } from "./wizard/types";
 
 interface ResultState {
@@ -140,7 +140,11 @@ function generateDraftId(): string {
   return `draft_${Math.random().toString(36).slice(2)}_${Date.now()}`;
 }
 
-export function EligibilityWizard() {
+export function EligibilityWizard({
+  whatsappContact,
+}: {
+  whatsappContact?: WhatsAppContact | null | undefined;
+} = {}) {
   const [step, setStep] = useState(0);
   const initial = useMemo<WizardState>(
     () => ({ ...INITIAL_STATE, draftId: generateDraftId() }),
@@ -180,7 +184,7 @@ export function EligibilityWizard() {
   }, [state.consents.PRIVACY, submit]);
 
   if (result) {
-    return <Step6Result result={result} />;
+    return <Step6Result result={result} whatsappContact={whatsappContact} />;
   }
 
   const props = { state, patch, onNext: next, onPrev: prev } as const;

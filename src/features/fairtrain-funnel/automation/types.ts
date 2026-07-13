@@ -147,6 +147,40 @@ export const META_APPROVAL_STATUS_LABEL: Record<MetaApprovalStatus, string> = {
   rejected: "Abgelehnt",
 };
 
+// ---------------------------------------------------------------------------
+// Meta WhatsApp template buttons — the interactive component of an approved
+// template. Mirrors the three button kinds the Cloud API supports. Stored as
+// JSON on the template; rendered into `template.components` at send time.
+// ---------------------------------------------------------------------------
+export const META_BUTTON_TYPES = ["quick_reply", "url", "phone_number"] as const;
+export type MetaTemplateButtonType = (typeof META_BUTTON_TYPES)[number];
+
+export const META_BUTTON_TYPE_LABEL: Record<MetaTemplateButtonType, string> = {
+  quick_reply: "Schnellantwort",
+  url: "Website (URL)",
+  phone_number: "Anruf",
+};
+
+export interface MetaTemplateButton {
+  type: MetaTemplateButtonType;
+  /** Button label shown on the device (Meta limit: 25 chars). */
+  text: string;
+  /** URL button destination. May contain a single {{variable}} dynamic suffix. */
+  url?: string | undefined;
+  /** Call button target in E.164 (e.g. "+491701234567"). */
+  phoneNumber?: string | undefined;
+  /** Quick-reply payload returned when tapped. May contain a {{variable}}. */
+  payload?: string | undefined;
+}
+
+export const MetaTemplateButtonSchema = z.object({
+  type: z.enum(META_BUTTON_TYPES),
+  text: z.string().min(1).max(25),
+  url: z.string().max(2000).optional(),
+  phoneNumber: z.string().max(30).optional(),
+  payload: z.string().max(500).optional(),
+});
+
 export interface AutomationTemplateEntry {
   id: string;
   slug: string;
@@ -170,6 +204,12 @@ export interface AutomationTemplateEntry {
    * token (e.g. "{{first_name}}") or literal text. Empty = static template.
    */
   metaBodyParams: string[];
+  /**
+   * WhatsApp only: interactive Meta template buttons (Quick Reply / URL / Call),
+   * in the exact order they appear in the approved Meta template. Rendered into
+   * `template.components` at send time. Empty = no buttons.
+   */
+  metaButtons: MetaTemplateButton[];
   usageCount: number;
   lastUsedAt: Date | null;
   isDemo: boolean;

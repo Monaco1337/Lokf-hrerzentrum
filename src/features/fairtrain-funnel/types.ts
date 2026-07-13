@@ -248,6 +248,9 @@ export {
   MetaApprovalStatus,
   MetaApprovalStatusSchema,
   META_APPROVAL_STATUS_LABEL,
+  META_BUTTON_TYPES,
+  META_BUTTON_TYPE_LABEL,
+  MetaTemplateButtonSchema,
   RuleConditionType,
   CONDITION_LABEL,
   CONDITIONS_WITH_VALUE,
@@ -272,6 +275,8 @@ export type {
   TemplateCategory as TemplateCategoryType,
   TemplateStatus as TemplateStatusType,
   MetaApprovalStatus as MetaApprovalStatusType,
+  MetaTemplateButton,
+  MetaTemplateButtonType,
   RuleConditionType as RuleConditionTypeT,
   RuleActionType as RuleActionTypeT,
   RuleCondition,
@@ -458,6 +463,13 @@ export interface LeadSummary {
   lastWhatsappErrorReason: string | null;
   lastInboundMessage: string | null;
   lastInboundMessageAt: Date | null;
+  // WhatsApp opt-out (real inbound stop keywords only). When true the lead is
+  // never contacted via WhatsApp again, but stays fully in the CRM.
+  optOut: boolean;
+  optOutAt: Date | null;
+  whatsappMarketing: boolean;
+  /** Free-form label set (incl. `whatsapp_opt_out`). */
+  tags: string[];
   // Reactivation campaign layer (additive; separate from pipeline `status`).
   leadType: string;
   campaign: string | null;
