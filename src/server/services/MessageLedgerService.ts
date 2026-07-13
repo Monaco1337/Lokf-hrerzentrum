@@ -56,10 +56,14 @@ import { portalService } from "./PortalService";
 // this builds resolves in every email client.
 const SOURCE_DOMAIN = "xn--lokfhrerzentrum-2vb.de";
 
-// Readable IDN origin used for links SHOWN to leads in messages (WhatsApp/E-Mail).
-// Clients resolve the Unicode host via Punycode automatically, so it stays
-// clickable while looking like the real brand domain (not "xn--…").
-const PUBLIC_MESSAGE_ORIGIN = "https://www.lokführerzentrum.de";
+// Origin used for links SHOWN to leads in messages (WhatsApp/E-Mail).
+//
+// IMPORTANT: this MUST be the ASCII/Punycode host. WhatsApp's in-app browser
+// does NOT reliably convert an Umlaut host (www.lokführerzentrum.de) to Punycode
+// before DNS resolution, so a Unicode link opens as "page not found" when tapped
+// inside WhatsApp. The Punycode host always resolves in every browser/webview.
+// (WhatsApp already displays IDN links as "xn--…" anyway, so nothing is lost.)
+const PUBLIC_MESSAGE_ORIGIN = "https://www.xn--lokfhrerzentrum-2vb.de";
 
 /** Map a template channel onto a ledger communication channel. */
 function templateChannelToComm(channel: string): CommunicationChannel {
