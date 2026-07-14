@@ -78,6 +78,18 @@ export const LeadStatus = {
   HOT: "HOT",
   CONTACT_PENDING: "CONTACT_PENDING",
   CONTACTED: "CONTACTED",
+  // Engagement lifecycle (event-driven, forward-only). Sits between first
+  // contact and the document phase; every value is set by a REAL signal:
+  //   REPLIED            — lead answered in Multichat (inbound webhook)
+  //   FORWARDED          — we sent the Eignungscheck/Landingpage link
+  //   LANDINGPAGE_OPENED — the lead opened the tokenised portal link
+  //   FUNNEL_STARTED     — the lead started the funnel/portal wizard
+  //   FUNNEL_COMPLETED   — the lead finished the Eignungscheck/portal
+  REPLIED: "REPLIED",
+  FORWARDED: "FORWARDED",
+  LANDINGPAGE_OPENED: "LANDINGPAGE_OPENED",
+  FUNNEL_STARTED: "FUNNEL_STARTED",
+  FUNNEL_COMPLETED: "FUNNEL_COMPLETED",
   CALL_SCHEDULED: "CALL_SCHEDULED",
   BRIEFING_SENT: "BRIEFING_SENT",
   DOC_PENDING: "DOC_PENDING",

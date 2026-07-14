@@ -22,6 +22,7 @@ import {
   AbschlussFunnel,
   type FunnelData,
 } from "./LeitstandFunnel";
+import { AutoRefresh } from "./AutoRefresh";
 import { HeutigePrioritaeten } from "./LeitstandPrioritaeten";
 import { LiveAktivitaeten } from "./LiveAktivitaeten";
 import { LeitstandWhatsApp } from "./LeitstandWhatsApp";
@@ -74,6 +75,8 @@ export function Leitstand({
 
   return (
     <div className="space-y-7">
+      {/* Near-real-time sync: re-runs the loaders on an interval + on focus. */}
+      <AutoRefresh />
       {/* Header strip */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>

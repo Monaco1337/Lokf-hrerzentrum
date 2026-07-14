@@ -32,63 +32,76 @@ const STAGES: ReadonlyArray<FunnelStage> = [
   },
   {
     key: "contact",
-    label: "Kontakt hergestellt",
+    label: "Kontakt & Reaktion",
     statuses: [
       LeadStatus.CONTACT_PENDING,
       LeadStatus.CONTACTED,
+      LeadStatus.REPLIED,
       LeadStatus.CALL_SCHEDULED,
     ],
     href: "/crm/leads?status=CONTACTED" as Route,
     rank: 2,
   },
   {
+    key: "funnel",
+    label: "Landingpage & Funnel",
+    statuses: [
+      LeadStatus.FORWARDED,
+      LeadStatus.LANDINGPAGE_OPENED,
+      LeadStatus.FUNNEL_STARTED,
+      LeadStatus.FUNNEL_COMPLETED,
+    ],
+    href: "/crm/leads?status=FORWARDED" as Route,
+    rank: 3,
+  },
+  {
     key: "qualified",
     label: "Qualifiziert",
     statuses: [LeadStatus.QUALIFIED, LeadStatus.HOT, LeadStatus.BRIEFING_SENT],
     href: "/crm/leads?status=QUALIFIED" as Route,
-    rank: 3,
+    rank: 4,
   },
   {
     key: "docs",
     label: "Unterlagen erhalten",
     statuses: [LeadStatus.DOC_READY],
     href: "/crm/leads?status=DOC_READY" as Route,
-    rank: 4,
+    rank: 5,
   },
   {
     key: "appointment",
     label: "Agenturtermin",
     statuses: [LeadStatus.AA_APPOINTMENT_PENDING, LeadStatus.AA_APPOINTMENT_DONE],
     href: "/crm/agenturtermine" as Route,
-    rank: 5,
+    rank: 6,
   },
   {
     key: "voucherPending",
     label: "Gutschein beantragt",
     statuses: [LeadStatus.GUTSCHEIN_PENDING],
     href: "/crm/bildungsgutschein?status=PENDING" as Route,
-    rank: 6,
+    rank: 7,
   },
   {
     key: "voucherApproved",
     label: "Gutschein erhalten",
     statuses: [LeadStatus.GUTSCHEIN_APPROVED],
     href: "/crm/bildungsgutschein?status=APPROVED" as Route,
-    rank: 7,
+    rank: 8,
   },
   {
     key: "enrolled",
     label: "Anmeldung",
     statuses: [LeadStatus.ENROLLED],
     href: "/crm/leads?status=ENROLLED" as Route,
-    rank: 8,
+    rank: 9,
   },
   {
     key: "started",
     label: "Weiterbildung gestartet",
     statuses: [LeadStatus.STARTED, LeadStatus.CLOSED],
     href: "/crm/leads?status=STARTED" as Route,
-    rank: 9,
+    rank: 10,
   },
 ];
 
@@ -145,11 +158,11 @@ export function AbschlussFunnel({ funnel }: { funnel: FunnelData }) {
         </div>
       </header>
 
-      <div className="grid grid-cols-3 gap-2 md:grid-cols-9">
+      <div className="grid grid-cols-3 gap-2 md:grid-cols-5 xl:grid-cols-10">
         {STAGES.map((stage) => {
           const value = funnel.stageCounts[stage.key] ?? 0;
           const ratio = value / maxCount;
-          const isWon = stage.rank >= 7;
+          const isWon = stage.rank >= 8;
           const isCold = value === 0;
           return (
             <Link

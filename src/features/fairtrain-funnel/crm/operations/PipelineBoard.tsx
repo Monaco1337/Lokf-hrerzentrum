@@ -16,12 +16,17 @@ export interface PipelineColumn {
   tone: "blue" | "amber" | "orange" | "violet" | "emerald" | "red" | "slate";
 }
 
-/** 12 board columns — the exact list from the operations brief. */
+/** Board columns — the ops pipeline incl. the event-driven engagement chain. */
 export const PIPELINE_COLUMNS: ReadonlyArray<PipelineColumn> = [
   { id: LeadStatus.NEW, label: "Neue Anfrage", hint: "Frisch eingegangen", tone: "blue" },
   { id: LeadStatus.CONTACT_PENDING, label: "Nicht erreicht", hint: "Erstversuch ohne Erfolg", tone: "amber" },
   { id: LeadStatus.CALL_SCHEDULED, label: "Rückruf geplant", hint: "Termin steht", tone: "amber" },
-  { id: LeadStatus.CONTACTED, label: "Erstgespräch", hint: "Erstkontakt erfolgt", tone: "blue" },
+  { id: LeadStatus.CONTACTED, label: "Kontaktiert", hint: "Erstkontakt erfolgt", tone: "blue" },
+  { id: LeadStatus.REPLIED, label: "Antwort erhalten", hint: "Lead hat geantwortet", tone: "violet" },
+  { id: LeadStatus.FORWARDED, label: "Weitergeleitet", hint: "Eignungscheck-Link gesendet", tone: "blue" },
+  { id: LeadStatus.LANDINGPAGE_OPENED, label: "Landingpage geöffnet", hint: "Link geöffnet", tone: "blue" },
+  { id: LeadStatus.FUNNEL_STARTED, label: "Funnel gestartet", hint: "Eignungscheck begonnen", tone: "violet" },
+  { id: LeadStatus.FUNNEL_COMPLETED, label: "Funnel abgeschlossen", hint: "Eignungscheck fertig", tone: "violet" },
   { id: LeadStatus.QUALIFIED, label: "Qualifiziert", hint: "Interesse + Eignung", tone: "violet" },
   { id: LeadStatus.DOC_PENDING, label: "Unterlagen offen", hint: "Wartet auf Bewerber", tone: "orange" },
   { id: LeadStatus.AA_APPOINTMENT_PENDING, label: "Agenturtermin offen", hint: "Termin koordinieren", tone: "orange" },

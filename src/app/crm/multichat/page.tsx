@@ -9,6 +9,7 @@
 import { requireCrmUser } from "@/server/actions/_helpers";
 import { getWhatsAppConfigStatus } from "@/server/services/messaging/whatsappService";
 import { loadMultichat } from "@/server/services/MultichatService";
+import { AutoRefresh } from "@/features/fairtrain-funnel/crm/operations/AutoRefresh";
 import { MultichatInbox } from "@/features/fairtrain-funnel/crm/messaging/MultichatInbox";
 
 export const dynamic = "force-dynamic";
@@ -17,5 +18,11 @@ export default async function MultichatPage() {
   await requireCrmUser();
   const live = getWhatsAppConfigStatus().isLive;
   const data = await loadMultichat(live);
-  return <MultichatInbox data={data} />;
+  return (
+    <>
+      {/* Near-real-time: pull new inbound messages + status changes in. */}
+      <AutoRefresh intervalMs={12000} />
+      <MultichatInbox data={data} />
+    </>
+  );
 }

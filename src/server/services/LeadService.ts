@@ -44,6 +44,7 @@ import { automationService } from "./AutomationService";
 import { REACTIVATION_CAMPAIGN_KEY } from "@/features/fairtrain-funnel/campaign/types";
 
 import { campaignStopService } from "./CampaignStopService";
+import { leadLifecycleService } from "./LeadLifecycleService";
 import { consentService, type ConsentContext } from "./ConsentService";
 import { fileUploadService } from "./FileUploadService";
 import { leadImportService } from "./LeadImportService";
@@ -287,6 +288,10 @@ export class LeadService {
           "eignungscheck_completed",
           "qualifiziert",
         );
+        // Single source of truth: the matched lead completed the Eignungscheck.
+        await leadLifecycleService.record(match.id, "FUNNEL_COMPLETED", {
+          actor: "self",
+        });
       }
     } catch (err) {
       // eslint-disable-next-line no-console

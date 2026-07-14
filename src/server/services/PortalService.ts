@@ -31,6 +31,7 @@ import { portalDocumentRepository } from "../repositories/PortalDocumentReposito
 import { portalLinkRepository } from "../repositories/PortalLinkRepository";
 import { auditLogService } from "./AuditLogService";
 import { fileUploadService } from "./FileUploadService";
+import { leadLifecycleService } from "./LeadLifecycleService";
 import { portalTokenService } from "./PortalTokenService";
 import { statusMachineService } from "./StatusMachineService";
 
@@ -51,6 +52,11 @@ const PRE_DOC_READY = new Set([
   "HOT",
   "CONTACT_PENDING",
   "CONTACTED",
+  "REPLIED",
+  "FORWARDED",
+  "LANDINGPAGE_OPENED",
+  "FUNNEL_STARTED",
+  "FUNNEL_COMPLETED",
   "CALL_SCHEDULED",
   "BRIEFING_SENT",
   "DOC_PENDING",
@@ -212,6 +218,10 @@ export class PortalService {
         entityId: leadId,
         details: { linkId: entry.id },
       });
+      // Single source of truth: the lead opened the landing/portal link.
+      await leadLifecycleService.record(leadId, "LANDINGPAGE_OPENED", {
+        actor: "applicant",
+      });
     }
 
     const lead = await leadRepository.findById(leadId);
@@ -304,6 +314,9 @@ export class PortalService {
       details: { kind, simulated: true },
     });
 
+    await leadLifecycleService.record(link.leadId, "FUNNEL_STARTED", {
+      actor: "applicant",
+    });
     const completion = await this.maybeComplete(link.entry.id, link.leadId);
     return { ok: true, completionPercent: completion };
   }
@@ -362,6 +375,9 @@ export class PortalService {
       details: { kind, fileId: persisted.id, simulated: false },
     });
 
+    await leadLifecycleService.record(link.leadId, "FUNNEL_STARTED", {
+      actor: "applicant",
+    });
     const completion = await this.maybeComplete(link.entry.id, link.leadId);
     return {
       ok: true,

@@ -21,7 +21,6 @@ import {
   CommunicationDirection,
   ConsentType,
   type CommunicationEntry,
-  LeadStatus,
   MESSAGE_STATUS_FLOW,
   type MessageSentByT,
   MessageStatus,
@@ -46,7 +45,21 @@ import type { LeadSummary } from "@/features/fairtrain-funnel/types";
 import { auditLogService } from "./AuditLogService";
 import { classifyOutboundSend } from "./LeadWhatsAppClassifier";
 import { consentService } from "./ConsentService";
-import { statusMachineService } from "./StatusMachineService";
+import { leadLifecycleService } from "./LeadLifecycleService";
+
+/**
+ * Does an outbound message point the lead at the Eignungscheck landing page or
+ * their tokenised portal? If so the send is a "forward to landing page" event,
+ * not just a first contact.
+ */
+function messageHasLandingLink(...parts: Array<string | null | undefined>): boolean {
+  const text = parts.filter(Boolean).join(" ").toLowerCase();
+  return (
+    text.includes("/eignungscheck") ||
+    text.includes("/bewerbung/") ||
+    text.includes("eignungscheck")
+  );
+}
 import { automationTemplateRepository } from "../repositories/AutomationTemplateRepository";
 import { communicationRepository } from "../repositories/CommunicationRepository";
 import { leadRepository } from "../repositories/LeadRepository";
@@ -366,8 +379,11 @@ export class MessageLedgerService {
       await this.trackOutboundWhatsapp(lead, delivery, now);
     }
     if (delivery.status !== MessageStatus.FAILED) {
-      if (isWhatsapp) {
-        await this.advanceOnWhatsappContact(lead.id, args.actorId);
+      // Email + WhatsApp both count as outreach; INTERNAL notes do not.
+      if (channel !== CommunicationChannel.INTERNAL) {
+        const forwarded =
+          usesUploadLink || messageHasLandingLink(body, subject);
+        await this.advanceLifecycleOnSend(lead.id, args.actorId, forwarded);
       }
       await this.applyTemplateSideEffect(template.category, lead.id, args.actorId);
     }
@@ -395,21 +411,22 @@ export class MessageLedgerService {
   }
 
   /**
-   * A successful outbound WhatsApp message IS first contact — advance the
-   * lead's pipeline status to CONTACTED so it leaves "Hot offen" / "Lead
-   * erhalten" and enters "Kontakt hergestellt". Forward-only and best-effort
-   * (never regresses, never touches terminal leads, never breaks the send).
+   * A successful outbound message advances the lead's pipeline status via the
+   * central lifecycle service: a message containing the Eignungscheck/portal
+   * link counts as "Zur Landingpage weitergeleitet", any other first message as
+   * "Kontaktiert". Forward-only + best-effort (never regresses, never touches
+   * terminal leads, never breaks the send).
    */
-  private async advanceOnWhatsappContact(
+  private async advanceLifecycleOnSend(
     leadId: string,
     actorId: string,
+    forwarded: boolean,
   ): Promise<void> {
-    await statusMachineService.advanceOnEngagement({
+    await leadLifecycleService.record(
       leadId,
-      target: LeadStatus.CONTACTED,
-      actor: actorId,
-      reason: "WhatsApp-Kontakt hergestellt",
-    });
+      forwarded ? "LINK_FORWARDED" : "MESSAGE_SENT",
+      { actor: actorId },
+    );
   }
 
   async sendText(args: SendTextArgs): Promise<CommunicationEntry> {
@@ -484,9 +501,13 @@ export class MessageLedgerService {
     });
     if (isWhatsapp) {
       await this.trackOutboundWhatsapp(lead, delivery, now);
-      if (delivery.status !== MessageStatus.FAILED) {
-        await this.advanceOnWhatsappContact(lead.id, args.actorId);
-      }
+    }
+    if (
+      delivery.status !== MessageStatus.FAILED &&
+      channel !== CommunicationChannel.INTERNAL
+    ) {
+      const forwarded = messageHasLandingLink(args.body);
+      await this.advanceLifecycleOnSend(lead.id, args.actorId, forwarded);
     }
     return entry;
   }

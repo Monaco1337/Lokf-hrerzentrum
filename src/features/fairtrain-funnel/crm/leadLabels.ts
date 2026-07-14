@@ -50,6 +50,31 @@ export const STATUS_TONE: Record<LeadStatus, Tone> = {
     dot: "bg-brand-600",
     pill: "bg-brand-50 text-brand-700 ring-brand-100",
   },
+  [LeadStatus.REPLIED]: {
+    label: "Antwort erhalten",
+    dot: "bg-accent-500",
+    pill: "bg-accent-50 text-accent-700 ring-accent-100",
+  },
+  [LeadStatus.FORWARDED]: {
+    label: "Zur Landingpage weitergeleitet",
+    dot: "bg-sky-500",
+    pill: "bg-sky-50 text-sky-700 ring-sky-100",
+  },
+  [LeadStatus.LANDINGPAGE_OPENED]: {
+    label: "Landingpage geöffnet",
+    dot: "bg-sky-600",
+    pill: "bg-sky-50 text-sky-700 ring-sky-100",
+  },
+  [LeadStatus.FUNNEL_STARTED]: {
+    label: "Funnel gestartet",
+    dot: "bg-violet-500",
+    pill: "bg-violet-50 text-violet-700 ring-violet-100",
+  },
+  [LeadStatus.FUNNEL_COMPLETED]: {
+    label: "Funnel abgeschlossen",
+    dot: "bg-violet-600",
+    pill: "bg-violet-50 text-violet-700 ring-violet-100",
+  },
   [LeadStatus.CALL_SCHEDULED]: {
     label: "Telefonat geplant",
     dot: "bg-brand-600",
