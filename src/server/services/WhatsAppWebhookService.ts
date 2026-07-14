@@ -19,6 +19,7 @@ import {
 } from "@/features/fairtrain-funnel/types";
 
 import { auditLogService } from "./AuditLogService";
+import { employmentSituationService } from "./EmploymentSituationService";
 import { leadLifecycleService } from "./LeadLifecycleService";
 import { whatsAppReplyClassificationService } from "./WhatsAppReplyClassificationService";
 import { campaignInboundService } from "./CampaignInboundService";
@@ -338,15 +339,31 @@ export class WhatsAppWebhookService {
     // webhook — or the retro/backfill run — never sends a duplicate message.
     // Best-effort so a failing rule never breaks webhook ingestion.
     try {
-      await whatsAppReplyClassificationService.classifyAndApply(
+      const replyInput = {
+        body: event.body,
+        buttonId: event.buttonId,
+        buttonTitle: event.buttonTitle,
+      };
+
+      // First: the "Beschäftigten-Statusabfrage" router. It intercepts replies
+      // that carry a concrete employment-situation signal (colour emoji, colour
+      // word or matching free text) and routes them into the correct follow-up
+      // (Vorab-Check / Rückruf / Beratung / Manuelle Klärung). Only when NO such
+      // signal is present does it hand back control to the generic reply
+      // classifier below — keeping every existing automation backward-compatible.
+      const routed = await employmentSituationService.classifyAndRoute(
         lead.id,
-        {
-          body: event.body,
-          buttonId: event.buttonId,
-          buttonTitle: event.buttonTitle,
-        },
-        { actor: "whatsapp-webhook", at: event.at, runAutomation: true },
+        replyInput,
+        { actor: "whatsapp-webhook", at: event.at },
       );
+
+      if (!routed.handled) {
+        await whatsAppReplyClassificationService.classifyAndApply(
+          lead.id,
+          replyInput,
+          { actor: "whatsapp-webhook", at: event.at, runAutomation: true },
+        );
+      }
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("[automation] reply classification / MESSAGE_INBOUND failed", {

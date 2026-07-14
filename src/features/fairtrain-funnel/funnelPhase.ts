@@ -22,6 +22,13 @@ export const FunnelPhase = {
   APPOINTMENT_SCHEDULED: "appointment_scheduled",
   QUALIFIED: "qualified",
   COMPLETED: "completed",
+  // Branches driven by the "Beschäftigten-Statusabfrage" reply classification.
+  // They are parallel routes (not a single linear path), used by the
+  // employment-situation router to place a lead into the correct follow-up.
+  WAITING_PRECHECK: "waiting_for_precheck",
+  CALLBACK_REQUIRED: "callback_required",
+  CONSULTATION_REQUIRED: "consultation_required",
+  MANUAL_CLARIFICATION: "manual_clarification",
 } as const;
 export type FunnelPhase = (typeof FunnelPhase)[keyof typeof FunnelPhase];
 
@@ -37,6 +44,10 @@ export const FUNNEL_PHASE_LABEL: Record<FunnelPhase, string> = {
   appointment_scheduled: "Termin vereinbart",
   qualified: "Qualifiziert",
   completed: "Abgeschlossen",
+  waiting_for_precheck: "Wartet auf Vorab-Check",
+  callback_required: "Rückruf erforderlich",
+  consultation_required: "Beratung erforderlich",
+  manual_clarification: "Manuelle Klärung",
 };
 
 /** Color tone per phase — mapped to Tailwind classes in the UI layer. */
@@ -51,6 +62,10 @@ export const FUNNEL_PHASE_TONE: Record<FunnelPhase, string> = {
   appointment_scheduled: "indigo",
   qualified: "emerald",
   completed: "emerald",
+  waiting_for_precheck: "amber",
+  callback_required: "rose",
+  consultation_required: "sky",
+  manual_clarification: "slate",
 };
 
 /**
@@ -68,6 +83,12 @@ export const FUNNEL_PHASE_RANK: Record<FunnelPhase, number> = {
   appointment_scheduled: 7,
   qualified: 8,
   completed: 9,
+  // Branch phases sit off the linear rank so they never register as
+  // "further along" than the real qualification progression.
+  waiting_for_precheck: 2,
+  callback_required: 2,
+  consultation_required: 2,
+  manual_clarification: 1,
 };
 
 const ALL_FUNNEL_PHASES = Object.values(FunnelPhase) as FunnelPhase[];

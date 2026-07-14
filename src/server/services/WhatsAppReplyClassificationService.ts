@@ -32,6 +32,7 @@ import {
   type EmploymentReplyInput,
   type EmploymentSituation,
 } from "./EmploymentReplyClassifier";
+import { employmentSituationService } from "./EmploymentSituationService";
 import { leadLifecycleService } from "./LeadLifecycleService";
 import { analyzeReply, REPLY_INTENT_LABEL } from "./ReplyIntentClassifier";
 import { communicationRepository } from "../repositories/CommunicationRepository";
@@ -234,6 +235,20 @@ export class WhatsAppReplyClassificationService {
         if (!body) {
           // No stored reply text to analyse — nothing to classify.
           summary.skipped += 1;
+          continue;
+        }
+
+        // First try the "Beschäftigten-Statusabfrage" router (colour emoji /
+        // word / matching free text). If it handled the reply, count it and
+        // move on — no legacy classification, no duplicate follow-up.
+        const routed = await employmentSituationService.classifyAndRoute(
+          id,
+          { body },
+          { actor: opts.actor, at },
+        );
+        if (routed.handled) {
+          if (routed.alreadyHandled) summary.skipped += 1;
+          else summary.processed += 1;
           continue;
         }
 
