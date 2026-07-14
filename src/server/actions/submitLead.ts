@@ -7,6 +7,7 @@
 import { SubmitLeadSchema } from "@/features/fairtrain-funnel/forms/schemas";
 
 import { ValidationError } from "../errors";
+import { leadLifecycleService } from "../services/LeadLifecycleService";
 import { leadService, type SubmitLeadResult } from "../services/LeadService";
 import { getRequestContext, runAction, type Result } from "./_helpers";
 
@@ -23,7 +24,7 @@ export async function submitLead(
     const input = parsed.data;
     const ctx = await getRequestContext();
 
-    return leadService.submit(
+    const result = await leadService.submit(
       {
         firstName: input.firstName,
         lastName: input.lastName,
@@ -69,5 +70,13 @@ export async function submitLead(
       },
       ctx,
     );
+
+    // The applicant just completed the public Eignungscheck → fire the
+    // "Funnel abgeschlossen" trigger and set the funnel phase. We deliberately
+    // do NOT force the pipeline status here (a fresh inbound website lead still
+    // needs first contact); the trigger + funnel phase update run best-effort.
+    await leadLifecycleService.emitFunnelEvent(result.leadId, "FUNNEL_COMPLETED");
+
+    return result;
   });
 }

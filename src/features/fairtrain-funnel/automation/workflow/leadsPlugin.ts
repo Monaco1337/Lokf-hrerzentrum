@@ -123,6 +123,29 @@ const triggers: CatalogEntry[] = [
     keywords: ["geprüft", "approved", "freigegeben", "dokument"],
     tier: "pro",
   }),
+  // Funnel / Eignungscheck
+  t({
+    id: "FUNNEL_STARTED",
+    label: "Funnel gestartet",
+    description:
+      "Löst aus, sobald der Lead den Eignungscheck / Funnel startet.",
+    category: "Funnel",
+    icon: "bolt",
+    tone: "violet",
+    keywords: ["funnel", "eignungscheck", "gestartet", "start", "begonnen"],
+    tier: "simple",
+  }),
+  t({
+    id: "FUNNEL_COMPLETED",
+    label: "Funnel abgeschlossen",
+    description:
+      "Löst aus, sobald der Lead den Eignungscheck / Funnel abschließt.",
+    category: "Funnel",
+    icon: "docCheck",
+    tone: "violet",
+    keywords: ["funnel", "eignungscheck", "abgeschlossen", "fertig", "complete"],
+    tier: "simple",
+  }),
   // Vertrieb
   t({
     id: "LEAD_STATUS_CHANGED",

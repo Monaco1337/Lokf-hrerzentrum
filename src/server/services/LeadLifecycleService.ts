@@ -15,9 +15,28 @@
  * Timeline + audit are produced by the underlying transition, so every event
  * that advances a lead automatically leaves a Zeitstrahl entry + audit record.
  */
+import {
+  FunnelPhase,
+  FUNNEL_PHASE_RANK,
+} from "@/features/fairtrain-funnel/funnelPhase";
 import { LeadStatus } from "@/features/fairtrain-funnel/types";
 
+import { leadRepository } from "../repositories/LeadRepository";
 import { statusMachineService } from "./StatusMachineService";
+
+/** Funnel lifecycle events that also carry a process (funnel) phase + trigger. */
+const FUNNEL_EVENT_PHASE: Partial<Record<LeadLifecycleEvent, FunnelPhase>> = {
+  FUNNEL_STARTED: FunnelPhase.ELIGIBILITY_STARTED,
+  FUNNEL_COMPLETED: FunnelPhase.ELIGIBILITY_COMPLETED,
+};
+
+/** Map the funnel lifecycle event onto its Automation-Builder trigger id. */
+const FUNNEL_EVENT_TRIGGER: Partial<
+  Record<LeadLifecycleEvent, "FUNNEL_STARTED" | "FUNNEL_COMPLETED">
+> = {
+  FUNNEL_STARTED: "FUNNEL_STARTED",
+  FUNNEL_COMPLETED: "FUNNEL_COMPLETED",
+};
 
 /** Real activities that can advance a lead. Named after what HAPPENED. */
 export type LeadLifecycleEvent =
@@ -58,12 +77,58 @@ export class LeadLifecycleService {
     event: LeadLifecycleEvent,
     opts?: { actor?: string; reason?: string },
   ): Promise<LeadStatus | null> {
-    return statusMachineService.advanceOnEngagement({
+    const status = await statusMachineService.advanceOnEngagement({
       leadId,
       target: EVENT_TARGET[event],
       actor: opts?.actor ?? "system",
       reason: opts?.reason ?? EVENT_REASON[event],
     });
+
+    // Funnel events additionally set the process phase and fire the matching
+    // Automation-Builder trigger (Funnel gestartet / abgeschlossen).
+    if (FUNNEL_EVENT_TRIGGER[event]) {
+      await this.emitFunnelEvent(leadId, event);
+    }
+
+    return status;
+  }
+
+  /**
+   * Set the funnel process phase (forward-only) and fire the corresponding
+   * Automation-Builder trigger. Best-effort: a failure here never breaks the
+   * caller or the status transition. Also usable directly (e.g. the public
+   * Eignungscheck submit) when only the funnel event should fire without
+   * advancing the pipeline status.
+   */
+  async emitFunnelEvent(
+    leadId: string,
+    event: LeadLifecycleEvent,
+  ): Promise<void> {
+    const phase = FUNNEL_EVENT_PHASE[event];
+    const trigger = FUNNEL_EVENT_TRIGGER[event];
+    if (!phase || !trigger) return;
+
+    // Forward-only funnel phase: never regress a lead's process phase.
+    try {
+      const lead = await leadRepository.findById(leadId);
+      const currentRank = lead?.funnelPhase
+        ? FUNNEL_PHASE_RANK[lead.funnelPhase] ?? 0
+        : 0;
+      if (FUNNEL_PHASE_RANK[phase] > currentRank) {
+        await leadRepository.update(leadId, { funnelPhase: phase });
+      }
+    } catch {
+      // best-effort phase update
+    }
+
+    // Fire the automation trigger (dynamic import breaks the import cycle
+    // LeadLifecycle → Engine → …services… → LeadLifecycle).
+    try {
+      const { automationRuleEngine } = await import("./AutomationRuleEngine");
+      await automationRuleEngine.runForTrigger(trigger, leadId);
+    } catch {
+      // best-effort trigger
+    }
   }
 }
 
