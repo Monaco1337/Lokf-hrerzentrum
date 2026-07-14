@@ -510,8 +510,8 @@ export function TemplateEditorModal({
                       </div>
                       <input
                         className="input mt-2"
-                        placeholder="Button-Text (max. 25 Zeichen)"
-                        maxLength={25}
+                        placeholder="Button-Text (max. 40 Zeichen)"
+                        maxLength={40}
                         value={b.text}
                         onChange={(e) => updateButton(i, { text: e.target.value })}
                       />

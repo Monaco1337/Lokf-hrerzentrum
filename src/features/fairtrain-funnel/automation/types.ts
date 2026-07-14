@@ -175,7 +175,7 @@ export interface MetaTemplateButton {
 
 export const MetaTemplateButtonSchema = z.object({
   type: z.enum(META_BUTTON_TYPES),
-  text: z.string().min(1).max(25),
+  text: z.string().min(1).max(40),
   url: z.string().max(2000).optional(),
   phoneNumber: z.string().max(30).optional(),
   payload: z.string().max(500).optional(),
