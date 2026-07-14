@@ -12,7 +12,7 @@ import {
   setAutomationRuleStatus,
   simulateAutomationRule,
 } from "@/server/actions/automationRules";
-import type { BackfillSummary } from "@/server/services/WhatsAppReplyClassificationService";
+import type { BackfillSummary } from "@/features/fairtrain-funnel/automation/types";
 import {
   ACTION_LABEL,
   RULE_STATUS_LABEL,

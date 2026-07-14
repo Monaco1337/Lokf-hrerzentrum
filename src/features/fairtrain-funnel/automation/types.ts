@@ -181,6 +181,25 @@ export const MetaTemplateButtonSchema = z.object({
   payload: z.string().max(500).optional(),
 });
 
+/**
+ * Result of retroactively classifying unhandled WhatsApp replies (backfill).
+ * Lives in the shared feature types so the CRM UI can display it without
+ * importing from the server (which is restricted).
+ */
+export interface BackfillSummary {
+  /** Leads examined (had a WhatsApp reply). */
+  total: number;
+  /** Newly classified + follow-up started. */
+  processed: number;
+  /** Already classified / no reply body → left untouched. */
+  skipped: number;
+  /** Leads that errored during processing. */
+  errors: number;
+  employed: number;
+  job_seeking: number;
+  other: number;
+}
+
 export interface AutomationTemplateEntry {
   id: string;
   slug: string;

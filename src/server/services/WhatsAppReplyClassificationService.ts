@@ -13,6 +13,7 @@
  * fires. Every classification is written to the audit log + lead timeline.
  */
 import { AuditAction } from "@/features/fairtrain-funnel/types";
+import type { BackfillSummary } from "@/features/fairtrain-funnel/automation/types";
 
 import { auditLogService } from "./AuditLogService";
 import {
@@ -45,19 +46,7 @@ export interface ClassificationResult {
   context: InboundEventContext;
 }
 
-export interface BackfillSummary {
-  /** Leads examined (had a WhatsApp reply). */
-  total: number;
-  /** Newly classified + follow-up started. */
-  processed: number;
-  /** Already classified / no reply body → left untouched. */
-  skipped: number;
-  /** Leads that errored during processing. */
-  errors: number;
-  employed: number;
-  job_seeking: number;
-  other: number;
-}
+export type { BackfillSummary };
 
 interface ApplyOpts {
   actor: string;
