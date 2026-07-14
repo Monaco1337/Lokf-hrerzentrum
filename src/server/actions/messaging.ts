@@ -129,6 +129,11 @@ export async function sendTemplateMessage(
       templateId: parsed.data.templateId,
       actorId: actor.id,
       sentBy: "ADMIN",
+      // Operator-initiated send (canManageLeads). Alt-Leads from other ad
+      // sources have no explicit WhatsApp opt-in, and a human is deliberately
+      // reaching out (e.g. Reaktivierung Erstkontakt) — mirror the manual reply
+      // + campaign behaviour. The opt-out block stays fully enforced upstream.
+      bypassConsent: true,
     });
     revalidateCommunication(parsed.data.leadId);
     // A real (non-demo) send that failed must surface the provider reason to

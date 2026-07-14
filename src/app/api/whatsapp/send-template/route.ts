@@ -49,6 +49,9 @@ export async function POST(req: Request): Promise<Response> {
       templateId: parsed.data.templateId,
       actorId: user.id,
       sentBy: "ADMIN",
+      // Operator-initiated (canManageLeads): mirror the server action + campaign
+      // and skip the WhatsApp consent gate. Opt-out is still enforced upstream.
+      bypassConsent: true,
     });
     return NextResponse.json({
       ok: true,
