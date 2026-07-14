@@ -21,7 +21,7 @@ export default async function MultichatPage() {
   return (
     <>
       {/* Near-real-time: pull new inbound messages + status changes in. */}
-      <AutoRefresh intervalMs={12000} />
+      <AutoRefresh intervalMs={30000} />
       <MultichatInbox data={data} />
     </>
   );
