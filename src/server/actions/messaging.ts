@@ -112,6 +112,35 @@ const SendTemplateSchema = z.object({
   templateId: z.string().min(1),
 });
 
+const ResendFailedSchema = z.object({
+  limit: z.number().int().positive().max(1000).optional(),
+});
+
+/**
+ * One-click bulk resend: replays the last FAILED WhatsApp template for every
+ * lead whose most recent outbound WhatsApp message failed. Operator-initiated
+ * (canManageLeads); opt-out is still enforced per lead.
+ */
+export async function resendFailedWhatsappMessages(
+  raw: unknown = {},
+): Promise<Result<{ total: number; attempted: number; sent: number; failed: number }>> {
+  return runAction(async () => {
+    const parsed = ResendFailedSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new ValidationError("Ungültige Angabe", {
+        issues: parsed.error.issues,
+      });
+    }
+    const actor = await requirePermission("canManageLeads");
+    const result = await messageLedgerService.resendFailedWhatsapp(
+      actor.id,
+      parsed.data.limit === undefined ? {} : { limit: parsed.data.limit },
+    );
+    revalidateCommunication();
+    return result;
+  });
+}
+
 export async function sendTemplateMessage(
   raw: unknown,
 ): Promise<Result<{ id: string }>> {

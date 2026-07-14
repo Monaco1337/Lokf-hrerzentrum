@@ -411,6 +411,43 @@ export class MessageLedgerService {
   }
 
   /**
+   * Bulk-resend every lead whose most recent outbound WhatsApp message FAILED,
+   * replaying the exact template that failed. Operator-initiated (bypasses the
+   * consent gate like the manual send); the opt-out block still applies per
+   * lead inside sendTemplate. Per-lead errors are isolated so one bad lead never
+   * aborts the batch. `limit` caps how many are attempted in one run.
+   */
+  async resendFailedWhatsapp(
+    actorId: string,
+    opts: { limit?: number } = {},
+  ): Promise<{ total: number; attempted: number; sent: number; failed: number }> {
+    const targets =
+      await communicationRepository.leadsWithLatestFailedWhatsappTemplate();
+    const slice =
+      opts.limit && opts.limit > 0 ? targets.slice(0, opts.limit) : targets;
+    let sent = 0;
+    let failed = 0;
+    for (const t of slice) {
+      try {
+        const entry = await this.sendTemplate({
+          leadId: t.leadId,
+          templateId: t.templateId,
+          actorId,
+          sentBy: "ADMIN",
+          bypassConsent: true,
+        });
+        if (entry.status === MessageStatus.FAILED) failed += 1;
+        else sent += 1;
+      } catch {
+        // Opt-out, missing sender, unapproved template, transient errors — count
+        // as failed and keep going so the rest of the batch still sends.
+        failed += 1;
+      }
+    }
+    return { total: targets.length, attempted: slice.length, sent, failed };
+  }
+
+  /**
    * A successful outbound message advances the lead's pipeline status via the
    * central lifecycle service: a message containing the Eignungscheck/portal
    * link counts as "Zur Landingpage weitergeleitet", any other first message as

@@ -222,6 +222,33 @@ export class CommunicationRepository {
     return rows.map((r) => mapRow(r as CommRow));
   }
 
+  /**
+   * Leads whose MOST RECENT outbound WhatsApp message is a FAILED template send.
+   * Used for a one-click bulk resend: we only take the latest event per lead so
+   * we never resend to someone whose later attempt already succeeded. Returns
+   * the template to replay for each lead.
+   */
+  async leadsWithLatestFailedWhatsappTemplate(
+    scan = 5000,
+  ): Promise<Array<{ leadId: string; templateId: string }>> {
+    const rows = await prisma.communicationEvent.findMany({
+      where: { channel: "WHATSAPP", direction: "OUT" },
+      orderBy: { createdAt: "desc" },
+      select: { leadId: true, status: true, type: true, templateId: true },
+      take: scan,
+    });
+    const seen = new Set<string>();
+    const out: Array<{ leadId: string; templateId: string }> = [];
+    for (const r of rows) {
+      if (seen.has(r.leadId)) continue; // only the newest event per lead
+      seen.add(r.leadId);
+      if (r.status === "FAILED" && r.type === "TEMPLATE" && r.templateId) {
+        out.push({ leadId: r.leadId, templateId: r.templateId });
+      }
+    }
+    return out;
+  }
+
   /** Global recent messages across all leads — drives the hub. */
   async listRecent(limit = 300): Promise<CommunicationEntry[]> {
     const rows = await prisma.communicationEvent.findMany({

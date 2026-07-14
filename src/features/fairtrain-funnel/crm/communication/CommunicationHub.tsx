@@ -8,7 +8,8 @@
  */
 import Link from "next/link";
 import type { Route } from "next";
-import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
 
 import {
   COMMUNICATION_CHANNEL_LABEL,
@@ -17,6 +18,7 @@ import {
   type MessageSentByT,
   type MessageStatusT,
 } from "@/features/fairtrain-funnel/types";
+import { resendFailedWhatsappMessages } from "@/server/actions/messaging";
 
 export interface HubStatusChange {
   status: MessageStatusT;
@@ -120,6 +122,38 @@ interface Conversation {
 export function CommunicationHub({ messages }: { messages: HubMessage[] }) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [open, setOpen] = useState<string | null>(null);
+  const router = useRouter();
+  const [resending, startResend] = useTransition();
+  const [resendNote, setResendNote] = useState<string | null>(null);
+
+  const failedWhatsapp = useMemo(
+    () =>
+      messages.filter(
+        (m) =>
+          m.channel === "WHATSAPP" &&
+          m.direction === "OUT" &&
+          m.status === "FAILED",
+      ).length,
+    [messages],
+  );
+
+  const runResend = () => {
+    setResendNote(null);
+    startResend(async () => {
+      const res = await resendFailedWhatsappMessages({});
+      if (!res.ok) {
+        setResendNote(res.message ?? "Erneuter Versand fehlgeschlagen.");
+        return;
+      }
+      const { sent, failed, total } = res.data;
+      setResendNote(
+        total === 0
+          ? "Keine fehlgeschlagenen WhatsApp-Nachrichten gefunden."
+          : `${sent} erneut gesendet${failed > 0 ? `, ${failed} weiterhin fehlgeschlagen` : ""}.`,
+      );
+      router.refresh();
+    });
+  };
 
   const counts = useMemo(() => {
     const c = {} as Record<FilterKey, number>;
@@ -164,9 +198,39 @@ export function CommunicationHub({ messages }: { messages: HubMessage[] }) {
             Alle Konversationen nach Bewerber gruppiert · simulierte Demo-Schicht
           </p>
         </div>
-        <span className="inline-flex items-center rounded-full bg-surface-subtle/80 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-ink-soft ring-1 ring-ink/10">
-          {conversations.length} Threads
-        </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {resendNote ? (
+            <span className="text-[11.5px] text-ink-soft">{resendNote}</span>
+          ) : null}
+          {failedWhatsapp > 0 ? (
+            <button
+              type="button"
+              onClick={runResend}
+              disabled={resending}
+              className="inline-flex items-center gap-1.5 rounded-full bg-rose-600 px-3 py-1 text-[12px] font-semibold text-white shadow-sm transition hover:bg-rose-700 disabled:opacity-50"
+            >
+              <svg
+                className={["h-3.5 w-3.5", resending ? "animate-spin" : ""].join(" ")}
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                <path d="M21 3v6h-6" />
+              </svg>
+              {resending
+                ? "Sende erneut…"
+                : "Fehlgeschlagene WhatsApp erneut senden"}
+            </button>
+          ) : null}
+          <span className="inline-flex items-center rounded-full bg-surface-subtle/80 px-2.5 py-1 text-[12px] font-semibold tabular-nums text-ink-soft ring-1 ring-ink/10">
+            {conversations.length} Threads
+          </span>
+        </div>
       </header>
 
       <div className="mb-4 flex flex-wrap gap-1.5">
