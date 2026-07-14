@@ -20,6 +20,10 @@ import { ValidationError } from "../errors";
 import { automationRuleRepository } from "../repositories/AutomationRuleRepository";
 import { auditLogRepository } from "../repositories/AuditLogRepository";
 import { automationRuleEngine } from "../services/AutomationRuleEngine";
+import {
+  whatsAppReplyClassificationService,
+  type BackfillSummary,
+} from "../services/WhatsAppReplyClassificationService";
 import { requirePermission, runAction, type Result } from "./_helpers";
 
 const RuleBodySchema = z.object({
@@ -162,6 +166,35 @@ export async function simulateAutomationRule(
     );
     revalidatePath("/crm/automation");
     return { runId: run.id, status: run.status, summary: run.summary };
+  });
+}
+
+const BackfillSchema = z.object({
+  limit: z.number().int().min(1).max(10000).optional(),
+});
+
+/**
+ * Retro/backfill: process every already-received WhatsApp reply that was never
+ * classified — classify (Quick-Reply + free text), set situation tags + funnel
+ * phase, and start the matching follow-up automation. Idempotent: leads that
+ * already carry a situation tag are skipped, so no message is ever sent twice.
+ * Afterwards the system continues in normal live mode automatically.
+ */
+export async function backfillWhatsappReplies(
+  raw: unknown,
+): Promise<Result<BackfillSummary>> {
+  return runAction(async () => {
+    const parsed = BackfillSchema.safeParse(raw ?? {});
+    if (!parsed.success) throw new ValidationError("Ungültige Anfrage");
+    const actor = await requirePermission("canManageAutomations");
+    const summary = await whatsAppReplyClassificationService.backfillUnprocessedReplies({
+      actor: actor.id,
+      ...(parsed.data.limit === undefined ? {} : { limit: parsed.data.limit }),
+    });
+    revalidatePath("/crm/automation");
+    revalidatePath("/crm/multichat");
+    revalidatePath("/crm");
+    return summary;
   });
 }
 

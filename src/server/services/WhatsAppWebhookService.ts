@@ -20,7 +20,7 @@ import {
 
 import { auditLogService } from "./AuditLogService";
 import { leadLifecycleService } from "./LeadLifecycleService";
-import { automationRuleEngine } from "./AutomationRuleEngine";
+import { whatsAppReplyClassificationService } from "./WhatsAppReplyClassificationService";
 import { campaignInboundService } from "./CampaignInboundService";
 import {
   isOptOutMessage,
@@ -331,15 +331,28 @@ export class WhatsAppWebhookService {
       await leadRepository.update(lead.id, { nextFollowUpAt: soon });
     }
 
-    // Event-driven workflow rules bound to "Antwort erhalten". Best-effort so a
-    // failing rule never breaks webhook ingestion.
+    // Classify the reply (Quick-Reply / free text → beschäftigt / arbeitssuchend
+    // / sonstige) and run the "Antwort erhalten" (MESSAGE_INBOUND) workflow rules
+    // WITH the reply context so they can branch on the concrete answer. Both are
+    // idempotent per lead (a situation tag gates re-processing), so a repeated
+    // webhook — or the retro/backfill run — never sends a duplicate message.
+    // Best-effort so a failing rule never breaks webhook ingestion.
     try {
-      await automationRuleEngine.runForTrigger("MESSAGE_INBOUND", lead.id, {
-        actor: "whatsapp-webhook",
-      });
+      await whatsAppReplyClassificationService.classifyAndApply(
+        lead.id,
+        {
+          body: event.body,
+          buttonId: event.buttonId,
+          buttonTitle: event.buttonTitle,
+        },
+        { actor: "whatsapp-webhook", at: event.at, runAutomation: true },
+      );
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error("[automation] rule MESSAGE_INBOUND failed", { leadId: lead.id, err });
+      console.error("[automation] reply classification / MESSAGE_INBOUND failed", {
+        leadId: lead.id,
+        err,
+      });
     }
   }
 }

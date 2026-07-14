@@ -22,6 +22,7 @@ import {
   AutomationLogStatus,
   AutomationTrigger,
   CommunicationChannel,
+  ContactState,
   type AutomationLogEntry,
   type AutomationTemplateEntry,
   type ConsentState,
@@ -50,6 +51,7 @@ import {
   executeWhatsappSend,
 } from "./AutomationExecutor";
 import { consentService } from "./ConsentService";
+import { contactGuardService } from "./ContactGuardService";
 import { portalService } from "./PortalService";
 
 export interface AutomationPreviewResult {
@@ -495,6 +497,28 @@ export class AutomationService {
       });
     }
 
+    // Contact-protection gate (Kontaktschutz): never auto-send (WhatsApp OR
+    // e-mail) to a lead a human already handled and that now waits for the
+    // applicant to act. Logged as a controlled skip so the trail shows why.
+    if (!isTest) {
+      const guard = contactGuardService.evaluate(lead);
+      if (guard.blocked) {
+        return automationLogRepository.append({
+          leadId: lead.id,
+          templateId: template.id,
+          trigger: template.trigger,
+          channel: template.channel,
+          status: AutomationLogStatus.SKIPPED,
+          renderedSubject: template.subject,
+          renderedBody: template.body,
+          errorCode: "CONTACT_PROTECTED",
+          errorMessage: guard.reason ?? "Kontaktschutz aktiv",
+          isTest,
+          triggeredBy,
+        });
+      }
+    }
+
     const needsUploadLink =
       UPLOAD_LINK_PATTERN.test(template.body) ||
       (template.subject != null && UPLOAD_LINK_PATTERN.test(template.subject));
@@ -749,6 +773,11 @@ export class AutomationService {
       optOutAt: null,
       whatsappMarketing: true,
       tags: [],
+      contactState: ContactState.NONE,
+      reactivationExcluded: false,
+      lastManualContactAt: null,
+      lastManualContactBy: null,
+      lastManualContactChannel: null,
       leadType: "neu",
       campaign: null,
       campaignStatus: null,

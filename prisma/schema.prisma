@@ -107,6 +107,18 @@ model Lead {
   whatsappMarketing    Boolean   @default(true)
   tags                 String[]  @default([])
 
+  // Contact protection (added 2026-07-14). A lead being handled by a human
+  // (call / Multichat) that now waits for the applicant to act must NOT receive
+  // any further automatic reactivation / follow-up / WhatsApp / e-mail.
+  // `contactState` is a SEPARATE German handling lifecycle; it never touches
+  // `status` (pipeline) or `campaignStatus`. `reactivationExcluded` hard-blocks
+  // the lead from any future campaign, independent of contactState.
+  contactState             String    @default("none") // ContactState enum
+  reactivationExcluded     Boolean   @default(false)
+  lastManualContactAt      DateTime?
+  lastManualContactBy      String? // user id who last handled the lead manually
+  lastManualContactChannel String? // "whatsapp" | "phone" | "multichat" | …
+
   // Reactivation campaign layer (added 2026-07-09). Additive to the pipeline
   // status/state-machine — `campaignStatus` is a SEPARATE German lifecycle for
   // the Alt-Lead reactivation flow and never touches `status`.
@@ -169,6 +181,8 @@ model Lead {
   @@index([whatsappStatus])
   @@index([leadQualityStatus])
   @@index([optOut])
+  @@index([contactState])
+  @@index([reactivationExcluded])
   @@index([leadType])
   @@index([campaign])
   @@index([campaignStatus])

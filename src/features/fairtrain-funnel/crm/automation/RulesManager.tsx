@@ -7,10 +7,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import {
+  backfillWhatsappReplies,
   deleteAutomationRule,
   setAutomationRuleStatus,
   simulateAutomationRule,
 } from "@/server/actions/automationRules";
+import type { BackfillSummary } from "@/server/services/WhatsAppReplyClassificationService";
 import {
   ACTION_LABEL,
   RULE_STATUS_LABEL,
@@ -38,6 +40,25 @@ export function RulesManager({ rules, templates, users, previewLeads, runLogs }:
   const [editing, setEditing] = useState<AutomationRuleEntry | null>(null);
   const [simLead, setSimLead] = useState(previewLeads[0]?.id ?? "");
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [backfill, setBackfill] = useState<BackfillSummary | null>(null);
+  const [backfillErr, setBackfillErr] = useState<string | null>(null);
+
+  function runBackfill() {
+    if (
+      !window.confirm(
+        "Vorhandene WhatsApp-Antworten jetzt nachträglich verarbeiten? Bereits klassifizierte Leads werden übersprungen – es werden keine doppelten Nachrichten gesendet.",
+      )
+    )
+      return;
+    setBackfill(null);
+    setBackfillErr(null);
+    start(async () => {
+      const res = await backfillWhatsappReplies({});
+      if (res.ok) setBackfill(res.data);
+      else setBackfillErr(res.message);
+      router.refresh();
+    });
+  }
 
   function toggle(r: AutomationRuleEntry) {
     start(async () => {
@@ -83,15 +104,51 @@ export function RulesManager({ rules, templates, users, previewLeads, runLogs }:
             {previewLeads.map((l) => <option key={l.id} value={l.id}>{l.label}</option>)}
           </select>
         </div>
-        <button
-          type="button"
-          onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm hover:bg-brand-700"
-        >
-          <PlusIcon className="h-4 w-4" />
-          Neue Automation
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={runBackfill}
+            title="Bereits erhaltene WhatsApp-Antworten nachträglich klassifizieren und passende Folge-Automationen starten. Idempotent – keine doppelten Nachrichten."
+            className="inline-flex items-center gap-2 rounded-xl bg-surface-subtle px-4 py-2 text-[13px] font-semibold text-ink ring-1 ring-ink/10 hover:bg-accent-50 hover:text-accent-900 disabled:opacity-50"
+          >
+            <HistoryIcon className="h-4 w-4" />
+            Vorhandene Antworten nachträglich verarbeiten
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreating(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm hover:bg-brand-700"
+          >
+            <PlusIcon className="h-4 w-4" />
+            Neue Automation
+          </button>
+        </div>
       </div>
+
+      {backfillErr ? (
+        <div className="rounded-xl bg-rose-50 px-4 py-2.5 text-[13px] font-medium text-rose-700 ring-1 ring-rose-200">
+          {backfillErr}
+        </div>
+      ) : null}
+
+      {backfill ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 px-5 py-4">
+          <p className="mb-2 text-[13px] font-semibold text-emerald-900">
+            Nachverarbeitung abgeschlossen — das System läuft wieder im Live-Modus.
+          </p>
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-[13px] text-emerald-800 sm:grid-cols-3">
+            <li>✔ {backfill.processed} Antworten verarbeitet</li>
+            <li>✔ {backfill.employed} Beschäftigt</li>
+            <li>✔ {backfill.job_seeking} Arbeitssuchend</li>
+            <li>✔ {backfill.other} Sonstige Situation</li>
+            <li>✔ {backfill.skipped} übersprungen (bereits klassifiziert)</li>
+            <li className={backfill.errors > 0 ? "text-rose-700" : ""}>
+              ✔ {backfill.errors} Fehler
+            </li>
+          </ul>
+        </div>
+      ) : null}
 
       {flash ? (
         <div className={[
@@ -308,4 +365,5 @@ const MailIcon   = ic(<><rect x="2" y="4" width="20" height="16" rx="2"/><path d
 const CheckIcon  = ic(<><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></>);
 const ArrowIcon  = ic(<><path d="M5 12h14M12 5l7 7-7 7"/></>);
 const PlusIcon   = ic(<><path d="M12 5v14M5 12h14"/></>);
+const HistoryIcon= ic(<><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></>);
 const TrashIcon  = ic(<><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></>);

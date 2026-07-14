@@ -8,6 +8,8 @@
  */
 import { z } from "zod";
 
+import type { ContactState } from "../contactState";
+
 // ---------------------------------------------------------------------------
 // Message type.
 // ---------------------------------------------------------------------------
@@ -313,6 +315,12 @@ export interface MultichatConversation {
   hasNewReply: boolean;
   /** Lead has opted out of WhatsApp (stop keyword). No sends allowed. */
   optOut: boolean;
+  /** Contact-protection handling state (Kontaktschutz). */
+  contactState: ContactState;
+  /** Whether automations are currently paused for this lead. */
+  automationPaused: boolean;
+  /** When the lead was last handled manually (call/Multichat), if ever. */
+  lastManualContactAt: string | null;
   lastAt: string;
   preview: string;
   unread: number;

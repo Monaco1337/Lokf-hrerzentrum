@@ -94,6 +94,10 @@ const ACTION_PHRASE: Record<AuditAction, { verb: string; tint: string; dot: stri
   WORKFLOW_AUTOMATION: { verb: "Automatische Aktion", tint: "text-emerald-300", dot: "bg-emerald-500" },
   WHATSAPP_OPT_OUT: { verb: "WhatsApp abgemeldet (Opt-out)", tint: "text-red-300", dot: "bg-red-500" },
   WHATSAPP_SEND_SKIPPED_OPT_OUT: { verb: "WhatsApp übersprungen (Opt-out)", tint: "text-zinc-300", dot: "bg-zinc-500" },
+  WHATSAPP_REPLY_CLASSIFIED: { verb: "Antwort klassifiziert", tint: "text-emerald-300", dot: "bg-emerald-500" },
+  WHATSAPP_REPLIES_BACKFILL: { verb: "Antworten nachverarbeitet", tint: "text-violet-300", dot: "bg-violet-500" },
+  LEAD_CONTACT_PROTECTED: { verb: "Kontaktschutz gesetzt", tint: "text-amber-300", dot: "bg-amber-500" },
+  SEND_SKIPPED_CONTACT_PROTECTED: { verb: "Versand übersprungen (Kontaktschutz)", tint: "text-zinc-300", dot: "bg-zinc-500" },
 };
 
 function entityHref(e: AuditLogEntry): Route | null {

@@ -34,7 +34,55 @@ import { leadRepository } from "../repositories/LeadRepository";
 import { taskRepository } from "../repositories/TaskRepository";
 import { userRepository } from "../repositories/UserRepository";
 import { consentService } from "./ConsentService";
+import {
+  classifyEmploymentQuickReply,
+  classifyEmploymentReply,
+  SITUATION_LABEL,
+  type EmploymentSituation,
+} from "./EmploymentReplyClassifier";
 import { statusMachineService } from "./StatusMachineService";
+
+/**
+ * Context of the inbound reply that fired a MESSAGE_INBOUND run. Lets rules
+ * branch on the concrete answer (quick-reply / free text / detected situation).
+ * Absent for non-inbound triggers and for simulation/testmode — the reply
+ * conditions then simply evaluate to "not met", so existing rules are unaffected.
+ */
+export interface InboundEventContext {
+  replyReceived: boolean;
+  body: string;
+  buttonId?: string | undefined;
+  buttonTitle?: string | undefined;
+  quickReplySituation: EmploymentSituation | null;
+  detectedSituation: EmploymentSituation;
+}
+
+/** Build an engine event context from a raw inbound reply. */
+export function buildInboundEventContext(input: {
+  body?: string | undefined;
+  buttonId?: string | undefined;
+  buttonTitle?: string | undefined;
+}): InboundEventContext {
+  return {
+    replyReceived: true,
+    body: input.body ?? "",
+    buttonId: input.buttonId,
+    buttonTitle: input.buttonTitle,
+    quickReplySituation: classifyEmploymentQuickReply(input),
+    detectedSituation: classifyEmploymentReply(input).situation,
+  };
+}
+
+function foldText(input: string | undefined): string {
+  return (input ?? "")
+    .toLowerCase()
+    .replace(/ä/g, "ae")
+    .replace(/ö/g, "oe")
+    .replace(/ü/g, "ue")
+    .replace(/ß/g, "ss")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 interface ConditionResult {
   type: string;
@@ -74,7 +122,7 @@ export class AutomationRuleEngine {
   async runForTrigger(
     trigger: AutomationTrigger,
     leadId: string,
-    opts: { actor?: string } = {},
+    opts: { actor?: string; event?: InboundEventContext } = {},
   ): Promise<AutomationRunLogEntry[]> {
     const rules = await automationRuleRepository.listActiveByTrigger(trigger);
     const executable = rules.filter((r) => r.runMode !== "demo");
@@ -91,7 +139,7 @@ export class AutomationRuleEngine {
     for (const rule of executable) {
       const dryRun = rule.runMode === "simulation";
       const conditions = rule.conditions.map((c) =>
-        this.evalCondition(c, lead, consents, isDemoLead),
+        this.evalCondition(c, lead, consents, isDemoLead, opts.event),
       );
       const allPassed = conditions.every((c) => c.passed);
 
@@ -263,6 +311,7 @@ export class AutomationRuleEngine {
     lead: LeadDetail,
     consents: ConsentState[],
     isDemoLead: boolean,
+    event?: InboundEventContext,
   ): ConditionResult {
     const granted = (t: string) =>
       consents.find((x) => x.type === t)?.granted ?? false;
@@ -270,6 +319,47 @@ export class AutomationRuleEngine {
       d ? (Date.now() - d.getTime()) / 3_600_000 : Number.POSITIVE_INFINITY;
 
     switch (c.type) {
+      case "whatsappReplyReceived": {
+        const passed = event?.replyReceived === true;
+        return {
+          type: c.type,
+          passed,
+          note: passed ? "Antwort liegt vor" : "keine eingehende Antwort im Kontext",
+        };
+      }
+      case "quickReplySelection": {
+        const want = String(c.value ?? "") as EmploymentSituation;
+        const got = event?.quickReplySituation ?? null;
+        const passed = got !== null && got === want;
+        return {
+          type: c.type,
+          passed,
+          note: got
+            ? `Button: ${SITUATION_LABEL[got] ?? got}`
+            : "kein Quick-Reply-Button erkannt",
+        };
+      }
+      case "detectedSituation": {
+        const want = String(c.value ?? "") as EmploymentSituation;
+        const got = event?.detectedSituation ?? null;
+        const passed = got !== null && got === want;
+        return {
+          type: c.type,
+          passed,
+          note: got ? `erkannt: ${SITUATION_LABEL[got] ?? got}` : "keine Antwort im Kontext",
+        };
+      }
+      case "replyTextEquals": {
+        const passed =
+          event != null && foldText(event.body) === foldText(String(c.value ?? ""));
+        return { type: c.type, passed };
+      }
+      case "replyTextContains": {
+        const needle = foldText(String(c.value ?? ""));
+        const passed =
+          event != null && needle.length > 0 && foldText(event.body).includes(needle);
+        return { type: c.type, passed };
+      }
       case "hasWhatsappConsent":
         return { type: c.type, passed: granted("WHATSAPP") };
       case "hasEmailConsent":

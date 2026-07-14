@@ -15,10 +15,12 @@ describe("statusMachine", () => {
     ).toBe(true);
   });
 
-  it("forbids NEW -> CONTACTED (must qualify first)", () => {
+  it("allows NEW -> CONTACTED (event-driven engagement chain, forward-only)", () => {
+    // Engagement is real-signal driven and can advance directly from NEW when a
+    // message goes out before the lead was manually qualified.
     expect(
       isTransitionAllowed(LeadStatus.NEW, LeadStatus.CONTACTED),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("allows HOT -> CONTACTED", () => {

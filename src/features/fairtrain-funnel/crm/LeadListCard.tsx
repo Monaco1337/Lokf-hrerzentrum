@@ -18,6 +18,7 @@ import {
   type LeadUrgency,
   type NextBestAction,
 } from "../types";
+import { ContactStateBadge } from "./ContactStateBadge";
 import { InlineDeleteControl } from "./InlineDeleteControl";
 import { LeadRowActions } from "./LeadRowActions";
 import { OptOutBadge } from "./OptOutBadge";
@@ -190,6 +191,7 @@ export function LeadListCard({
               </span>
               <WhatsAppStatusBadge view={lead} />
               {lead.optOut ? <OptOutBadge /> : null}
+              <ContactStateBadge lead={lead} showManualHint={false} />
             </div>
           </div>
         </div>

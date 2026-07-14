@@ -12,11 +12,13 @@ import { z } from "zod";
 import {
   CommunicationChannel,
   CommunicationChannelSchema,
+  ManualResolutionSchema,
 } from "@/features/fairtrain-funnel/types";
 
 import { ValidationError } from "../errors";
 import { leadRepository } from "../repositories/LeadRepository";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
+import { contactGuardService } from "../services/ContactGuardService";
 import { messageLedgerService } from "../services/MessageLedgerService";
 import { requirePermission, runAction, type Result } from "./_helpers";
 
@@ -69,6 +71,9 @@ export async function sendWhatsAppText(
       actorId: actor.id,
       channel: CommunicationChannel.WHATSAPP,
       bypassConsent: true,
+      // Human agent replying inside an open conversation — the contact-protection
+      // gate does not apply to a deliberate manual reply.
+      bypassContactGuard: true,
     });
     revalidateCommunication(parsed.data.leadId);
     // A real send that the provider rejected must surface the reason instead of
@@ -104,6 +109,42 @@ export async function markReplyHandled(
     });
     revalidateCommunication(parsed.data.leadId);
     return { leadId: parsed.data.leadId };
+  });
+}
+
+const ResolveConversationSchema = z.object({
+  leadId: z.string().min(1),
+  resolution: ManualResolutionSchema,
+});
+
+/**
+ * Close a Multichat conversation with a handling reason (Kontaktschutz). Sets the
+ * contact state, excludes the lead from reactivation, pauses automations, stops
+ * the campaign and cancels queued follow-ups so the lead receives no further
+ * AUTOMATIC message. Operator-initiated (canManageLeads).
+ */
+export async function resolveMultichatConversation(
+  raw: unknown,
+): Promise<Result<{ leadId: string; contactState: string; canceledJobs: number }>> {
+  return runAction(async () => {
+    const parsed = ResolveConversationSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new ValidationError("Ungültige Auswahl", {
+        issues: parsed.error.issues,
+      });
+    }
+    const actor = await requirePermission("canManageLeads");
+    await assertLeadScopeForActor(actor, parsed.data.leadId);
+    const res = await contactGuardService.resolveManualConversation(
+      parsed.data.leadId,
+      { resolution: parsed.data.resolution, actor: actor.id, channel: "multichat" },
+    );
+    revalidateCommunication(parsed.data.leadId);
+    return {
+      leadId: parsed.data.leadId,
+      contactState: res.contactState,
+      canceledJobs: res.canceledJobs,
+    };
   });
 }
 
@@ -163,6 +204,9 @@ export async function sendTemplateMessage(
       // reaching out (e.g. Reaktivierung Erstkontakt) — mirror the manual reply
       // + campaign behaviour. The opt-out block stays fully enforced upstream.
       bypassConsent: true,
+      // A human deliberately reaching out IS the explicit release — the
+      // contact-protection gate does not apply to an operator-initiated send.
+      bypassContactGuard: true,
     });
     revalidateCommunication(parsed.data.leadId);
     // A real (non-demo) send that failed must surface the provider reason to

@@ -13,6 +13,7 @@
  */
 import {
   AuditAction,
+  ContactState,
   EmploymentStatusSchema,
   PORTAL_DOCUMENT_LABEL,
   PORTAL_DOCUMENT_ORDER,
@@ -29,6 +30,7 @@ import {
 import { leadRepository } from "../repositories/LeadRepository";
 import { portalDocumentRepository } from "../repositories/PortalDocumentRepository";
 import { portalLinkRepository } from "../repositories/PortalLinkRepository";
+import { taskRepository } from "../repositories/TaskRepository";
 import { auditLogService } from "./AuditLogService";
 import { fileUploadService } from "./FileUploadService";
 import { leadLifecycleService } from "./LeadLifecycleService";
@@ -378,6 +380,9 @@ export class PortalService {
     await leadLifecycleService.record(link.leadId, "FUNNEL_STARTED", {
       actor: "applicant",
     });
+    // Punkt 6: der Bewerber hat Unterlagen hochgeladen → wieder als
+    // bearbeitungsbereit markieren und den zuständigen Bearbeiter benachrichtigen.
+    await this.markDocumentsReceived(link.leadId);
     const completion = await this.maybeComplete(link.entry.id, link.leadId);
     return {
       ok: true,
@@ -385,6 +390,40 @@ export class PortalService {
       fileName: persisted.originalName,
       fileId: persisted.id,
     };
+  }
+
+  /**
+   * The applicant uploaded documents: flip the handling state to
+   * `documents_received` so the Leitstand shows the lead as ready for a human
+   * again, notify the assigned rep once, and log it. Idempotent — only the first
+   * transition into `documents_received` creates the follow-up task.
+   */
+  private async markDocumentsReceived(leadId: string): Promise<void> {
+    const lead = await leadRepository.findById(leadId);
+    if (!lead) return;
+    if (lead.contactState === ContactState.DOCUMENTS_RECEIVED) return;
+
+    await leadRepository.update(leadId, {
+      contactState: ContactState.DOCUMENTS_RECEIVED,
+    });
+
+    await auditLogService.append({
+      actor: "applicant",
+      action: AuditAction.LEAD_CONTACT_PROTECTED,
+      entityType: "Lead",
+      entityId: leadId,
+      details: { contactState: ContactState.DOCUMENTS_RECEIVED, source: "portal_upload" },
+    });
+
+    if (lead.assignedToId) {
+      await taskRepository.create({
+        title: "Unterlagen eingegangen – bitte prüfen",
+        leadId,
+        createdById: lead.assignedToId,
+        assigneeId: lead.assignedToId,
+        dueAt: new Date(Date.now() + 24 * 3_600_000),
+      });
+    }
   }
 
   // -------------------------------------------------------------------------

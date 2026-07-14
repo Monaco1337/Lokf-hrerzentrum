@@ -48,6 +48,11 @@ export async function POST(req: Request): Promise<Response> {
       leadId: parsed.data.leadId,
       body: parsed.data.body,
       actorId: user.id,
+      // Operator-initiated manual reply (canManageLeads): mirror the
+      // sendWhatsAppText action — skip the consent gate and the
+      // contact-protection gate. Opt-out is still enforced upstream.
+      bypassConsent: true,
+      bypassContactGuard: true,
     });
     return NextResponse.json({
       ok: true,

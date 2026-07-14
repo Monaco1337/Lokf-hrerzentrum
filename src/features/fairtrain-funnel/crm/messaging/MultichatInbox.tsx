@@ -11,7 +11,11 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import type { MultichatData } from "@/features/fairtrain-funnel/messaging/types";
-import { markReplyHandled, sendWhatsAppText } from "@/server/actions/messaging";
+import type { ManualResolutionId } from "@/features/fairtrain-funnel/types";
+import {
+  resolveMultichatConversation,
+  sendWhatsAppText,
+} from "@/server/actions/messaging";
 import { sendMagicLink } from "@/server/actions/sendMagicLink";
 
 import { ConversationRow, Thread } from "./MultichatThread";
@@ -68,17 +72,24 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
     });
   }
 
-  function handleMarkDone() {
+  function handleResolve(resolution: ManualResolutionId) {
     if (!selected) return;
     setError(null);
     setNotice(null);
     startTransition(async () => {
-      const res = await markReplyHandled({ leadId: selected.leadId });
+      const res = await resolveMultichatConversation({
+        leadId: selected.leadId,
+        resolution,
+      });
       if (!res.ok) {
         setError(res.message);
         return;
       }
-      setNotice("Als erledigt markiert.");
+      setNotice(
+        res.data.canceledJobs > 0
+          ? `Erledigt · ${res.data.canceledJobs} geplante Nachricht(en) gestoppt.`
+          : "Erledigt · Kontaktschutz aktiv.",
+      );
       router.refresh();
     });
   }
@@ -217,7 +228,7 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
               draft={draft}
               setDraft={setDraft}
               onSend={handleSend}
-              onMarkDone={handleMarkDone}
+              onResolve={handleResolve}
               onSelfCheck={handleSelfCheck}
               pending={pending}
               error={error}

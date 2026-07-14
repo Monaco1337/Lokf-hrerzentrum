@@ -78,7 +78,7 @@ export function ReactivationCampaign({
     const channelLabel = whatsappOnly ? "nur WhatsApp" : "WhatsApp + E-Mail";
     if (
       !window.confirm(
-        `Kampagne freigeben – ${label}?\n\nDie ausgewählten versandbereiten Alt-Leads erhalten den Erstkontakt (${channelLabel}). Fortfahren?`,
+        `Kampagne freigeben – ${label}?\n\nNur tatsächlich unbehandelte Alt-Leads erhalten den Erstkontakt (${channelLabel}). Bereits manuell kontaktierte, im Funnel befindliche, wartende oder abgeschlossene Leads werden automatisch ausgeschlossen (Kontaktschutz). Fortfahren?`,
       )
     ) {
       return;
@@ -220,6 +220,14 @@ export function ReactivationCampaign({
           {whatsappOnly ? "nur WhatsApp" : "WhatsApp + E-Mail"}. Importierte
           Alt-Leads werden erst nach dieser Bestätigung kontaktiert.
         </p>
+        <div className="mt-2 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-[13px] text-[#4B5563]">
+          <span className="font-medium text-[#374151]">Kontaktschutz aktiv:</span>{" "}
+          Vor dem Versand werden bereits bearbeitete Leads automatisch
+          ausgeschlossen – manuell kontaktierte, auf den Eignungscheck wartende,
+          Leads im Funnel, mit hochgeladenen Unterlagen, mit Termin sowie
+          abgeschlossene oder abgelehnte. Nur unbehandelte Leads werden
+          angeschrieben.
+        </div>
         {!whatsappLive ? (
           <p className="mt-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-[13px] text-[#9A3412]">
             WhatsApp ist aktuell nicht live (Simulation). E-Mail wird real

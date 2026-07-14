@@ -307,6 +307,10 @@ export type {
 // Applicant portal — link lifecycle, document checklist, form contract.
 export * from "./portal/types";
 
+// Contact protection ("Kontaktschutz") — handling lifecycle + resolutions.
+export * from "./contactState";
+import type { ContactState } from "./contactState";
+
 // Messaging / communication ledger lifecycle types.
 export {
   MessageType,
@@ -482,6 +486,12 @@ export interface LeadSummary {
   whatsappMarketing: boolean;
   /** Free-form label set (incl. `whatsapp_opt_out`). */
   tags: string[];
+  // Contact protection (handling lifecycle; separate from pipeline `status`).
+  contactState: ContactState;
+  reactivationExcluded: boolean;
+  lastManualContactAt: Date | null;
+  lastManualContactBy: string | null;
+  lastManualContactChannel: string | null;
   // Reactivation campaign layer (additive; separate from pipeline `status`).
   leadType: string;
   campaign: string | null;

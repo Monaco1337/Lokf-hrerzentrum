@@ -52,6 +52,9 @@ export async function POST(req: Request): Promise<Response> {
       // Operator-initiated (canManageLeads): mirror the server action + campaign
       // and skip the WhatsApp consent gate. Opt-out is still enforced upstream.
       bypassConsent: true,
+      // A human deliberately reaching out IS the explicit release — the
+      // contact-protection gate only blocks AUTOMATIC sends.
+      bypassContactGuard: true,
     });
     return NextResponse.json({
       ok: true,

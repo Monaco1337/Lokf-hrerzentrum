@@ -79,6 +79,10 @@ export const ACTIVITY_LABEL: Record<AuditAction, ActivityVisual> = {
   WORKFLOW_AUTOMATION: { label: "Automatische Aktion", icon: "spark", tint: "indigo" },
   WHATSAPP_OPT_OUT: { label: "WhatsApp abgemeldet (Opt-out)", icon: "x", tint: "rose" },
   WHATSAPP_SEND_SKIPPED_OPT_OUT: { label: "WhatsApp übersprungen (Opt-out)", icon: "x", tint: "slate" },
+  WHATSAPP_REPLY_CLASSIFIED: { label: "Antwort klassifiziert", icon: "message", tint: "emerald" },
+  WHATSAPP_REPLIES_BACKFILL: { label: "Antworten nachverarbeitet", icon: "spark", tint: "violet" },
+  LEAD_CONTACT_PROTECTED: { label: "Kontaktschutz gesetzt", icon: "shield", tint: "amber" },
+  SEND_SKIPPED_CONTACT_PROTECTED: { label: "Versand übersprungen (Kontaktschutz)", icon: "x", tint: "slate" },
 };
 
 const TINT_BG: Record<ActivityVisual["tint"], string> = {

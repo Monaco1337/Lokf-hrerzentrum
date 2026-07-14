@@ -25,6 +25,7 @@ import { userRepository } from "../repositories/UserRepository";
 import { automationService } from "./AutomationService";
 import { campaignTemplateService } from "./CampaignTemplateService";
 import { isActiveCampaignLead } from "./CampaignStopService";
+import { contactGuardService } from "./ContactGuardService";
 import { messageLedgerService } from "./MessageLedgerService";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -79,6 +80,14 @@ export class CampaignService {
     for (const leadId of leadIds) {
       const lead = await leadRepository.findById(leadId);
       if (!lead || !isActiveCampaignLead(lead) || lead.communicationStarted) {
+        skipped += 1;
+        continue;
+      }
+
+      // Kontaktschutz (Punkt 9): never (re)contact a lead a human already handled
+      // — waiting for Eignungscheck/Unterlagen, already in the funnel, has
+      // documents/appointment, closed/rejected, or manually contacted.
+      if (contactGuardService.isReactivationBlocked(lead)) {
         skipped += 1;
         continue;
       }

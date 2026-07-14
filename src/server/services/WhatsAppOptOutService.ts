@@ -168,6 +168,9 @@ export class WhatsAppOptOutService {
           channel: CommunicationChannel.WHATSAPP,
           bypassOptOut: true,
           bypassConsent: true,
+          // Compliance confirmation must always go out, regardless of any
+          // contact-protection state on the lead.
+          bypassContactGuard: true,
         });
         confirmationSent = true;
       } catch (err) {

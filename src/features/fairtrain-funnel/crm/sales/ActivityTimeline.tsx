@@ -97,6 +97,10 @@ const ACTION_LABEL: Record<AuditAction, { label: string; tone: TimelineEvent["to
   WORKFLOW_AUTOMATION: { label: "Automatische Aktion", tone: "info" },
   WHATSAPP_OPT_OUT: { label: "WhatsApp abgemeldet (Opt-out)", tone: "danger" },
   WHATSAPP_SEND_SKIPPED_OPT_OUT: { label: "WhatsApp übersprungen (Opt-out)", tone: "neutral" },
+  WHATSAPP_REPLY_CLASSIFIED: { label: "Antwort klassifiziert", tone: "positive" },
+  WHATSAPP_REPLIES_BACKFILL: { label: "Antworten nachverarbeitet", tone: "magic" },
+  LEAD_CONTACT_PROTECTED: { label: "Kontaktschutz gesetzt", tone: "warning" },
+  SEND_SKIPPED_CONTACT_PROTECTED: { label: "Versand übersprungen (Kontaktschutz)", tone: "neutral" },
 };
 
 function relative(d: Date, now = Date.now()): string {

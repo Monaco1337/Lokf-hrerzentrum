@@ -45,6 +45,14 @@ const uid = () => `s${++_seq}`;
 const LEAD_STATUSES = Object.values(LeadStatus);
 const LEAD_PRIORITIES = Object.values(LeadPriority);
 
+// Employment-situation values — MUST match the classifier keys used by the
+// engine (employed / job_seeking / other).
+const SITUATION_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "employed", label: "Beschäftigt" },
+  { value: "job_seeking", label: "Arbeitssuchend" },
+  { value: "other", label: "Sonstige Situation" },
+];
+
 // ── main component ────────────────────────────────────────────────────────────
 
 interface Props {
@@ -422,7 +430,18 @@ function ConditionContent({
       {valueKind !== "none" ? (
         <div>
           <label className="mb-1.5 block text-[12px] font-semibold text-ink">Wert</label>
-          {valueKind === "leadStatus" ? (
+          {valueKind === "situation" ? (
+            <select
+              className="input"
+              value={String(step.data.value ?? "")}
+              onChange={(e) => onChange({ ...step.data, value: e.target.value })}
+            >
+              <option value="">— wählen</option>
+              {SITUATION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
+          ) : valueKind === "leadStatus" ? (
             <select
               className="input"
               value={String(step.data.value ?? "")}

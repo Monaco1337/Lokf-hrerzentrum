@@ -70,7 +70,14 @@ export type WorkflowIconKey =
   | "sparkles";
 
 /** How a condition captures its comparison value (drives the value widget). */
-export type ValueKind = "none" | "text" | "number" | "hours" | "leadStatus" | "priority";
+export type ValueKind =
+  | "none"
+  | "text"
+  | "number"
+  | "hours"
+  | "leadStatus"
+  | "priority"
+  | "situation";
 
 /** Which config widget an action needs (drives the action config form). */
 export type ConfigKind =

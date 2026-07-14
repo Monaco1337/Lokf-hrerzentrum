@@ -10,6 +10,7 @@ import type {
   MultichatData,
   MultichatMessage,
 } from "@/features/fairtrain-funnel/messaging/types";
+import { parseContactState } from "@/features/fairtrain-funnel/types";
 
 import { prisma } from "../db/prisma";
 import { whatsAppNumberRepository } from "../repositories/WhatsAppNumberRepository";
@@ -35,6 +36,9 @@ interface Row {
     source: string | null;
     lastWhatsappReplyAt: Date | null;
     optOut: boolean;
+    contactState: string;
+    automationPaused: boolean;
+    lastManualContactAt: Date | null;
   } | null;
 }
 
@@ -67,6 +71,9 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
             source: true,
             lastWhatsappReplyAt: true,
             optOut: true,
+            contactState: true,
+            automationPaused: true,
+            lastManualContactAt: true,
           },
         },
       },
@@ -111,6 +118,9 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
         source: r.lead.source,
         hasNewReply: r.lead.lastWhatsappReplyAt !== null,
         optOut: r.lead.optOut,
+        contactState: parseContactState(r.lead.contactState),
+        automationPaused: r.lead.automationPaused,
+        lastManualContactAt: r.lead.lastManualContactAt?.toISOString() ?? null,
         lastAt: msg.createdAt,
         preview: previewOf(direction, r.payload),
         unread: 0,

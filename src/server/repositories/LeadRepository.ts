@@ -10,6 +10,7 @@
 import type { Lead as PrismaLead, Prisma } from "@prisma/client";
 
 import {
+  type ContactState,
   type EmploymentStatus,
   type FunnelPath,
   type LeadDetail,
@@ -19,6 +20,7 @@ import {
   type LeadQualityStatus,
   LeadStatus,
   type LeadSummary,
+  parseContactState,
   type PreferredLocation,
   type WhatsappReachability,
   type WhatsappTrackingStatus,
@@ -151,6 +153,12 @@ export interface UpdateLeadFields {
   optOutAt?: Date | null;
   whatsappMarketing?: boolean;
   tags?: string[];
+  // Contact protection (handling lifecycle).
+  contactState?: ContactState;
+  reactivationExcluded?: boolean;
+  lastManualContactAt?: Date | null;
+  lastManualContactBy?: string | null;
+  lastManualContactChannel?: string | null;
   // Reactivation campaign layer (additive).
   leadType?: string;
   campaign?: string | null;
@@ -202,6 +210,11 @@ function rowToSummary(row: LeadRowWithAssignee): LeadSummary {
     optOutAt: row.optOutAt,
     whatsappMarketing: row.whatsappMarketing,
     tags: row.tags ?? [],
+    contactState: parseContactState(row.contactState),
+    reactivationExcluded: row.reactivationExcluded,
+    lastManualContactAt: row.lastManualContactAt,
+    lastManualContactBy: row.lastManualContactBy,
+    lastManualContactChannel: row.lastManualContactChannel,
     leadType: row.leadType,
     campaign: row.campaign,
     campaignStatus: row.campaignStatus,
@@ -428,6 +441,16 @@ export class LeadRepository {
     if (fields.whatsappMarketing !== undefined)
       data.whatsappMarketing = fields.whatsappMarketing;
     if (fields.tags !== undefined) data.tags = { set: fields.tags };
+    if (fields.contactState !== undefined)
+      data.contactState = fields.contactState;
+    if (fields.reactivationExcluded !== undefined)
+      data.reactivationExcluded = fields.reactivationExcluded;
+    if (fields.lastManualContactAt !== undefined)
+      data.lastManualContactAt = fields.lastManualContactAt;
+    if (fields.lastManualContactBy !== undefined)
+      data.lastManualContactBy = fields.lastManualContactBy;
+    if (fields.lastManualContactChannel !== undefined)
+      data.lastManualContactChannel = fields.lastManualContactChannel;
     if (fields.leadType !== undefined) data.leadType = fields.leadType;
     if (fields.campaign !== undefined) data.campaign = fields.campaign;
     if (fields.campaignStatus !== undefined)
@@ -496,6 +519,30 @@ export class LeadRepository {
         ],
       },
       orderBy: { updatedAt: "desc" },
+      select: { id: true },
+      take: limit,
+    });
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * IDs of leads that have replied on WhatsApp (reply timestamp, "beantwortet"
+   * status, or a stored inbound message). Used by the retro/backfill run to
+   * find every reply that may still need classification. Opted-out leads are
+   * excluded — they are never re-engaged. Ordered newest-reply first.
+   */
+  async idsWithWhatsappReply(limit = 5000): Promise<string[]> {
+    const rows = await prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        optOut: false,
+        OR: [
+          { lastWhatsappReplyAt: { not: null } },
+          { whatsappStatus: "beantwortet" },
+          { lastInboundMessage: { not: null } },
+        ],
+      },
+      orderBy: { lastWhatsappReplyAt: "desc" },
       select: { id: true },
       take: limit,
     });

@@ -252,6 +252,14 @@ export const RuleConditionType = {
   businessHoursOnly: "businessHoursOnly",
   ownerAssigned: "ownerAssigned",
   isDemo: "isDemo",
+  // Inbound-reply conditions (evaluated against the triggering WhatsApp reply on
+  // the MESSAGE_INBOUND trigger). Without an inbound event in context they are
+  // simply not met — existing rules are unaffected.
+  whatsappReplyReceived: "whatsappReplyReceived",
+  quickReplySelection: "quickReplySelection",
+  replyTextEquals: "replyTextEquals",
+  replyTextContains: "replyTextContains",
+  detectedSituation: "detectedSituation",
 } as const;
 export type RuleConditionType =
   (typeof RuleConditionType)[keyof typeof RuleConditionType];
@@ -270,6 +278,11 @@ export const CONDITION_LABEL: Record<RuleConditionType, string> = {
   businessHoursOnly: "Nur während Geschäftszeiten",
   ownerAssigned: "Bearbeiter zugewiesen",
   isDemo: "Ist Demo-Lead",
+  whatsappReplyReceived: "WhatsApp-Antwort erhalten",
+  quickReplySelection: "Quick-Reply-Auswahl ist",
+  replyTextEquals: "Antworttext entspricht",
+  replyTextContains: "Antworttext enthält",
+  detectedSituation: "Erkannte berufliche Situation",
 };
 
 /** Conditions that carry a value (others are boolean flags). */
@@ -281,6 +294,10 @@ export const CONDITIONS_WITH_VALUE: ReadonlyArray<RuleConditionType> = [
   "noInboundReplyForHours",
   "noFormOpenedForHours",
   "noUploadForHours",
+  "quickReplySelection",
+  "replyTextEquals",
+  "replyTextContains",
+  "detectedSituation",
 ];
 
 export const RuleActionType = {

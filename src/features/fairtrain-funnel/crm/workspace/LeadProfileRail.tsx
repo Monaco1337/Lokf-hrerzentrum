@@ -2,7 +2,8 @@
  * LeadProfileRail — compact left column for the Lead Command Center.
  */
 import type { LeadDetail } from "../../types";
-import { LeadStatus } from "../../types";
+import { ContactState, LeadStatus } from "../../types";
+import { ContactStateBadge } from "../ContactStateBadge";
 import { PRIORITY_TONE, STATUS_TONE, humanizeSource } from "../leadLabels";
 
 const DATE = new Intl.DateTimeFormat("de-DE", {
@@ -116,6 +117,19 @@ export function LeadProfileRail({
           </span>
         </div>
       </div>
+
+      {lead.contactState !== ContactState.NONE ||
+      lead.automationPaused ||
+      lead.lastManualContactAt ? (
+        <div className="border-b border-ink/[0.05] p-4">
+          <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+            Kontaktschutz
+          </p>
+          <div className="mt-2 flex flex-col gap-1.5">
+            <ContactStateBadge lead={lead} />
+          </div>
+        </div>
+      ) : null}
 
       <dl className="divide-y divide-ink/[0.05] p-4">
         <MetaRow label="Bearbeiter" value={ownerName ?? "Nicht zugewiesen"} />

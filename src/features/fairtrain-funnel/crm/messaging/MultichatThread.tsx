@@ -5,12 +5,52 @@
  * the message thread + reply composer. Kept separate from MultichatInbox so the
  * container stays focused on state/filtering.
  */
+import { useState } from "react";
 import Link from "next/link";
 
 import {
   type MultichatConversation,
   WHATSAPP_TRACKING_LABEL,
 } from "@/features/fairtrain-funnel/messaging/types";
+import {
+  CONTACT_STATE_LABEL,
+  CONTACT_STATE_TONE,
+  ContactState,
+  MANUAL_RESOLUTIONS,
+  type ManualResolutionId,
+} from "@/features/fairtrain-funnel/contactState";
+
+const MULTICHAT_DATE = new Intl.DateTimeFormat("de-DE", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+
+const CONTACT_TONE_CLASS: Record<
+  (typeof CONTACT_STATE_TONE)[ContactState],
+  string
+> = {
+  slate: "bg-[#F3F4F6] text-[#374151] ring-[#E5E7EB]",
+  amber: "bg-[#FEF3C7] text-[#92400E] ring-[#FDE68A]",
+  violet: "bg-[#EDE9FE] text-[#5B21B6] ring-[#DDD6FE]",
+  rose: "bg-[#FEF2F2] text-[#B91C1C] ring-[#FECACA]",
+  emerald: "bg-[#DCFCE7] text-[#15803D] ring-[#BBF7D0]",
+};
+
+/** Small pill for the lead's contact-protection state (Kontaktschutz). */
+export function ContactStatePill({ state }: { state: ContactState }) {
+  if (state === ContactState.NONE) return null;
+  const tone = CONTACT_TONE_CLASS[CONTACT_STATE_TONE[state]];
+  return (
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ring-1 ring-inset ${tone}`}
+    >
+      {CONTACT_STATE_LABEL[state]}
+    </span>
+  );
+}
 
 export const MULTICHAT_TIME = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
@@ -75,6 +115,7 @@ export function ConversationRow({
               Abgemeldet
             </span>
           ) : null}
+          <ContactStatePill state={convo.contactState} />
           {convo.unread > 0 ? (
             <span className="ml-auto rounded-full bg-[#16A34A] px-2 py-0.5 text-[10.5px] font-semibold text-white">
               {convo.unread}
@@ -91,7 +132,7 @@ export function Thread({
   draft,
   setDraft,
   onSend,
-  onMarkDone,
+  onResolve,
   onSelfCheck,
   pending,
   error,
@@ -102,13 +143,14 @@ export function Thread({
   draft: string;
   setDraft: (v: string) => void;
   onSend: () => void;
-  onMarkDone: () => void;
+  onResolve: (resolution: ManualResolutionId) => void;
   onSelfCheck: () => void;
   pending: boolean;
   error: string | null;
   notice: string | null;
   live: boolean;
 }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const actionCls =
     "shrink-0 rounded-lg border border-[#E5E7EB] px-3 py-1.5 text-[13px] font-medium text-[#374151] transition hover:bg-[#F9FAFB] disabled:opacity-50";
   return (
@@ -134,11 +176,23 @@ export function Thread({
                 WhatsApp abgemeldet
               </span>
             ) : null}
+            {convo.automationPaused ? (
+              <span className="rounded-full bg-[#FEF3C7] px-2.5 py-1 text-[11px] font-semibold text-[#92400E] ring-1 ring-inset ring-[#FDE68A]">
+                Automationen pausiert
+              </span>
+            ) : null}
+            <ContactStatePill state={convo.contactState} />
             <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] font-medium text-[#374151]">
               {WHATSAPP_TRACKING_LABEL[convo.whatsappStatus]}
             </span>
           </div>
         </div>
+        {convo.lastManualContactAt ? (
+          <p className="mt-1.5 text-[11.5px] text-[#92400E]">
+            Manuell kontaktiert am{" "}
+            {MULTICHAT_DATE.format(new Date(convo.lastManualContactAt))}
+          </p>
+        ) : null}
         <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <Link href={`/crm/leads/${convo.leadId}`} className={actionCls}>
             Lead öffnen
@@ -154,14 +208,40 @@ export function Thread({
           >
             Selbstcheck-Link senden
           </button>
-          <button
-            type="button"
-            onClick={onMarkDone}
-            disabled={pending || !convo.hasNewReply}
-            className={actionCls}
-          >
-            Als erledigt markieren
-          </button>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              disabled={pending}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              className={actionCls}
+            >
+              Als erledigt markieren ▾
+            </button>
+            {menuOpen ? (
+              <div
+                role="menu"
+                className="absolute right-0 z-10 mt-1 w-64 overflow-hidden rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-lg"
+              >
+                {MANUAL_RESOLUTIONS.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    role="menuitem"
+                    disabled={pending}
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onResolve(r.id);
+                    }}
+                    className="block w-full px-3 py-2 text-left text-[13px] text-[#374151] transition hover:bg-[#F3F4F6] disabled:opacity-50"
+                  >
+                    {r.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
         </div>
         {notice ? (
           <p className="mt-2 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-[12.5px] text-[#15803D]">

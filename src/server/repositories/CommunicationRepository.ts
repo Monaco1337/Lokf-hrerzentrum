@@ -336,6 +336,23 @@ export class CommunicationRepository {
     return row?.businessPhoneNumberId ?? null;
   }
 
+  /**
+   * The most recent INBOUND WhatsApp message for a lead (body + timestamp).
+   * Used by the retro/backfill run to re-classify replies whose classification
+   * predates the reply-branching feature. Returns null when there is none.
+   */
+  async latestInboundWhatsapp(
+    leadId: string,
+  ): Promise<{ body: string; at: Date } | null> {
+    const row = await prisma.communicationEvent.findFirst({
+      where: { leadId, channel: "WHATSAPP", direction: "IN" },
+      orderBy: { createdAt: "desc" },
+      select: { payload: true, deliveredAt: true, createdAt: true },
+    });
+    if (!row) return null;
+    return { body: row.payload ?? "", at: row.deliveredAt ?? row.createdAt };
+  }
+
   async lastOutboundPerLead(
     leadIds: ReadonlyArray<string>,
   ): Promise<Map<string, Date>> {

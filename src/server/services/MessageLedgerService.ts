@@ -45,6 +45,7 @@ import type { LeadSummary } from "@/features/fairtrain-funnel/types";
 import { auditLogService } from "./AuditLogService";
 import { classifyOutboundSend } from "./LeadWhatsAppClassifier";
 import { consentService } from "./ConsentService";
+import { contactGuardService, CONTACT_BLOCK_MESSAGE } from "./ContactGuardService";
 import { leadLifecycleService } from "./LeadLifecycleService";
 
 /**
@@ -120,6 +121,13 @@ export interface SendTemplateArgs {
    * blocked.
    */
   bypassConsent?: boolean;
+  /**
+   * Skip the central contact-protection gate (Kontaktschutz). Set ONLY for
+   * manual, operator-initiated sends — a human deliberately reaching out is the
+   * "explizite neue Freigabe". Automated paths (campaign/automation) never set
+   * this, so a lead being handled manually is never auto-messaged again.
+   */
+  bypassContactGuard?: boolean;
 }
 
 export interface LogManualArgs {
@@ -146,6 +154,8 @@ export interface SendTextArgs {
   bypassOptOut?: boolean;
   /** Bypass the WhatsApp consent gate (only the opt-out confirmation does). */
   bypassConsent?: boolean;
+  /** Bypass the contact-protection gate (manual, operator-initiated replies). */
+  bypassContactGuard?: boolean;
 }
 
 /**
@@ -278,6 +288,16 @@ export class MessageLedgerService {
     // again. Blocks BEFORE any dispatch/side effect.
     if (isWhatsapp && lead.optOut) {
       throw new ValidationError(OPT_OUT_BLOCK_MESSAGE);
+    }
+
+    // Contact-protection gate (Kontaktschutz): block automatic outreach to a lead
+    // a human already handled (waiting for Eignungscheck/Unterlagen, manually
+    // contacted, no interest, …). Manual operator sends set bypassContactGuard.
+    if (channel !== CommunicationChannel.INTERNAL && !args.bypassContactGuard) {
+      const guard = contactGuardService.evaluate(lead);
+      if (guard.blocked) {
+        throw new ValidationError(guard.reason ?? CONTACT_BLOCK_MESSAGE);
+      }
     }
 
     // The sender is dictated by the template's "Senden über" selection and is
@@ -435,6 +455,9 @@ export class MessageLedgerService {
           actorId,
           sentBy: "ADMIN",
           bypassConsent: true,
+          // Operator-initiated recovery of a message that never sent — not an
+          // automatic reactivation, so the contact-protection gate is bypassed.
+          bypassContactGuard: true,
         });
         if (entry.status === MessageStatus.FAILED) failed += 1;
         else sent += 1;
@@ -476,6 +499,14 @@ export class MessageLedgerService {
     // Opt-out guard: blocked unless this is the opt-out confirmation itself.
     if (isWhatsapp && lead.optOut && !args.bypassOptOut) {
       throw new ValidationError(OPT_OUT_BLOCK_MESSAGE);
+    }
+
+    // Contact-protection gate: block automatic free-text sends to a handled lead.
+    if (channel !== CommunicationChannel.INTERNAL && !args.bypassContactGuard) {
+      const guard = contactGuardService.evaluate(lead);
+      if (guard.blocked) {
+        throw new ValidationError(guard.reason ?? CONTACT_BLOCK_MESSAGE);
+      }
     }
 
     if (live && !args.bypassConsent) {
