@@ -81,6 +81,7 @@ const ACTION_LABEL: Record<AuditAction, { label: string; tone: TimelineEvent["to
   TASK_DELETED: { label: "Aufgabe gelöscht", tone: "warning" },
   DOCUMENT_REQUESTED: { label: "Unterlagen angefordert", tone: "warning" },
   DOCUMENT_UPLOADED: { label: "Dokument hochgeladen", tone: "info" },
+  DOCUMENT_VIEWED: { label: "Dokument gesichtet", tone: "neutral" },
   DOCUMENT_APPROVED: { label: "Dokument freigegeben", tone: "positive" },
   DOCUMENT_REJECTED: { label: "Dokument abgelehnt", tone: "danger" },
   PORTAL_LINK_CREATED: { label: "Portal-Link erstellt", tone: "info" },

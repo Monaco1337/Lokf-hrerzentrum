@@ -17,6 +17,8 @@ import {
   updateAutomationRule,
 } from "@/server/actions/automationRules";
 import {
+  type ConditionLogic,
+  FUNNEL_PHASE_OPTIONS,
   LeadPriority,
   LeadStatus,
   RULE_STATUS_LABEL,
@@ -53,6 +55,28 @@ const SITUATION_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: "other", label: "Sonstige Situation" },
 ];
 
+// Actions that need no further configuration (pure state toggles / terminators).
+const NO_CONFIG_ACTIONS: ReadonlyArray<RuleActionType> = [
+  "markEscalated",
+  "pauseAutomation",
+  "resumeAutomation",
+  "endWorkflow",
+];
+
+// Condition types offered inside the If/Else branch action.
+const BRANCH_CONDITIONS: ReadonlyArray<{ id: RuleConditionType; label: string }> = [
+  { id: "hasWhatsappConsent", label: "WhatsApp-Einwilligung vorhanden" },
+  { id: "leadStatus", label: "Lead-Status ist (Wert)" },
+  { id: "funnelPhase", label: "Funnel-Phase ist (Wert)" },
+  { id: "priority", label: "Priorität ist (Wert)" },
+  { id: "scoreGreaterThan", label: "Score größer als (Wert)" },
+  { id: "aiInterestDetected", label: "Interesse erkannt" },
+  { id: "aiEmployed", label: "Beschäftigt erkannt" },
+  { id: "aiJobSeeking", label: "Arbeitssuchend erkannt" },
+  { id: "aiNoInterest", label: "Kein Interesse erkannt" },
+  { id: "ownerAssigned", label: "Bearbeiter zugewiesen" },
+];
+
 // ── main component ────────────────────────────────────────────────────────────
 
 interface Props {
@@ -73,6 +97,9 @@ export function FlowBuilder({ mode, rule, templates, users, previewLeads = [], o
   const [addAt, setAddAt]   = useState<number | null>(null);
   const [wfMode, setWfMode] = useState<WorkflowTier>("pro");
   const [simOpen, setSimOpen] = useState(false);
+  const [conditionLogic, setConditionLogic] = useState<ConditionLogic>(
+    rule?.conditionLogic ?? "all",
+  );
 
   const [steps, setSteps] = useState<FlowStep[]>(() => {
     const init: FlowStep[] = [
@@ -117,7 +144,7 @@ export function FlowBuilder({ mode, rule, templates, users, previewLeads = [], o
     const actions = steps
       .filter((s): s is ActionStep => s.kind === "action")
       .map((s) => s.data);
-    return { trigger, conditions, actions };
+    return { trigger, conditions, conditionLogic, actions };
   }
 
   function save() {
@@ -130,7 +157,7 @@ export function FlowBuilder({ mode, rule, templates, users, previewLeads = [], o
       // Real rules are production-ready so an "active" rule actually executes
       // on its trigger. (Demo runMode is reserved for seed data and never
       // auto-runs.)
-      const payload = { name: name.trim(), description: null, trigger, conditions, actions, status, runMode: "production_ready" };
+      const payload = { name: name.trim(), description: null, trigger, conditions, conditionLogic, actions, status, runMode: "production_ready" };
       const res = mode === "create"
         ? await createAutomationRule(payload)
         : await updateAutomationRule({ id: rule!.id, ...payload });
@@ -179,6 +206,19 @@ export function FlowBuilder({ mode, rule, templates, users, previewLeads = [], o
         </div>
 
         <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+          <label className="flex items-center gap-1.5 text-[12px] text-ink-muted">
+            Bedingungen
+            <select
+              value={conditionLogic}
+              onChange={(e) => setConditionLogic(e.target.value as ConditionLogic)}
+              className="rounded-lg border border-ink/10 bg-white px-2 py-1.5 text-[12.5px] font-medium text-ink focus:outline-none focus:ring-1 focus:ring-brand-300"
+              title="Wie werden mehrere Bedingungen kombiniert?"
+            >
+              <option value="all">UND (alle)</option>
+              <option value="any">ODER (eine)</option>
+            </select>
+          </label>
+          <span className="mx-1 h-5 w-px bg-ink/10" />
           <ModeSwitch mode={wfMode} onChange={setWfMode} />
           <span className="mx-1 h-5 w-px bg-ink/10" />
           <select
@@ -441,6 +481,17 @@ function ConditionContent({
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
+          ) : valueKind === "funnelPhase" ? (
+            <select
+              className="input"
+              value={String(step.data.value ?? "")}
+              onChange={(e) => onChange({ ...step.data, value: e.target.value })}
+            >
+              <option value="">— wählen</option>
+              {FUNNEL_PHASE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </select>
           ) : valueKind === "leadStatus" ? (
             <select
               className="input"
@@ -559,6 +610,93 @@ function ActionContent({
             onChange={(e) => onChange({ ...step.data, hours: Number(e.target.value) || undefined })}
           />
         </div>
+      ) : step.data.type === "changeFunnelPhase" ? (
+        <div>
+          <label className="mb-1.5 block text-[12px] font-semibold text-ink">Neue Funnel-Phase</label>
+          <select
+            className="input"
+            value={step.data.funnelPhase ?? ""}
+            onChange={(e) => onChange({ ...step.data, funnelPhase: e.target.value })}
+          >
+            <option value="">— Phase wählen</option>
+            {FUNNEL_PHASE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      ) : step.data.type === "addTag" || step.data.type === "removeTag" ? (
+        <div>
+          <label className="mb-1.5 block text-[12px] font-semibold text-ink">Tag</label>
+          <input
+            className="input"
+            placeholder="z.B. rueckruf"
+            value={step.data.tag ?? ""}
+            onChange={(e) => onChange({ ...step.data, tag: e.target.value })}
+          />
+        </div>
+      ) : step.data.type === "changeScore" ? (
+        <div>
+          <label className="mb-1.5 block text-[12px] font-semibold text-ink">Score-Änderung (z.B. 10 oder -5)</label>
+          <input
+            className="input"
+            type="number"
+            placeholder="10"
+            value={step.data.score ?? ""}
+            onChange={(e) => onChange({ ...step.data, score: Number(e.target.value) || undefined })}
+          />
+        </div>
+      ) : step.data.type === "delay" ? (
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <label className="mb-1.5 block text-[12px] font-semibold text-ink">Wartezeit</label>
+            <input
+              className="input"
+              type="number"
+              min={1}
+              placeholder="30"
+              value={step.data.delayValue ?? ""}
+              onChange={(e) => onChange({ ...step.data, delayValue: Number(e.target.value) || undefined })}
+            />
+          </div>
+          <div className="w-32">
+            <label className="mb-1.5 block text-[12px] font-semibold text-ink">Einheit</label>
+            <select
+              className="input"
+              value={step.data.delayUnit ?? "hours"}
+              onChange={(e) => onChange({ ...step.data, delayUnit: e.target.value as RuleAction["delayUnit"] })}
+            >
+              <option value="minutes">Minuten</option>
+              <option value="hours">Stunden</option>
+              <option value="days">Tage</option>
+            </select>
+          </div>
+        </div>
+      ) : step.data.type === "branch" ? (
+        <div className="space-y-2">
+          <div>
+            <label className="mb-1.5 block text-[12px] font-semibold text-ink">Wenn Bedingung …</label>
+            <select
+              className="input"
+              value={step.data.branchCondition ?? ""}
+              onChange={(e) => onChange({ ...step.data, branchCondition: (e.target.value || undefined) as RuleAction["branchCondition"] })}
+            >
+              <option value="">— Bedingung wählen</option>
+              {BRANCH_CONDITIONS.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[12px] font-semibold text-ink">Wert (optional)</label>
+            <input
+              className="input"
+              placeholder="z.B. HOT, employed, 70 …"
+              value={step.data.branchValue ?? ""}
+              onChange={(e) => onChange({ ...step.data, branchValue: e.target.value })}
+            />
+          </div>
+          <p className="text-[11.5px] text-ink-muted">
+            Ist die Bedingung erfüllt, läuft der Workflow weiter – sonst wird er hier beendet.
+          </p>
+        </div>
+      ) : NO_CONFIG_ACTIONS.includes(step.data.type) ? (
+        <p className="text-[12px] text-ink-muted">Diese Aktion benötigt keine weitere Konfiguration.</p>
       ) : (
         <div>
           <label className="mb-1.5 block text-[12px] font-semibold text-ink">Notiz</label>

@@ -10,6 +10,9 @@ import {
   type AutomationRunLogEntry,
   type AutomationTrigger,
   CommunicationChannel,
+  type ConditionLogic,
+  FUNNEL_PHASE_LABEL,
+  isFunnelPhase,
   LeadPriority,
   LeadStatusSchema,
   type ConsentState,
@@ -33,6 +36,7 @@ import { demoSeedRepository } from "../repositories/DemoSeedRepository";
 import { leadRepository } from "../repositories/LeadRepository";
 import { taskRepository } from "../repositories/TaskRepository";
 import { userRepository } from "../repositories/UserRepository";
+import { auditLogService } from "./AuditLogService";
 import { consentService } from "./ConsentService";
 import {
   classifyEmploymentQuickReply,
@@ -40,6 +44,13 @@ import {
   SITUATION_LABEL,
   type EmploymentSituation,
 } from "./EmploymentReplyClassifier";
+import { noteRepository } from "../repositories/NoteRepository";
+import {
+  analyzeReply,
+  REPLY_INTENT_LABEL,
+  type ReplyAnalysis,
+  type ReplyIntent,
+} from "./ReplyIntentClassifier";
 import { statusMachineService } from "./StatusMachineService";
 
 /**
@@ -55,6 +66,8 @@ export interface InboundEventContext {
   buttonTitle?: string | undefined;
   quickReplySituation: EmploymentSituation | null;
   detectedSituation: EmploymentSituation;
+  /** Rich AI classification of the reply ("Antwort analysieren (KI)"). */
+  analysis: ReplyAnalysis;
 }
 
 /** Build an engine event context from a raw inbound reply. */
@@ -70,6 +83,53 @@ export function buildInboundEventContext(input: {
     buttonTitle: input.buttonTitle,
     quickReplySituation: classifyEmploymentQuickReply(input),
     detectedSituation: classifyEmploymentReply(input).situation,
+    analysis: analyzeReply(input),
+  };
+}
+
+/**
+ * Resolve the reply analysis a condition should evaluate against: the live
+ * inbound event (preferred), or — when a rule runs outside an inbound trigger —
+ * the analysis previously stored on the lead. Returns null when neither exists,
+ * so AI conditions simply evaluate to "not met" and existing rules are safe.
+ */
+function resolveReplyAnalysis(
+  lead: LeadDetail,
+  event?: InboundEventContext,
+): ReplyAnalysis | null {
+  if (event?.analysis) return event.analysis;
+  if (!lead.replyIntent && !lead.replyInterest) return null;
+  const intent = (lead.replyIntent ?? "other") as ReplyIntent;
+  const interest =
+    lead.replyInterest === "yes" || lead.replyInterest === "no"
+      ? lead.replyInterest
+      : "unknown";
+  return {
+    intent,
+    interest,
+    employment:
+      intent === "employed" ||
+      intent === "job_seeking" ||
+      intent === "job_insecure" ||
+      intent === "career_change"
+        ? intent
+        : null,
+    flags: {
+      interest: interest === "yes",
+      employed: intent === "employed",
+      jobSeeking: intent === "job_seeking",
+      jobInsecure: intent === "job_insecure",
+      careerChange: intent === "career_change",
+      generalInterest: intent === "general_interest",
+      noInterest: intent === "no_interest",
+      callback: intent === "callback",
+      question: intent === "question",
+      stop: intent === "stop",
+    },
+    confidence: (lead.replyConfidence ?? 0) / 100,
+    manualReview: lead.needsManualReview,
+    originalMessage: lead.lastInboundMessage ?? "",
+    source: "freetext",
   };
 }
 
@@ -92,6 +152,8 @@ interface ConditionResult {
 interface ActionResult {
   type: string;
   result: string;
+  /** When true the remaining actions of the rule are skipped (branch/endWorkflow). */
+  stop?: boolean;
 }
 
 export class AutomationRuleEngine {
@@ -141,7 +203,9 @@ export class AutomationRuleEngine {
       const conditions = rule.conditions.map((c) =>
         this.evalCondition(c, lead, consents, isDemoLead, opts.event),
       );
-      const allPassed = conditions.every((c) => c.passed);
+      const allPassed = this.combineConditions(conditions, rule.conditionLogic);
+      const guard = (c: RuleCondition) =>
+        this.evalCondition(c, lead, consents, isDemoLead, opts.event).passed;
 
       const actions: ActionResult[] = [];
       let status: RunLogStatus = dryRun ? "SIMULATED" : "EXECUTED";
@@ -152,7 +216,9 @@ export class AutomationRuleEngine {
       } else {
         for (const action of rule.actions) {
           try {
-            actions.push(await this.runAction(action, lead, actor, dryRun));
+            const res = await this.runAction(action, lead, actor, dryRun, guard);
+            actions.push(res);
+            if (res.stop) break;
           } catch (err) {
             hadError = true;
             actions.push({
@@ -197,7 +263,12 @@ export class AutomationRuleEngine {
    * data, never sends a message — safe read-only operation for the builder.
    */
   async traceDraft(
-    draft: { trigger: string; conditions: RuleCondition[]; actions: RuleAction[] },
+    draft: {
+      trigger: string;
+      conditions: RuleCondition[];
+      conditionLogic?: ConditionLogic;
+      actions: RuleAction[];
+    },
     leadId: string,
   ): Promise<WorkflowSimulationResult> {
     const lead = await leadRepository.findById(leadId);
@@ -209,13 +280,17 @@ export class AutomationRuleEngine {
     const conditions = draft.conditions.map((c) =>
       this.evalCondition(c, lead, consents, isDemoLead),
     );
-    const allPassed = conditions.every((c) => c.passed);
+    const allPassed = this.combineConditions(conditions, draft.conditionLogic);
+    const guard = (c: RuleCondition) =>
+      this.evalCondition(c, lead, consents, isDemoLead).passed;
 
     const actions: ActionResult[] = [];
     if (allPassed) {
       for (const action of draft.actions) {
         try {
-          actions.push(await this.runAction(action, lead, "simulation", true));
+          const res = await this.runAction(action, lead, "simulation", true, guard);
+          actions.push(res);
+          if (res.stop) break;
         } catch (err) {
           actions.push({
             type: action.type,
@@ -259,7 +334,9 @@ export class AutomationRuleEngine {
     const conditions = rule.conditions.map((c) =>
       this.evalCondition(c, lead, consents, isDemoLead),
     );
-    const allPassed = conditions.every((c) => c.passed);
+    const allPassed = this.combineConditions(conditions, rule.conditionLogic);
+    const guard = (c: RuleCondition) =>
+      this.evalCondition(c, lead, consents, isDemoLead).passed;
 
     const actions: ActionResult[] = [];
     let status: RunLogStatus = "SIMULATED";
@@ -270,7 +347,9 @@ export class AutomationRuleEngine {
     } else {
       for (const action of rule.actions) {
         try {
-          actions.push(await this.runAction(action, lead, actor));
+          const res = await this.runAction(action, lead, actor, false, guard);
+          actions.push(res);
+          if (res.stop) break;
         } catch (err) {
           hadError = true;
           actions.push({
@@ -304,6 +383,20 @@ export class AutomationRuleEngine {
       details: JSON.stringify({ leadId, status, actions: actions.length }),
     });
     return run;
+  }
+
+  /**
+   * Combine condition results with the rule's UND/ODER logic. No conditions →
+   * always passes. "any" (ODER) → at least one; "all" (UND, default) → every.
+   */
+  private combineConditions(
+    results: ConditionResult[],
+    logic: ConditionLogic | undefined,
+  ): boolean {
+    if (results.length === 0) return true;
+    return logic === "any"
+      ? results.some((c) => c.passed)
+      : results.every((c) => c.passed);
   }
 
   private evalCondition(
@@ -349,6 +442,49 @@ export class AutomationRuleEngine {
           note: got ? `erkannt: ${SITUATION_LABEL[got] ?? got}` : "keine Antwort im Kontext",
         };
       }
+      case "analyzeReply": {
+        const a = resolveReplyAnalysis(lead, event);
+        if (!a) return { type: c.type, passed: false, note: "keine Antwort im Kontext" };
+        const passed = !a.manualReview;
+        return {
+          type: c.type,
+          passed,
+          note: passed
+            ? `erkannt: ${REPLY_INTENT_LABEL[a.intent]} (${Math.round(a.confidence * 100)}%)`
+            : "unsicher → manuelle Prüfung",
+        };
+      }
+      case "aiInterestDetected":
+      case "aiEmployed":
+      case "aiJobSeeking":
+      case "aiCareerChange":
+      case "aiJobInsecure":
+      case "aiGeneralInterest":
+      case "aiCallback":
+      case "aiQuestion":
+      case "aiStop":
+      case "aiNoInterest": {
+        const a = resolveReplyAnalysis(lead, event);
+        if (!a) return { type: c.type, passed: false, note: "keine Antwort im Kontext" };
+        const flagMap: Record<string, boolean> = {
+          aiInterestDetected: a.flags.interest,
+          aiEmployed: a.flags.employed,
+          aiJobSeeking: a.flags.jobSeeking,
+          aiCareerChange: a.flags.careerChange,
+          aiJobInsecure: a.flags.jobInsecure,
+          aiGeneralInterest: a.flags.generalInterest,
+          aiCallback: a.flags.callback,
+          aiQuestion: a.flags.question,
+          aiStop: a.flags.stop,
+          aiNoInterest: a.flags.noInterest,
+        };
+        const passed = flagMap[c.type] === true;
+        return {
+          type: c.type,
+          passed,
+          note: `Analyse: ${REPLY_INTENT_LABEL[a.intent]}`,
+        };
+      }
       case "replyTextEquals": {
         const passed =
           event != null && foldText(event.body) === foldText(String(c.value ?? ""));
@@ -366,8 +502,24 @@ export class AutomationRuleEngine {
         return { type: c.type, passed: granted("EMAIL") };
       case "leadStatus":
         return { type: c.type, passed: lead.status === String(c.value) };
+      case "funnelPhase": {
+        // Process step (separate axis from the communication status).
+        const passed = lead.funnelPhase === String(c.value);
+        return {
+          type: c.type,
+          passed,
+          note: `Phase: ${FUNNEL_PHASE_LABEL[lead.funnelPhase] ?? lead.funnelPhase}`,
+        };
+      }
       case "funnelStage":
-        return { type: c.type, passed: lead.status === String(c.value) };
+        // Legacy: kept for backward compatibility. Older rules stored a lead
+        // STATUS value here; new rules should use `funnelPhase`. Match either so
+        // existing automations keep working after the status/phase split.
+        return {
+          type: c.type,
+          passed:
+            lead.funnelPhase === String(c.value) || lead.status === String(c.value),
+        };
       case "priority":
         return { type: c.type, passed: lead.priority === String(c.value) };
       case "scoreGreaterThan":
@@ -405,6 +557,7 @@ export class AutomationRuleEngine {
     lead: LeadDetail,
     actor: string,
     dryRun = false,
+    guard?: (c: RuleCondition) => boolean,
   ): Promise<ActionResult> {
     const tag = dryRun ? " (Testmodus)" : "";
     switch (action.type) {
@@ -520,6 +673,135 @@ export class AutomationRuleEngine {
           type: action.type,
           result: `Admin-Benachrichtigung (Simulation): ${action.note ?? "Hinweis"}`,
         };
+      case "changeFunnelPhase": {
+        const target = String(action.funnelPhase ?? "");
+        if (!isFunnelPhase(target))
+          return { type: action.type, result: "Ungültige Funnel-Phase" };
+        const label = FUNNEL_PHASE_LABEL[target];
+        if (dryRun) return { type: action.type, result: `Funnel-Phase → ${label}${tag}` };
+        await leadRepository.update(lead.id, { funnelPhase: target });
+        await auditLogRepository.append({
+          actor,
+          action: AuditAction.WORKFLOW_AUTOMATION,
+          entityType: "Lead",
+          entityId: lead.id,
+          details: JSON.stringify({ funnelPhase: target, viaAutomation: true }),
+        });
+        return { type: action.type, result: `Funnel-Phase → ${label}` };
+      }
+      case "addTag":
+      case "removeTag": {
+        const tagValue = (action.tag ?? "").trim();
+        if (!tagValue) return { type: action.type, result: "Kein Tag angegeben" };
+        const verb = action.type === "addTag" ? "hinzugefügt" : "entfernt";
+        if (dryRun)
+          return { type: action.type, result: `Tag "${tagValue}" würde ${verb}${tag}` };
+        const current = new Set(lead.tags ?? []);
+        if (action.type === "addTag") current.add(tagValue);
+        else current.delete(tagValue);
+        await leadRepository.update(lead.id, { tags: Array.from(current) });
+        return { type: action.type, result: `Tag "${tagValue}" ${verb}` };
+      }
+      case "changeScore": {
+        const delta = Number(action.score ?? 0);
+        if (!Number.isFinite(delta) || delta === 0)
+          return { type: action.type, result: "Kein Score-Wert angegeben" };
+        const next = Math.max(0, Math.min(100, lead.score + delta));
+        if (dryRun)
+          return {
+            type: action.type,
+            result: `Score ${lead.score} → ${next} (${delta > 0 ? "+" : ""}${delta})${tag}`,
+          };
+        await leadRepository.update(lead.id, { score: next });
+        return {
+          type: action.type,
+          result: `Score ${lead.score} → ${next} (${delta > 0 ? "+" : ""}${delta})`,
+        };
+      }
+      case "pauseAutomation": {
+        if (dryRun) return { type: action.type, result: `Automationen würden pausiert${tag}` };
+        await leadRepository.update(lead.id, { automationPaused: true });
+        return { type: action.type, result: "Automationen pausiert" };
+      }
+      case "resumeAutomation": {
+        if (dryRun) return { type: action.type, result: `Automationen würden fortgesetzt${tag}` };
+        await leadRepository.update(lead.id, { automationPaused: false });
+        return { type: action.type, result: "Automationen fortgesetzt" };
+      }
+      case "delay": {
+        const value = Number(action.delayValue ?? 0);
+        const unit = action.delayUnit ?? "hours";
+        if (!Number.isFinite(value) || value <= 0)
+          return { type: action.type, result: "Keine Wartezeit angegeben" };
+        const factor = unit === "minutes" ? 60_000 : unit === "days" ? 86_400_000 : 3_600_000;
+        const unitLabel = unit === "minutes" ? "Min." : unit === "days" ? "Tage" : "Std.";
+        const when = new Date(Date.now() + value * factor);
+        if (dryRun)
+          return {
+            type: action.type,
+            result: `Warten: ${value} ${unitLabel} (bis ${when.toLocaleString("de-DE")})${tag}`,
+          };
+        await leadRepository.update(lead.id, { nextFollowUpAt: when });
+        return {
+          type: action.type,
+          result: `Warten: ${value} ${unitLabel} (Wiedervorlage ${when.toLocaleString("de-DE")})`,
+        };
+      }
+      case "branch": {
+        if (!action.branchCondition)
+          return { type: action.type, result: "Keine Verzweigungsbedingung" };
+        const cond: RuleCondition = {
+          type: action.branchCondition,
+          ...(action.branchValue !== undefined ? { value: action.branchValue } : {}),
+        };
+        const met = guard ? guard(cond) : false;
+        return {
+          type: action.type,
+          result: met
+            ? "Verzweigung: Bedingung erfüllt → weiter"
+            : "Verzweigung: Bedingung nicht erfüllt → Workflow beendet",
+          stop: !met,
+        };
+      }
+      case "addNote": {
+        const body = (action.note ?? "").trim() || "Automatische Notiz";
+        if (dryRun) return { type: action.type, result: `Notiz würde erstellt: ${body}${tag}` };
+        await noteRepository.create({ leadId: lead.id, body, author: actor });
+        await auditLogRepository.append({
+          actor,
+          action: AuditAction.WORKFLOW_AUTOMATION,
+          entityType: "Lead",
+          entityId: lead.id,
+          details: JSON.stringify({ note: body, viaAutomation: true }),
+        });
+        return { type: action.type, result: `Notiz erstellt: ${body}` };
+      }
+      case "notifyInternal": {
+        const msg = (action.note ?? "").trim() || "Interne Benachrichtigung";
+        if (dryRun) return { type: action.type, result: `Team würde benachrichtigt: ${msg}${tag}` };
+        await taskRepository.create({
+          title: `🔔 ${msg}`,
+          leadId: lead.id,
+          assigneeId: lead.assignedToId ?? null,
+          createdById: actor,
+          dueAt: new Date(Date.now() + 24 * 3_600_000),
+        });
+        await auditLogService.append({
+          actor,
+          action: AuditAction.WORKFLOW_AUTOMATION,
+          entityType: "Lead",
+          entityId: lead.id,
+          details: { internalNotification: msg, viaAutomation: true },
+        });
+        return { type: action.type, result: `Team benachrichtigt: ${msg}` };
+      }
+      case "endWorkflow": {
+        return {
+          type: action.type,
+          result: `Workflow beendet${tag}`,
+          stop: true,
+        };
+      }
       default:
         return { type: action.type, result: "unbekannte Aktion" };
     }

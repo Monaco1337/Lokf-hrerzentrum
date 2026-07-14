@@ -1,7 +1,14 @@
 "use client";
 /**
- * Admin document review for the applicant portal checklist. Approve/reject
- * uploaded documents, add a reviewer note, and re-request missing documents.
+ * Admin document review for the applicant portal checklist.
+ *
+ * Enterprise review flow:
+ *  - Every uploaded document is clickable → in-browser preview (PDF/image) with
+ *    zoom, download and print (DocumentViewerModal).
+ *  - Approve/Reject is only unlocked AFTER the reviewer has sighted the file.
+ *  - Rejection requires a reason; the applicant then automatically receives a
+ *    WhatsApp + e-mail with that reason and a fresh upload link (server-side).
+ *  - "Fehlende anfordern" regenerates the request from the still-missing docs.
  */
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -15,9 +22,12 @@ import {
   type PortalDocumentStatus,
 } from "../../types";
 import {
+  recordPortalDocumentViewed,
   requestPortalDocuments,
   reviewPortalDocument,
 } from "@/server/actions/portalAdmin";
+
+import { DocumentViewerModal } from "./DocumentViewerModal";
 
 function tone(status: PortalDocumentStatus): string {
   switch (status) {
@@ -34,6 +44,12 @@ function tone(status: PortalDocumentStatus): string {
   }
 }
 
+interface ViewerTarget {
+  fileId: string;
+  fileName: string;
+  mimeType: string | null;
+}
+
 export function PortalDocumentReview({
   leadId,
   documents,
@@ -44,6 +60,8 @@ export function PortalDocumentReview({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [viewed, setViewed] = useState<Record<string, boolean>>({});
+  const [viewer, setViewer] = useState<ViewerTarget | null>(null);
 
   const completion = (() => {
     const done = PORTAL_REQUIRED_DOCUMENTS.filter((k) => {
@@ -57,12 +75,29 @@ export function PortalDocumentReview({
     .filter((d) => d.status === "MISSING")
     .map((d) => d.kind);
 
-  const review = (documentId: string, decision: "APPROVED" | "REJECTED") =>
+  const openViewer = (d: PortalDocumentEntry) => {
+    if (!d.uploadedFileId) return;
+    setViewer({
+      fileId: d.uploadedFileId,
+      fileName: d.fileName ?? "Dokument",
+      mimeType: d.mimeType,
+    });
+    if (!viewed[d.id]) {
+      setViewed((v) => ({ ...v, [d.id]: true }));
+      // Fire-and-forget audit; the reviewer sighted the document.
+      void recordPortalDocumentViewed({ documentId: d.id });
+    }
+  };
+
+  const review = (
+    documentId: string,
+    decision: "APPROVED" | "REJECTED",
+  ) =>
     startTransition(async () => {
       await reviewPortalDocument({
         documentId,
         decision,
-        reviewerNote: notes[documentId] || undefined,
+        reviewerNote: notes[documentId]?.trim() || undefined,
       });
       router.refresh();
     });
@@ -76,6 +111,15 @@ export function PortalDocumentReview({
 
   return (
     <div className="space-y-3">
+      {viewer ? (
+        <DocumentViewerModal
+          fileId={viewer.fileId}
+          fileName={viewer.fileName}
+          mimeType={viewer.mimeType}
+          onClose={() => setViewer(null)}
+        />
+      ) : null}
+
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1">
           <div className="flex items-center justify-between text-xs text-ink-muted">
@@ -102,6 +146,10 @@ export function PortalDocumentReview({
       <ul className="space-y-2">
         {documents.map((d) => {
           const isReviewable = d.status === "UPLOADED";
+          const hasFile = Boolean(d.uploadedFileId);
+          // Sighting gate: if there is a real file, it must be opened first.
+          const sighted = !hasFile || viewed[d.id];
+          const noteText = notes[d.id]?.trim() ?? "";
           return (
             <li
               key={d.kind}
@@ -124,13 +172,24 @@ export function PortalDocumentReview({
                     <p className="truncate text-xs text-ink-muted">{d.fileName}</p>
                   ) : null}
                 </div>
-                <span
-                  className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${tone(
-                    d.status,
-                  )}`}
-                >
-                  {PORTAL_DOCUMENT_STATUS_LABEL[d.status]}
-                </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  {hasFile ? (
+                    <button
+                      type="button"
+                      className="rounded-lg border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink hover:bg-ink/5"
+                      onClick={() => openViewer(d)}
+                    >
+                      Ansehen
+                    </button>
+                  ) : null}
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1 ${tone(
+                      d.status,
+                    )}`}
+                  >
+                    {PORTAL_DOCUMENT_STATUS_LABEL[d.status]}
+                  </span>
+                </div>
               </div>
 
               {d.reviewerNote ? (
@@ -143,17 +202,23 @@ export function PortalDocumentReview({
                 <div className="mt-2 space-y-2">
                   <input
                     className="input"
-                    placeholder="Reviewer-Notiz (optional)"
+                    placeholder="Reviewer-Notiz (Pflicht bei Ablehnung)"
                     value={notes[d.id] ?? ""}
                     onChange={(e) =>
                       setNotes((n) => ({ ...n, [d.id]: e.target.value }))
                     }
                   />
+                  {!sighted ? (
+                    <p className="text-[11px] font-medium text-amber-600">
+                      Bitte das Dokument zuerst über &bdquo;Ansehen&ldquo;
+                      sichten.
+                    </p>
+                  ) : null}
                   <div className="flex gap-2">
                     <button
                       type="button"
                       className="rounded-lg bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
-                      disabled={pending}
+                      disabled={pending || !sighted}
                       onClick={() => review(d.id, "APPROVED")}
                     >
                       Freigeben
@@ -161,7 +226,12 @@ export function PortalDocumentReview({
                     <button
                       type="button"
                       className="rounded-lg bg-rose-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-50"
-                      disabled={pending}
+                      disabled={pending || !sighted || noteText.length === 0}
+                      title={
+                        noteText.length === 0
+                          ? "Ablehnungsgrund erforderlich"
+                          : undefined
+                      }
                       onClick={() => review(d.id, "REJECTED")}
                     >
                       Ablehnen

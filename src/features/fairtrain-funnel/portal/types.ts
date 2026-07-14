@@ -146,6 +146,10 @@ export interface PortalDocumentEntry {
   kind: PortalDocumentKind;
   status: PortalDocumentStatus;
   fileName: string | null;
+  /** FK to the real uploaded file bytes (viewer/download). Null for demo/simulated. */
+  uploadedFileId: string | null;
+  /** MIME type of the uploaded file, when a real file is linked. */
+  mimeType: string | null;
   reviewerNote: string | null;
   uploadedAt: Date | null;
   reviewedAt: Date | null;

@@ -58,6 +58,7 @@ const STATUS_PROGRESS: Record<LeadStatusType, number> = {
   [LeadStatus.CALL_SCHEDULED]: 0.32,
   [LeadStatus.BRIEFING_SENT]: 0.38,
   [LeadStatus.DOC_PENDING]: 0.45,
+  [LeadStatus.DOC_REVIEW]: 0.5,
   [LeadStatus.DOC_READY]: 0.55,
   [LeadStatus.AA_APPOINTMENT_PENDING]: 0.65,
   [LeadStatus.AA_APPOINTMENT_DONE]: 0.72,

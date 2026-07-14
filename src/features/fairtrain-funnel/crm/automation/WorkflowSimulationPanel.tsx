@@ -11,6 +11,7 @@ import { useState, useTransition } from "react";
 
 import { simulateWorkflowDraft } from "@/server/actions/automationRules";
 import type {
+  ConditionLogic,
   RuleAction,
   RuleCondition,
   WorkflowSimulationResult,
@@ -23,7 +24,12 @@ interface Props {
   open: boolean;
   onClose: () => void;
   previewLeads: ReadonlyArray<PreviewLead>;
-  draft: { trigger: string; conditions: RuleCondition[]; actions: RuleAction[] };
+  draft: {
+    trigger: string;
+    conditions: RuleCondition[];
+    conditionLogic?: ConditionLogic;
+    actions: RuleAction[];
+  };
 }
 
 export function WorkflowSimulationPanel({ open, onClose, previewLeads, draft }: Props) {
@@ -44,6 +50,7 @@ export function WorkflowSimulationPanel({ open, onClose, previewLeads, draft }: 
         leadId,
         trigger: draft.trigger,
         conditions: draft.conditions,
+        conditionLogic: draft.conditionLogic ?? "all",
         actions: draft.actions,
       });
       if (!res.ok) {

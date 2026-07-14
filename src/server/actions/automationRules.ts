@@ -9,6 +9,7 @@ import { z } from "zod";
 import {
   AuditAction,
   AutomationTriggerSchema,
+  ConditionLogicSchema,
   RuleActionSchema,
   RuleConditionSchema,
   RuleStatusSchema,
@@ -31,6 +32,7 @@ const RuleBodySchema = z.object({
   description: z.string().max(500).nullable().optional(),
   trigger: AutomationTriggerSchema,
   conditions: z.array(RuleConditionSchema).max(20),
+  conditionLogic: ConditionLogicSchema.default("all"),
   actions: z.array(RuleActionSchema).min(1).max(20),
   status: RuleStatusSchema.default("draft"),
   runMode: RunModeSchema.default("demo"),
@@ -49,6 +51,7 @@ export async function createAutomationRule(
       description: d.description ?? null,
       trigger: d.trigger,
       conditions: d.conditions,
+      conditionLogic: d.conditionLogic,
       actions: d.actions,
       status: d.status,
       runMode: d.runMode,
@@ -82,6 +85,9 @@ export async function updateAutomationRule(
       ...(rest.description !== undefined ? { description: rest.description ?? null } : {}),
       ...(rest.trigger !== undefined ? { trigger: rest.trigger } : {}),
       ...(rest.conditions !== undefined ? { conditions: rest.conditions } : {}),
+      ...(rest.conditionLogic !== undefined
+        ? { conditionLogic: rest.conditionLogic }
+        : {}),
       ...(rest.actions !== undefined ? { actions: rest.actions } : {}),
       ...(rest.status !== undefined ? { status: rest.status } : {}),
       ...(rest.runMode !== undefined ? { runMode: rest.runMode } : {}),
@@ -202,6 +208,7 @@ const DraftSimulateSchema = z.object({
   leadId: z.string().min(1),
   trigger: AutomationTriggerSchema,
   conditions: z.array(RuleConditionSchema).max(20),
+  conditionLogic: ConditionLogicSchema.default("all"),
   actions: z.array(RuleActionSchema).max(20),
 });
 
@@ -220,6 +227,7 @@ export async function simulateWorkflowDraft(
       {
         trigger: parsed.data.trigger,
         conditions: parsed.data.conditions,
+        conditionLogic: parsed.data.conditionLogic,
         actions: parsed.data.actions,
       },
       parsed.data.leadId,

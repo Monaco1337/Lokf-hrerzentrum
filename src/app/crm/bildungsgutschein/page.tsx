@@ -108,6 +108,7 @@ const STATUS_LABEL: Record<LeadStatus, string> = {
   CALL_SCHEDULED: "Telefonat geplant",
   BRIEFING_SENT: "Briefing versendet",
   DOC_PENDING: "Unterlagen offen",
+  DOC_REVIEW: "Unterlagen in Prüfung",
   DOC_READY: "Unterlagen vollständig",
   AA_APPOINTMENT_PENDING: "AA-Termin offen",
   AA_APPOINTMENT_DONE: "AA-Termin erledigt",

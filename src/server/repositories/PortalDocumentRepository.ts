@@ -22,18 +22,27 @@ interface DocRow {
   kind: string;
   status: string;
   fileName: string | null;
+  uploadedFileId: string | null;
   reviewerNote: string | null;
   uploadedAt: Date | null;
   reviewedAt: Date | null;
 }
 
-function mapRow(row: DocRow, demoIds: ReadonlySet<string>): PortalDocumentEntry {
+function mapRow(
+  row: DocRow,
+  demoIds: ReadonlySet<string>,
+  mimeById: ReadonlyMap<string, string>,
+): PortalDocumentEntry {
   return {
     id: row.id,
     leadId: row.leadId,
     kind: PortalDocumentKindSchema.parse(row.kind),
     status: PortalDocumentStatusSchema.parse(row.status),
     fileName: row.fileName,
+    uploadedFileId: row.uploadedFileId,
+    mimeType: row.uploadedFileId
+      ? mimeById.get(row.uploadedFileId) ?? null
+      : null,
     reviewerNote: row.reviewerNote,
     uploadedAt: row.uploadedAt,
     reviewedAt: row.reviewedAt,
@@ -44,6 +53,19 @@ function mapRow(row: DocRow, demoIds: ReadonlySet<string>): PortalDocumentEntry 
 export class PortalDocumentRepository {
   private async demoIds(): Promise<Set<string>> {
     return new Set(await demoSeedRepository.listByType("PortalDocument"));
+  }
+
+  /** Resolve MIME types for a set of rows in a single query. */
+  private async mimeMap(rows: DocRow[]): Promise<Map<string, string>> {
+    const ids = rows
+      .map((r) => r.uploadedFileId)
+      .filter((v): v is string => Boolean(v));
+    if (ids.length === 0) return new Map();
+    const files = await prisma.uploadedFile.findMany({
+      where: { id: { in: ids } },
+      select: { id: true, mimeType: true },
+    });
+    return new Map(files.map((f) => [f.id, f.mimeType]));
   }
 
   /** Ensure all six checklist rows exist for a lead; returns the new row ids. */
@@ -69,17 +91,20 @@ export class PortalDocumentRepository {
       prisma.portalDocument.findMany({ where: { leadId } }),
       this.demoIds(),
     ]);
+    const mimeById = await this.mimeMap(rows);
     const byKind = new Map(rows.map((r) => [r.kind, r]));
     // Always return the full ordered checklist, even before ensureChecklist ran.
     return PORTAL_DOCUMENT_ORDER.map((kind) => {
       const row = byKind.get(kind);
-      if (row) return mapRow(row, demoIds);
+      if (row) return mapRow(row, demoIds, mimeById);
       return {
         id: `${leadId}:${kind}`,
         leadId,
         kind,
         status: "MISSING" as PortalDocumentStatus,
         fileName: null,
+        uploadedFileId: null,
+        mimeType: null,
         reviewerNote: null,
         uploadedAt: null,
         reviewedAt: null,
@@ -96,13 +121,63 @@ export class PortalDocumentRepository {
       prisma.portalDocument.findMany({ where: { leadId: { in: leadIds } } }),
       this.demoIds(),
     ]);
+    const mimeById = await this.mimeMap(rows);
     const out = new Map<string, PortalDocumentEntry[]>();
     for (const row of rows) {
       const list = out.get(row.leadId) ?? [];
-      list.push(mapRow(row, demoIds));
+      list.push(mapRow(row, demoIds, mimeById));
       out.set(row.leadId, list);
     }
     return out;
+  }
+
+  /** Count portal documents uploaded and awaiting a human review decision. */
+  async countAwaitingReview(): Promise<number> {
+    return prisma.portalDocument.count({ where: { status: "UPLOADED" } });
+  }
+
+  /**
+   * Leads with at least one uploaded, not-yet-reviewed document — powering the
+   * Leitstand "Neue Unterlagen" widget. Newest upload first.
+   */
+  async listAwaitingReview(
+    limit = 12,
+  ): Promise<
+    ReadonlyArray<{
+      leadId: string;
+      leadName: string;
+      pending: number;
+      latestAt: Date | null;
+    }>
+  > {
+    const rows = await prisma.portalDocument.findMany({
+      where: { status: "UPLOADED" },
+      orderBy: { uploadedAt: "desc" },
+      select: {
+        leadId: true,
+        uploadedAt: true,
+        lead: { select: { firstName: true, lastName: true } },
+      },
+    });
+    const byLead = new Map<
+      string,
+      { leadId: string; leadName: string; pending: number; latestAt: Date | null }
+    >();
+    for (const row of rows) {
+      const existing = byLead.get(row.leadId);
+      const name = `${row.lead?.firstName ?? ""} ${row.lead?.lastName ?? ""}`.trim();
+      if (existing) {
+        existing.pending += 1;
+      } else {
+        byLead.set(row.leadId, {
+          leadId: row.leadId,
+          leadName: name || "Unbekannt",
+          pending: 1,
+          latestAt: row.uploadedAt,
+        });
+      }
+    }
+    return Array.from(byLead.values()).slice(0, limit);
   }
 
   async findById(id: string): Promise<PortalDocumentEntry | null> {
@@ -110,7 +185,8 @@ export class PortalDocumentRepository {
       prisma.portalDocument.findUnique({ where: { id } }),
       this.demoIds(),
     ]);
-    return row ? mapRow(row, demoIds) : null;
+    if (!row) return null;
+    return mapRow(row, demoIds, await this.mimeMap([row]));
   }
 
   /** Upsert a single kind for a lead (used by demo seeding + portal uploads). */
@@ -133,7 +209,7 @@ export class PortalDocumentRepository {
       create: { leadId, kind, ...data },
       update: { ...data },
     });
-    return mapRow(row, await this.demoIds());
+    return mapRow(row, await this.demoIds(), await this.mimeMap([row]));
   }
 
   async setStatus(
@@ -152,7 +228,7 @@ export class PortalDocumentRepository {
       where: { id },
       data: { status, ...extra },
     });
-    return mapRow(row, await this.demoIds());
+    return mapRow(row, await this.demoIds(), await this.mimeMap([row]));
   }
 }
 

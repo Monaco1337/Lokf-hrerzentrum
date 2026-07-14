@@ -78,6 +78,7 @@ const ACTION_PHRASE: Record<AuditAction, { verb: string; tint: string; dot: stri
   TASK_DELETED: { verb: "Aufgabe entfernt", tint: "text-red-300", dot: "bg-red-500" },
   DOCUMENT_REQUESTED: { verb: "Unterlagen angefordert", tint: "text-amber-300", dot: "bg-amber-500" },
   DOCUMENT_UPLOADED: { verb: "Dokument hochgeladen", tint: "text-blue-300", dot: "bg-blue-500" },
+  DOCUMENT_VIEWED: { verb: "Dokument gesichtet", tint: "text-slate-300", dot: "bg-slate-400" },
   DOCUMENT_APPROVED: { verb: "Dokument freigegeben", tint: "text-emerald-300", dot: "bg-emerald-500" },
   DOCUMENT_REJECTED: { verb: "Dokument abgelehnt", tint: "text-red-300", dot: "bg-red-500" },
   PORTAL_LINK_CREATED: { verb: "Portal-Link erstellt", tint: "text-blue-300", dot: "bg-blue-500" },

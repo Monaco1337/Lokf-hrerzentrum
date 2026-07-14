@@ -14,6 +14,7 @@ import { leadInsightsService } from "@/server/services/LeadInsightsService";
 import { leadService } from "@/server/services/LeadService";
 import { salesAnalyticsService } from "@/server/services/SalesAnalyticsService";
 import { auditLogRepository } from "@/server/repositories/AuditLogRepository";
+import { portalDocumentRepository } from "@/server/repositories/PortalDocumentRepository";
 import { statusHistoryRepository } from "@/server/repositories/StatusHistoryRepository";
 import { userRepository } from "@/server/repositories/UserRepository";
 import {
@@ -40,6 +41,20 @@ export interface LivePerformance {
   closesToday: number;
 }
 
+/** A lead with freshly uploaded documents awaiting a review decision. */
+export interface NewDocumentsLead {
+  leadId: string;
+  leadName: string;
+  pending: number;
+  latestAt: Date | null;
+}
+
+export interface NewDocumentsData {
+  /** Total uploaded documents awaiting review across all leads. */
+  count: number;
+  leads: ReadonlyArray<NewDocumentsLead>;
+}
+
 export interface LeitstandData {
   user: UserSummary;
   kpis: LeadKpis;
@@ -50,6 +65,7 @@ export interface LeitstandData {
   activity: ReadonlyArray<AuditLogEntry>;
   actors: Record<string, string>;
   livePerformance: LivePerformance;
+  newDocuments: NewDocumentsData;
 }
 
 const ACTIVE_STATUSES: ReadonlyArray<LeadStatus> = Object.values(LeadStatus).filter(
@@ -156,6 +172,8 @@ export async function loadLeitstand(
     allUsers,
     sales,
     closesToday,
+    docsAwaitingCount,
+    docsAwaitingLeads,
   ] = await Promise.all([
     leadService.kpis(),
     aggregateWhatsAppKpis(),
@@ -168,6 +186,8 @@ export async function loadLeitstand(
       LeadStatus.GUTSCHEIN_APPROVED,
       startOfToday,
     ),
+    portalDocumentRepository.countAwaitingReview(),
+    portalDocumentRepository.listAwaitingReview(),
   ]);
   // Quiet the no-unused-vars guard while keeping the scope around for future
   // owner-filtering on the global feed (we currently show org-wide activity).
@@ -192,6 +212,10 @@ export async function loadLeitstand(
       contactsToday: sales.callsToday,
       appointmentsToday: alarms.appointmentsToday,
       closesToday,
+    },
+    newDocuments: {
+      count: docsAwaitingCount,
+      leads: docsAwaitingLeads,
     },
   };
 }

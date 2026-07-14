@@ -27,11 +27,15 @@ import {
   type UploadedFileKind,
 } from "@/features/fairtrain-funnel/types";
 
+import { LeadStatus } from "@/features/fairtrain-funnel/types";
+import { isTerminal, PIPELINE_RANK } from "@/features/fairtrain-funnel/statusMachine";
+
 import { leadRepository } from "../repositories/LeadRepository";
 import { portalDocumentRepository } from "../repositories/PortalDocumentRepository";
 import { portalLinkRepository } from "../repositories/PortalLinkRepository";
 import { taskRepository } from "../repositories/TaskRepository";
 import { auditLogService } from "./AuditLogService";
+import { documentReviewNotifier } from "./DocumentReviewNotifier";
 import { fileUploadService } from "./FileUploadService";
 import { leadLifecycleService } from "./LeadLifecycleService";
 import { portalTokenService } from "./PortalTokenService";
@@ -160,6 +164,41 @@ export class PortalService {
       entityId: leadId,
       details: { kinds },
     });
+
+    // Notify the applicant with a fresh upload link (best-effort — never blocks
+    // the status update if a channel is misconfigured).
+    const lead = await leadRepository.findById(leadId);
+    if (lead) {
+      try {
+        const { url } = await this.createLink(leadId, actor);
+        await documentReviewNotifier.notifyRequested({
+          lead: {
+            id: lead.id,
+            firstName: lead.firstName,
+            phone: lead.phone,
+            email: lead.email,
+          },
+          kinds,
+          uploadLink: url,
+          actorId: actor,
+        });
+      } catch {
+        // channels are best-effort; the request itself already succeeded.
+      }
+    }
+  }
+
+  /** Log that a reviewer opened a document for sighting (gates approve/reject). */
+  async recordDocumentViewed(documentId: string, actor: string): Promise<void> {
+    const doc = await portalDocumentRepository.findById(documentId);
+    if (!doc) return;
+    await auditLogService.append({
+      actor,
+      action: AuditAction.DOCUMENT_VIEWED,
+      entityType: "Lead",
+      entityId: doc.leadId,
+      details: { kind: doc.kind, documentId },
+    });
   }
 
   async reviewDocument(
@@ -184,6 +223,74 @@ export class PortalService {
       entityType: "Lead",
       entityId: doc.leadId,
       details: { kind: doc.kind, reviewerNote: reviewerNote ?? null },
+    });
+
+    // On rejection, automatically ask the applicant to re-upload — WhatsApp +
+    // e-mail with the exact reason and a working upload link.
+    if (decision === "REJECTED" && reviewerNote) {
+      const lead = await leadRepository.findById(doc.leadId);
+      if (lead) {
+        try {
+          const { url } = await this.createLink(doc.leadId, actor);
+          await documentReviewNotifier.notifyRejected({
+            lead: {
+              id: lead.id,
+              firstName: lead.firstName,
+              phone: lead.phone,
+              email: lead.email,
+            },
+            kind: doc.kind,
+            reason: reviewerNote,
+            uploadLink: url,
+            actorId: actor,
+          });
+        } catch {
+          // best-effort notification.
+        }
+      }
+    }
+
+    await this.syncDocReviewStatus(doc.leadId, actor);
+  }
+
+  /**
+   * Keep the lead's communication status in lockstep with document review:
+   *  - any uploaded-but-unreviewed document  → DOC_REVIEW
+   *  - all required documents approved        → DOC_READY
+   * Forward-only (never regresses) and never touches terminal leads.
+   */
+  private async syncDocReviewStatus(
+    leadId: string,
+    actor: string,
+  ): Promise<void> {
+    const [docs, lead] = await Promise.all([
+      portalDocumentRepository.list(leadId),
+      leadRepository.findById(leadId),
+    ]);
+    if (!lead) return;
+    const current = lead.status as LeadStatus;
+    if (isTerminal(current)) return;
+
+    const requiredApproved = PORTAL_REQUIRED_DOCUMENTS.every(
+      (kind) => docs.find((d) => d.kind === kind)?.status === "APPROVED",
+    );
+    const pendingReview = docs.some((d) => d.status === "UPLOADED");
+
+    let target: LeadStatus | null = null;
+    if (requiredApproved) target = LeadStatus.DOC_READY;
+    else if (pendingReview) target = LeadStatus.DOC_REVIEW;
+    if (!target) return;
+
+    const currentRank = PIPELINE_RANK[current] ?? -1;
+    const targetRank = PIPELINE_RANK[target] ?? -1;
+    if (targetRank <= currentRank) return;
+
+    await statusMachineService.transition({
+      leadId,
+      toStatus: target,
+      actor,
+      reason: "Dokumentenprüfung",
+      override: true,
     });
   }
 
@@ -383,6 +490,8 @@ export class PortalService {
     // Punkt 6: der Bewerber hat Unterlagen hochgeladen → wieder als
     // bearbeitungsbereit markieren und den zuständigen Bearbeiter benachrichtigen.
     await this.markDocumentsReceived(link.leadId);
+    // New upload awaiting sighting → move the lead into DOC_REVIEW.
+    await this.syncDocReviewStatus(link.leadId, "applicant");
     const completion = await this.maybeComplete(link.entry.id, link.leadId);
     return {
       ok: true,

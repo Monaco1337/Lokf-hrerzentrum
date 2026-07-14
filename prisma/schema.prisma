@@ -119,6 +119,20 @@ model Lead {
   lastManualContactBy      String? // user id who last handled the lead manually
   lastManualContactChannel String? // "whatsapp" | "phone" | "multichat" | …
 
+  // Funnel-Phase (added 2026-07-14). The PROCESS step, fully separate from
+  // `status` (communication status). Enum-validated via funnelPhase.ts. Default
+  // "none" keeps every existing lead/automation behaving exactly as before.
+  funnelPhase String @default("none") // FunnelPhase enum
+
+  // AI reply analysis (added 2026-07-14). Deterministic classification of the
+  // last inbound WhatsApp reply. The KI ONLY classifies — it never generates
+  // messages. `needsManualReview` is set when confidence is too low so no wrong
+  // automation is started.
+  replyInterest     String? // "yes" | "no" | "unknown"
+  replyIntent       String? // ReplyIntent (primary detected intent)
+  replyConfidence   Int? // 0..100
+  needsManualReview Boolean @default(false)
+
   // Reactivation campaign layer (added 2026-07-09). Additive to the pipeline
   // status/state-machine — `campaignStatus` is a SEPARATE German lifecycle for
   // the Alt-Lead reactivation flow and never touches `status`.
@@ -183,6 +197,8 @@ model Lead {
   @@index([optOut])
   @@index([contactState])
   @@index([reactivationExcluded])
+  @@index([funnelPhase])
+  @@index([needsManualReview])
   @@index([leadType])
   @@index([campaign])
   @@index([campaignStatus])
@@ -626,7 +642,9 @@ model AutomationRule {
 
   trigger    String // AutomationTrigger enum
   conditions String @default("[]") // JSON array of {type, value?}
-  actions    String @default("[]") // JSON array of {type, …params}
+  // How the conditions are combined: "all" = UND (default), "any" = ODER.
+  conditionLogic String @default("all")
+  actions        String @default("[]") // JSON array of {type, …params}
 
   status  String @default("draft") // draft | active | inactive
   runMode String @default("demo") // demo | simulation | production_ready

@@ -13,7 +13,10 @@ import {
 import {
   ACTION_LABEL,
   CONDITION_LABEL,
+  CONDITION_LOGIC_LABEL,
   CONDITIONS_WITH_VALUE,
+  type ConditionLogic,
+  FUNNEL_PHASE_OPTIONS,
   LeadStatus,
   RULE_STATUS_LABEL,
   RUN_MODE_LABEL,
@@ -52,6 +55,9 @@ export function RuleEditorModal({ open, mode, rule, templates, users, onClose }:
   const [conditions, setConditions] = useState<RuleCondition[]>(
     rule?.conditions ? [...rule.conditions] : [],
   );
+  const [conditionLogic, setConditionLogic] = useState<ConditionLogic>(
+    rule?.conditionLogic ?? "all",
+  );
   const [actions, setActions] = useState<RuleAction[]>(
     rule?.actions ? [...rule.actions] : [{ type: "createTask", taskTitle: "" }],
   );
@@ -76,6 +82,7 @@ export function RuleEditorModal({ open, mode, rule, templates, users, onClose }:
         description: description.trim() || null,
         trigger,
         conditions,
+        conditionLogic,
         actions,
         status,
         runMode,
@@ -143,9 +150,20 @@ export function RuleEditorModal({ open, mode, rule, templates, users, onClose }:
         </div>
 
         <Section
-          title="Bedingungen (alle müssen zutreffen)"
+          title="Bedingungen"
           onAdd={() => setConditions((c) => [...c, { type: "hasWhatsappConsent" }])}
         >
+          <div className="mb-2">
+            <select
+              className="input"
+              value={conditionLogic}
+              onChange={(e) => setConditionLogic(e.target.value as ConditionLogic)}
+            >
+              {Object.entries(CONDITION_LOGIC_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
           {conditions.length === 0 ? (
             <p className="text-[12.5px] text-ink-muted">Keine Bedingungen – Regel trifft immer zu.</p>
           ) : null}
@@ -165,6 +183,11 @@ export function RuleEditorModal({ open, mode, rule, templates, users, onClose }:
                   <select className="input w-44" value={String(c.value ?? "")} onChange={(e) => patchCondition(i, { value: e.target.value })}>
                     <option value="">—</option>
                     {LEAD_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                ) : c.type === "funnelPhase" ? (
+                  <select className="input w-48" value={String(c.value ?? "")} onChange={(e) => patchCondition(i, { value: e.target.value })}>
+                    <option value="">—</option>
+                    {FUNNEL_PHASE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                 ) : (
                   <input
@@ -247,6 +270,35 @@ function ActionParam({
   }
   if (a.type === "createFollowUp") {
     return <input className="input flex-1" placeholder="Stunden (z. B. 24)" value={a.hours ?? ""} onChange={(e) => onChange({ hours: Number(e.target.value) || undefined })} />;
+  }
+  if (a.type === "changeFunnelPhase") {
+    return (
+      <select className="input flex-1" value={a.funnelPhase ?? ""} onChange={(e) => onChange({ funnelPhase: e.target.value })}>
+        <option value="">Funnel-Phase wählen …</option>
+        {FUNNEL_PHASE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+    );
+  }
+  if (a.type === "addTag" || a.type === "removeTag") {
+    return <input className="input flex-1" placeholder="Tag (z. B. rueckruf)" value={a.tag ?? ""} onChange={(e) => onChange({ tag: e.target.value })} />;
+  }
+  if (a.type === "changeScore") {
+    return <input className="input flex-1" type="number" placeholder="Score-Änderung (z. B. 10 / -5)" value={a.score ?? ""} onChange={(e) => onChange({ score: Number(e.target.value) || undefined })} />;
+  }
+  if (a.type === "delay") {
+    return (
+      <div className="flex flex-1 gap-2">
+        <input className="input flex-1" type="number" min={1} placeholder="Wert (z. B. 30)" value={a.delayValue ?? ""} onChange={(e) => onChange({ delayValue: Number(e.target.value) || undefined })} />
+        <select className="input w-32" value={a.delayUnit ?? "hours"} onChange={(e) => onChange({ delayUnit: e.target.value as RuleAction["delayUnit"] })}>
+          <option value="minutes">Minuten</option>
+          <option value="hours">Stunden</option>
+          <option value="days">Tage</option>
+        </select>
+      </div>
+    );
+  }
+  if (a.type === "pauseAutomation" || a.type === "resumeAutomation" || a.type === "endWorkflow") {
+    return <span className="flex-1 text-[12px] text-ink-muted">Keine Konfiguration nötig</span>;
   }
   return <input className="input flex-1" placeholder="Notiz" value={a.note ?? ""} onChange={(e) => onChange({ note: e.target.value })} />;
 }

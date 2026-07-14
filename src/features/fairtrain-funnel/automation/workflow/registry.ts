@@ -77,7 +77,8 @@ export type ValueKind =
   | "hours"
   | "leadStatus"
   | "priority"
-  | "situation";
+  | "situation"
+  | "funnelPhase";
 
 /** Which config widget an action needs (drives the action config form). */
 export type ConfigKind =
@@ -87,7 +88,12 @@ export type ConfigKind =
   | "status"
   | "owner"
   | "hours"
-  | "note";
+  | "note"
+  | "funnelPhase"
+  | "tag"
+  | "score"
+  | "delay"
+  | "branch";
 
 export interface CatalogEntry {
   kind: CatalogKind;

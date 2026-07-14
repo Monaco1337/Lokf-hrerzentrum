@@ -93,6 +93,8 @@ export const LeadStatus = {
   CALL_SCHEDULED: "CALL_SCHEDULED",
   BRIEFING_SENT: "BRIEFING_SENT",
   DOC_PENDING: "DOC_PENDING",
+  // Documents uploaded and awaiting human sighting/approval in the CRM.
+  DOC_REVIEW: "DOC_REVIEW",
   DOC_READY: "DOC_READY",
   AA_APPOINTMENT_PENDING: "AA_APPOINTMENT_PENDING",
   AA_APPOINTMENT_DONE: "AA_APPOINTMENT_DONE",
@@ -268,6 +270,9 @@ export {
   CONDITIONS_WITH_VALUE,
   RuleActionType,
   ACTION_LABEL,
+  ConditionLogic,
+  ConditionLogicSchema,
+  CONDITION_LOGIC_LABEL,
   RuleConditionSchema,
   RuleActionSchema,
   RuleStatus,
@@ -291,6 +296,7 @@ export type {
   MetaTemplateButtonType,
   RuleConditionType as RuleConditionTypeT,
   RuleActionType as RuleActionTypeT,
+  ConditionLogic as ConditionLogicType,
   RuleCondition,
   RuleAction,
   RuleStatus as RuleStatusType,
@@ -310,6 +316,10 @@ export * from "./portal/types";
 // Contact protection ("Kontaktschutz") — handling lifecycle + resolutions.
 export * from "./contactState";
 import type { ContactState } from "./contactState";
+
+// Funnel-Phase — the PROCESS step (separate from the communication `status`).
+export * from "./funnelPhase";
+import type { FunnelPhase } from "./funnelPhase";
 
 // Messaging / communication ledger lifecycle types.
 export {
@@ -492,6 +502,13 @@ export interface LeadSummary {
   lastManualContactAt: Date | null;
   lastManualContactBy: string | null;
   lastManualContactChannel: string | null;
+  // Funnel-Phase (process step) — fully separate from the communication `status`.
+  funnelPhase: FunnelPhase;
+  // AI reply analysis (deterministic; the KI only classifies, never generates).
+  replyInterest: string | null; // "yes" | "no" | "unknown"
+  replyIntent: string | null; // ReplyIntent (primary detected intent)
+  replyConfidence: number | null; // 0..100
+  needsManualReview: boolean;
   // Reactivation campaign layer (additive; separate from pipeline `status`).
   leadType: string;
   campaign: string | null;

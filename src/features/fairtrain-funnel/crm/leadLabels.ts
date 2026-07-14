@@ -90,6 +90,11 @@ export const STATUS_TONE: Record<LeadStatus, Tone> = {
     dot: "bg-amber-500",
     pill: "bg-amber-50 text-amber-800 ring-amber-100",
   },
+  [LeadStatus.DOC_REVIEW]: {
+    label: "Unterlagen in Prüfung",
+    dot: "bg-blue-500",
+    pill: "bg-blue-50 text-blue-700 ring-blue-100",
+  },
   [LeadStatus.DOC_READY]: {
     label: "Dokumente vollständig",
     dot: "bg-brand-600",

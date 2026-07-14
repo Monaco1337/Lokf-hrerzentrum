@@ -204,6 +204,7 @@ const WORK_STATE: Record<LeadStatus, WorkState> = {
   CALL_SCHEDULED: { label: "Telefonat geplant", dot: "bg-brand-600", pill: BRAND_PILL },
   BRIEFING_SENT: { label: "Briefing versendet", dot: "bg-brand-600", pill: BRAND_PILL },
   DOC_PENDING: { label: "Dokumente offen", dot: "bg-amber-500", pill: TODO_PILL },
+  DOC_REVIEW: { label: "Unterlagen in Prüfung", dot: "bg-blue-500", pill: BRAND_PILL },
   DOC_READY: { label: "Dokumente vollständig", dot: "bg-brand-600", pill: BRAND_PILL },
   AA_APPOINTMENT_PENDING: { label: "AA-Termin offen", dot: "bg-amber-500", pill: TODO_PILL },
   AA_APPOINTMENT_DONE: { label: "AA-Termin erledigt", dot: "bg-indigo-500", pill: INDIGO_PILL },

@@ -29,6 +29,7 @@ export const PIPELINE_COLUMNS: ReadonlyArray<PipelineColumn> = [
   { id: LeadStatus.FUNNEL_COMPLETED, label: "Funnel abgeschlossen", hint: "Eignungscheck fertig", tone: "violet" },
   { id: LeadStatus.QUALIFIED, label: "Qualifiziert", hint: "Interesse + Eignung", tone: "violet" },
   { id: LeadStatus.DOC_PENDING, label: "Unterlagen offen", hint: "Wartet auf Bewerber", tone: "orange" },
+  { id: LeadStatus.DOC_REVIEW, label: "Unterlagen in Prüfung", hint: "Sichtung durch Team", tone: "blue" },
   { id: LeadStatus.AA_APPOINTMENT_PENDING, label: "Agenturtermin offen", hint: "Termin koordinieren", tone: "orange" },
   { id: LeadStatus.GUTSCHEIN_PENDING, label: "Gutschein beantragt", hint: "Wartet auf Agentur", tone: "amber" },
   { id: LeadStatus.GUTSCHEIN_APPROVED, label: "Gutschein erhalten", hint: "Förderung gesichert", tone: "emerald" },

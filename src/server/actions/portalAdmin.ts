@@ -108,18 +108,29 @@ export async function requestPortalDocuments(
   });
 }
 
-const ReviewSchema = z.object({
-  documentId: z.string().min(1),
-  decision: z.enum(["APPROVED", "REJECTED"]),
-  reviewerNote: z.string().max(1000).optional(),
-});
+const ReviewSchema = z
+  .object({
+    documentId: z.string().min(1),
+    decision: z.enum(["APPROVED", "REJECTED"]),
+    reviewerNote: z.string().max(1000).optional(),
+  })
+  .refine(
+    (v) =>
+      v.decision !== "REJECTED" ||
+      (v.reviewerNote !== undefined && v.reviewerNote.trim().length > 0),
+    { message: "Ablehnungsgrund erforderlich", path: ["reviewerNote"] },
+  );
 
 export async function reviewPortalDocument(
   raw: unknown,
 ): Promise<Result<{ ok: boolean }>> {
   return runAction(async () => {
     const parsed = ReviewSchema.safeParse(raw);
-    if (!parsed.success) throw new ValidationError("Ungültige Anfrage");
+    if (!parsed.success) {
+      throw new ValidationError(
+        parsed.error.issues[0]?.message ?? "Ungültige Anfrage",
+      );
+    }
     const actor = await requirePermission("canManageLeads");
     const doc = await portalDocumentRepository.findById(parsed.data.documentId);
     if (!doc) throw new ValidationError("Dokument nicht gefunden");
@@ -131,6 +142,23 @@ export async function reviewPortalDocument(
       parsed.data.reviewerNote,
     );
     revalidateLead(doc.leadId);
+    return { ok: true };
+  });
+}
+
+const ViewSchema = z.object({ documentId: z.string().min(1) });
+
+export async function recordPortalDocumentViewed(
+  raw: unknown,
+): Promise<Result<{ ok: boolean }>> {
+  return runAction(async () => {
+    const parsed = ViewSchema.safeParse(raw);
+    if (!parsed.success) throw new ValidationError("Ungültige Anfrage");
+    const actor = await requirePermission("canManageLeads");
+    const doc = await portalDocumentRepository.findById(parsed.data.documentId);
+    if (!doc) throw new ValidationError("Dokument nicht gefunden");
+    await assertLeadScopeForActor(actor, doc.leadId);
+    await portalService.recordDocumentViewed(parsed.data.documentId, actor.id);
     return { ok: true };
   });
 }

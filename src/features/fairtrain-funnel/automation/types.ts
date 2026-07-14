@@ -279,6 +279,23 @@ export const RuleConditionType = {
   replyTextEquals: "replyTextEquals",
   replyTextContains: "replyTextContains",
   detectedSituation: "detectedSituation",
+  // Funnel-Phase (process step) — separate axis from the communication status.
+  funnelPhase: "funnelPhase",
+  // AI reply analysis ("Antwort analysieren (KI)") — evaluated against the
+  // triggering inbound reply's classification. Without an inbound event these
+  // simply evaluate to "not met", so existing rules are unaffected. All flags
+  // are combinable via the rule's UND/ODER logic.
+  analyzeReply: "analyzeReply",
+  aiInterestDetected: "aiInterestDetected",
+  aiEmployed: "aiEmployed",
+  aiJobSeeking: "aiJobSeeking",
+  aiCareerChange: "aiCareerChange",
+  aiJobInsecure: "aiJobInsecure",
+  aiGeneralInterest: "aiGeneralInterest",
+  aiCallback: "aiCallback",
+  aiQuestion: "aiQuestion",
+  aiStop: "aiStop",
+  aiNoInterest: "aiNoInterest",
 } as const;
 export type RuleConditionType =
   (typeof RuleConditionType)[keyof typeof RuleConditionType];
@@ -302,6 +319,18 @@ export const CONDITION_LABEL: Record<RuleConditionType, string> = {
   replyTextEquals: "Antworttext entspricht",
   replyTextContains: "Antworttext enthält",
   detectedSituation: "Erkannte berufliche Situation",
+  funnelPhase: "Funnel-Phase ist",
+  analyzeReply: "Antwort analysieren (KI)",
+  aiInterestDetected: "Interesse erkannt",
+  aiEmployed: "Beschäftigt erkannt",
+  aiJobSeeking: "Arbeitssuchend erkannt",
+  aiCareerChange: "Berufliche Veränderung erkannt",
+  aiJobInsecure: "Arbeitsplatz unsicher erkannt",
+  aiGeneralInterest: "Allgemeines Interesse erkannt",
+  aiCallback: "Rückruf erkannt",
+  aiQuestion: "Frage erkannt",
+  aiStop: "STOPP erkannt",
+  aiNoInterest: "Kein Interesse erkannt",
 };
 
 /** Conditions that carry a value (others are boolean flags). */
@@ -317,6 +346,7 @@ export const CONDITIONS_WITH_VALUE: ReadonlyArray<RuleConditionType> = [
   "replyTextEquals",
   "replyTextContains",
   "detectedSituation",
+  "funnelPhase",
 ];
 
 export const RuleActionType = {
@@ -328,6 +358,18 @@ export const RuleActionType = {
   addActivityLog: "addActivityLog",
   notifyAdminSimulation: "notifyAdminSimulation",
   markEscalated: "markEscalated",
+  // Enterprise workflow actions (2026-07-14).
+  changeFunnelPhase: "changeFunnelPhase",
+  addTag: "addTag",
+  removeTag: "removeTag",
+  changeScore: "changeScore",
+  pauseAutomation: "pauseAutomation",
+  resumeAutomation: "resumeAutomation",
+  delay: "delay",
+  branch: "branch",
+  addNote: "addNote",
+  notifyInternal: "notifyInternal",
+  endWorkflow: "endWorkflow",
 } as const;
 export type RuleActionType =
   (typeof RuleActionType)[keyof typeof RuleActionType];
@@ -341,6 +383,17 @@ export const ACTION_LABEL: Record<RuleActionType, string> = {
   addActivityLog: "Aktivitätslog schreiben",
   notifyAdminSimulation: "Admin benachrichtigen (Simulation)",
   markEscalated: "Als eskaliert markieren",
+  changeFunnelPhase: "Funnel-Phase ändern",
+  addTag: "Tag hinzufügen",
+  removeTag: "Tag entfernen",
+  changeScore: "Lead-Score ändern",
+  pauseAutomation: "Automation pausieren",
+  resumeAutomation: "Automation fortsetzen",
+  delay: "Warten (Delay)",
+  branch: "Verzweigung (Wenn/Sonst)",
+  addNote: "Notiz zur Timeline hinzufügen",
+  notifyInternal: "Interne Benachrichtigung",
+  endWorkflow: "Workflow beenden",
 };
 
 export interface RuleCondition {
@@ -362,6 +415,20 @@ export interface RuleAction {
   note?: string | undefined;
   /** Hours offset for createFollowUp (default 24). */
   hours?: number | undefined;
+  /** Target funnel phase for changeFunnelPhase. */
+  funnelPhase?: string | undefined;
+  /** Tag value for addTag / removeTag. */
+  tag?: string | undefined;
+  /** Score delta (may be negative) for changeScore. */
+  score?: number | undefined;
+  /** Amount for the delay action. */
+  delayValue?: number | undefined;
+  /** Unit for the delay action. */
+  delayUnit?: "minutes" | "hours" | "days" | undefined;
+  /** Guard condition type for the branch action. */
+  branchCondition?: RuleConditionType | undefined;
+  /** Guard condition value for the branch action. */
+  branchValue?: string | undefined;
 }
 
 export const RuleConditionSchema: z.ZodType<RuleCondition> = z.object({
@@ -381,7 +448,36 @@ export const RuleActionSchema: z.ZodType<RuleAction> = z.object({
   ownerId: z.string().optional(),
   note: z.string().optional(),
   hours: z.number().optional(),
+  funnelPhase: z.string().optional(),
+  tag: z.string().max(60).optional(),
+  score: z.number().optional(),
+  delayValue: z.number().optional(),
+  delayUnit: z.enum(["minutes", "hours", "days"]).optional(),
+  branchCondition: z
+    .enum(
+      Object.values(RuleConditionType) as [
+        RuleConditionType,
+        ...RuleConditionType[],
+      ],
+    )
+    .optional(),
+  branchValue: z.string().optional(),
 });
+
+/**
+ * How a rule's conditions are combined. "all" = UND (default, backward
+ * compatible), "any" = ODER. Persisted on the rule; absent → "all".
+ */
+export const ConditionLogic = {
+  ALL: "all",
+  ANY: "any",
+} as const;
+export type ConditionLogic = (typeof ConditionLogic)[keyof typeof ConditionLogic];
+export const ConditionLogicSchema = z.enum(["all", "any"]);
+export const CONDITION_LOGIC_LABEL: Record<ConditionLogic, string> = {
+  all: "UND – alle Bedingungen müssen zutreffen",
+  any: "ODER – mindestens eine Bedingung muss zutreffen",
+};
 
 export const RuleStatus = {
   DRAFT: "draft",
@@ -415,6 +511,8 @@ export interface AutomationRuleEntry {
   description: string | null;
   trigger: AutomationTrigger;
   conditions: RuleCondition[];
+  /** UND/ODER combination of the conditions. Defaults to "all" (UND). */
+  conditionLogic: ConditionLogic;
   actions: RuleAction[];
   status: RuleStatus;
   runMode: RunMode;

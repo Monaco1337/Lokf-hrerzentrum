@@ -7,6 +7,8 @@
 import {
   type AutomationRuleEntry,
   type AutomationTrigger,
+  type ConditionLogic,
+  ConditionLogicSchema,
   type RuleAction,
   RuleActionSchema,
   type RuleCondition,
@@ -41,12 +43,18 @@ function parseActions(raw: string): RuleAction[] {
   }
 }
 
+function parseConditionLogic(raw: string | null | undefined): ConditionLogic {
+  const parsed = ConditionLogicSchema.safeParse(raw);
+  return parsed.success ? parsed.data : "all";
+}
+
 interface RuleRow {
   id: string;
   name: string;
   description: string | null;
   trigger: string;
   conditions: string;
+  conditionLogic?: string | null;
   actions: string;
   status: string;
   runMode: string;
@@ -64,6 +72,7 @@ function mapRow(row: RuleRow, demoIds: ReadonlySet<string>): AutomationRuleEntry
     description: row.description,
     trigger: parseAutomationTrigger(row.trigger),
     conditions: parseConditions(row.conditions),
+    conditionLogic: parseConditionLogic(row.conditionLogic),
     actions: parseActions(row.actions),
     status: RuleStatusSchema.parse(row.status),
     runMode: RunModeSchema.parse(row.runMode),
@@ -81,6 +90,7 @@ export interface UpsertAutomationRuleInput {
   description: string | null;
   trigger: AutomationTrigger;
   conditions: RuleCondition[];
+  conditionLogic?: ConditionLogic;
   actions: RuleAction[];
   status: RuleStatus;
   runMode: RunMode;
@@ -134,6 +144,7 @@ export class AutomationRuleRepository {
         description: input.description,
         trigger: input.trigger,
         conditions: JSON.stringify(input.conditions),
+        conditionLogic: input.conditionLogic ?? "all",
         actions: JSON.stringify(input.actions),
         status: input.status,
         runMode: input.runMode,
@@ -152,6 +163,8 @@ export class AutomationRuleRepository {
     if (patch.trigger !== undefined) data.trigger = patch.trigger;
     if (patch.conditions !== undefined)
       data.conditions = JSON.stringify(patch.conditions);
+    if (patch.conditionLogic !== undefined)
+      data.conditionLogic = patch.conditionLogic;
     if (patch.actions !== undefined) data.actions = JSON.stringify(patch.actions);
     if (patch.status !== undefined) data.status = patch.status;
     if (patch.runMode !== undefined) data.runMode = patch.runMode;

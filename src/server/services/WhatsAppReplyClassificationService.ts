@@ -33,6 +33,7 @@ import {
   type EmploymentSituation,
 } from "./EmploymentReplyClassifier";
 import { leadLifecycleService } from "./LeadLifecycleService";
+import { analyzeReply, REPLY_INTENT_LABEL } from "./ReplyIntentClassifier";
 import { communicationRepository } from "../repositories/CommunicationRepository";
 import { leadRepository } from "../repositories/LeadRepository";
 
@@ -108,12 +109,23 @@ export class WhatsAppReplyClassificationService {
     const { situation, source } = classifyEmploymentReply(input);
     const body = (input.body ?? "").trim();
 
+    // Rich AI analysis ("Antwort analysieren (KI)") — classify only, never
+    // generate. Uncertain replies are flagged for manual review so no wrong
+    // automation is started.
+    const analysis = analyzeReply(input);
+    const manualTag = analysis.manualReview ? ["manuelle_pruefung"] : [];
+
     await leadRepository.update(leadId, {
       tags: mergeTags(lead.tags, [
         SITUATION_TAG[situation],
         SITUATION_FUNNEL_TAG[situation],
+        ...manualTag,
       ]),
       employmentStatus: SITUATION_EMPLOYMENT_STATUS[situation],
+      replyInterest: analysis.interest,
+      replyIntent: analysis.intent,
+      replyConfidence: Math.round(analysis.confidence * 100),
+      needsManualReview: analysis.manualReview,
       ...(body
         ? { lastInboundMessage: body.slice(0, 1000), lastInboundMessageAt: opts.at }
         : {}),
@@ -132,6 +144,12 @@ export class WhatsAppReplyClassificationService {
         tag: SITUATION_TAG[situation],
         quickReply: input.buttonId ?? input.buttonTitle ?? null,
         originalMessage: body.slice(0, 500),
+        // AI analysis snapshot for the timeline.
+        interest: analysis.interest,
+        intent: analysis.intent,
+        intentLabel: REPLY_INTENT_LABEL[analysis.intent],
+        confidence: Math.round(analysis.confidence * 100),
+        manualReview: analysis.manualReview,
       },
     });
 
@@ -141,7 +159,9 @@ export class WhatsAppReplyClassificationService {
       });
     }
 
-    if (opts.runAutomation) {
+    // Fallback: an ambiguous reply must NOT trigger a (possibly wrong)
+    // automation — it is flagged for manual review instead.
+    if (opts.runAutomation && !analysis.manualReview) {
       await this.runFollowUp(leadId, context, opts.actor);
     }
 

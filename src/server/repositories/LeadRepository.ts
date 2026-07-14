@@ -13,6 +13,8 @@ import {
   type ContactState,
   type EmploymentStatus,
   type FunnelPath,
+  type FunnelPhase,
+  parseFunnelPhase,
   type LeadDetail,
   type LeadFilters,
   type LeadKpis,
@@ -159,6 +161,13 @@ export interface UpdateLeadFields {
   lastManualContactAt?: Date | null;
   lastManualContactBy?: string | null;
   lastManualContactChannel?: string | null;
+  // Funnel-Phase (process step; separate from `status`).
+  funnelPhase?: FunnelPhase;
+  // AI reply analysis.
+  replyInterest?: string | null;
+  replyIntent?: string | null;
+  replyConfidence?: number | null;
+  needsManualReview?: boolean;
   // Reactivation campaign layer (additive).
   leadType?: string;
   campaign?: string | null;
@@ -215,6 +224,11 @@ function rowToSummary(row: LeadRowWithAssignee): LeadSummary {
     lastManualContactAt: row.lastManualContactAt,
     lastManualContactBy: row.lastManualContactBy,
     lastManualContactChannel: row.lastManualContactChannel,
+    funnelPhase: parseFunnelPhase(row.funnelPhase),
+    replyInterest: row.replyInterest,
+    replyIntent: row.replyIntent,
+    replyConfidence: row.replyConfidence,
+    needsManualReview: row.needsManualReview,
     leadType: row.leadType,
     campaign: row.campaign,
     campaignStatus: row.campaignStatus,
@@ -451,6 +465,14 @@ export class LeadRepository {
       data.lastManualContactBy = fields.lastManualContactBy;
     if (fields.lastManualContactChannel !== undefined)
       data.lastManualContactChannel = fields.lastManualContactChannel;
+    if (fields.funnelPhase !== undefined) data.funnelPhase = fields.funnelPhase;
+    if (fields.replyInterest !== undefined)
+      data.replyInterest = fields.replyInterest;
+    if (fields.replyIntent !== undefined) data.replyIntent = fields.replyIntent;
+    if (fields.replyConfidence !== undefined)
+      data.replyConfidence = fields.replyConfidence;
+    if (fields.needsManualReview !== undefined)
+      data.needsManualReview = fields.needsManualReview;
     if (fields.leadType !== undefined) data.leadType = fields.leadType;
     if (fields.campaign !== undefined) data.campaign = fields.campaign;
     if (fields.campaignStatus !== undefined)

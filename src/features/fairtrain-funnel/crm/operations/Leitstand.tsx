@@ -24,6 +24,8 @@ import {
 } from "./LeitstandFunnel";
 import { AutoRefresh } from "./AutoRefresh";
 import { HeutigePrioritaeten } from "./LeitstandPrioritaeten";
+import type { NewDocumentsData } from "./LeitstandLoader";
+import { LeitstandNeueUnterlagen } from "./LeitstandNeueUnterlagen";
 import { LiveAktivitaeten } from "./LiveAktivitaeten";
 import { LeitstandWhatsApp } from "./LeitstandWhatsApp";
 import { LeitstandZones } from "./LeitstandZones";
@@ -46,6 +48,7 @@ export interface LeitstandProps {
     appointmentsToday: number;
     closesToday: number;
   };
+  newDocuments: NewDocumentsData;
 }
 
 const DATE_FMT = new Intl.DateTimeFormat("de-DE", {
@@ -64,6 +67,7 @@ export function Leitstand({
   activity,
   actors,
   livePerformance,
+  newDocuments,
 }: LeitstandProps) {
   const today = new Date();
   const firstName = user.name.trim().split(/\s+/)[0] ?? user.name;
@@ -111,10 +115,13 @@ export function Leitstand({
       {/* 2) Abschluss Funnel */}
       <AbschlussFunnel funnel={funnel} />
 
-      {/* 3+4) Prioritäten + Aktivitäten */}
+      {/* 3+4) Prioritäten + (Neue Unterlagen · Aktivitäten) */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
         <HeutigePrioritaeten leads={priorities} />
-        <LiveAktivitaeten events={activity} actors={actors} />
+        <div className="space-y-5">
+          <LeitstandNeueUnterlagen data={newDocuments} />
+          <LiveAktivitaeten events={activity} actors={actors} />
+        </div>
       </div>
     </div>
   );

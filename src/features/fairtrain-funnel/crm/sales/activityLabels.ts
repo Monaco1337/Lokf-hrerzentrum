@@ -63,6 +63,7 @@ export const ACTIVITY_LABEL: Record<AuditAction, ActivityVisual> = {
   TASK_DELETED: { label: "Aufgabe gelöscht", icon: "trash", tint: "rose" },
   DOCUMENT_REQUESTED: { label: "Unterlagen angefordert", icon: "doc", tint: "amber" },
   DOCUMENT_UPLOADED: { label: "Dokument hochgeladen", icon: "upload", tint: "brand" },
+  DOCUMENT_VIEWED: { label: "Dokument gesichtet", icon: "eye", tint: "slate" },
   DOCUMENT_APPROVED: { label: "Dokument freigegeben", icon: "check", tint: "emerald" },
   DOCUMENT_REJECTED: { label: "Dokument abgelehnt", icon: "x", tint: "rose" },
   PORTAL_LINK_CREATED: { label: "Portal-Link erstellt", icon: "link", tint: "brand" },

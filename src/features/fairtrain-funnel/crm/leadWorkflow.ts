@@ -121,6 +121,13 @@ export const WORKFLOW: Record<LeadStatus, WorkflowStep> = {
     hint: "Sobald alle Unterlagen da sind, hier als vollständig bestätigen.",
     tone: "wait",
   },
+  [LeadStatus.DOC_REVIEW]: {
+    next: LeadStatus.DOC_READY,
+    action: "Unterlagen prüfen",
+    headline: "Unterlagen in Prüfung",
+    hint: "Neue Unterlagen liegen vor. Sichten, freigeben oder mit Grund ablehnen.",
+    tone: "active",
+  },
   [LeadStatus.DOC_READY]: {
     next: LeadStatus.AA_APPOINTMENT_PENDING,
     action: "AA-Termin anstoßen",
