@@ -19,6 +19,7 @@ import type { ReactNode } from "react";
 import type { DashboardData } from "./DashboardLoader";
 import { AutoRefresh } from "./AutoRefresh";
 import { DashboardCallbacks } from "./DashboardCallbacks";
+import { DashboardNewFunnel } from "./DashboardNewFunnel";
 import { DashboardPipeline } from "./DashboardPipeline";
 import { DashboardTimeline } from "./DashboardTimeline";
 import { DashboardUnterlagen } from "./DashboardUnterlagen";
@@ -165,7 +166,7 @@ export function Dashboard(data: DashboardData) {
     {
       label: "Neue Funnel-Leads",
       value: data.hero.newFunnel,
-      href: "/crm/leads?status=FUNNEL_STARTED,FUNNEL_COMPLETED",
+      href: "#neue-funnel-leads",
       tone: "blue",
       icon: <FunnelIcon />,
     },
@@ -197,7 +198,7 @@ export function Dashboard(data: DashboardData) {
       label: "Neue Funnel-Leads",
       hint: "Eignungscheck gestartet oder abgeschlossen",
       value: data.todo.newFunnel,
-      href: "/crm/leads?status=FUNNEL_STARTED,FUNNEL_COMPLETED",
+      href: "#neue-funnel-leads",
     },
     {
       label: "Neue Unterlagen",
@@ -263,6 +264,7 @@ export function Dashboard(data: DashboardData) {
       {/* 4) Work cards + business timeline */}
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)]">
         <div className="space-y-5">
+          <DashboardNewFunnel leads={data.newFunnelLeads} />
           <DashboardCallbacks leads={data.callbacks} />
           <DashboardUnterlagen
             count={data.documents.count}

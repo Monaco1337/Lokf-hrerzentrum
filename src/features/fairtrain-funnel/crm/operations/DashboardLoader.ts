@@ -84,6 +84,16 @@ export interface CallbackLead {
   lastMessageAt: Date | null;
 }
 
+export interface FunnelLead {
+  id: string;
+  name: string;
+  phone: string;
+  /** LeadStatus — FUNNEL_STARTED or FUNNEL_COMPLETED. */
+  status: LeadStatus;
+  /** When the lead entered (website application timestamp). */
+  at: Date;
+}
+
 export interface DocumentUploadLead {
   leadId: string;
   leadName: string;
@@ -119,6 +129,8 @@ export interface DashboardData {
     needsHandling: number;
   };
   callbacks: ReadonlyArray<CallbackLead>;
+  /** The concrete applicants that just started/finished the Eignungscheck. */
+  newFunnelLeads: ReadonlyArray<FunnelLead>;
   documents: { count: number; leads: ReadonlyArray<DocumentUploadLead> };
   /** Status distribution scoped to the real application process (leadType=neu). */
   byStatus: Record<LeadStatus, number>;
@@ -184,6 +196,38 @@ async function loadCallbacks(): Promise<CallbackLead[]> {
     phone: r.phone,
     lastMessage: r.lastInboundMessage,
     lastMessageAt: r.lastInboundMessageAt,
+  }));
+}
+
+/**
+ * The concrete new funnel leads — applicants who just started or completed the
+ * website Eignungscheck. Surfaced as a card so an operator immediately SEES who
+ * came in, not just a number. Newest first.
+ */
+async function loadNewFunnelLeads(): Promise<FunnelLead[]> {
+  const rows = await prisma.lead.findMany({
+    where: {
+      deletedAt: null,
+      leadType: APPLICATION_LEAD_TYPE,
+      status: { in: NEW_FUNNEL_STATUSES as string[] },
+    },
+    orderBy: { createdAt: "desc" },
+    take: 8,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      status: true,
+      createdAt: true,
+    },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    name: `${r.firstName} ${r.lastName}`.trim() || "Unbekannt",
+    phone: r.phone,
+    status: r.status as LeadStatus,
+    at: r.createdAt,
   }));
 }
 
@@ -361,7 +405,7 @@ async function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
 }
 
 export async function loadDashboard(user: UserSummary): Promise<DashboardData> {
-  const [statusData, extra, callbacks, docs, whatsapp, timeline] =
+  const [statusData, extra, callbacks, newFunnelLeads, docs, whatsapp, timeline] =
     await Promise.all([
       safe(loadByStatus(), { byStatus: emptyByStatus(), newToday: 0 }),
       safe(loadExtraCounts(), {
@@ -370,6 +414,7 @@ export async function loadDashboard(user: UserSummary): Promise<DashboardData> {
         needsHandling: 0,
       }),
       safe(loadCallbacks(), [] as CallbackLead[]),
+      safe(loadNewFunnelLeads(), [] as FunnelLead[]),
       safe(portalDocumentRepository.listAwaitingReview(8), []),
       safe(aggregateWhatsAppKpis(), EMPTY_WHATSAPP),
       safe(loadTimeline(), [] as BusinessEvent[]),
@@ -415,6 +460,7 @@ export async function loadDashboard(user: UserSummary): Promise<DashboardData> {
       needsHandling: extra.needsHandling,
     },
     callbacks,
+    newFunnelLeads,
     documents,
     byStatus: statusData.byStatus,
     newToday: statusData.newToday,
