@@ -26,8 +26,9 @@ declare global {
  *   P1008 – operation timed out
  *   P1017 – server closed the connection
  *   P2024 – timed out fetching a connection from the pool
- * These happen on serverless cold starts / pool churn and otherwise bubble up
- * as an uncaught server exception (white screen).
+ *   P2037 – too many database connections opened (server-side role cap hit)
+ * These happen on serverless cold starts / pool churn / connection saturation
+ * and otherwise bubble up as an uncaught server exception (white screen).
  */
 const RETRYABLE_CONNECTION_CODES = new Set([
   "P1001",
@@ -35,6 +36,7 @@ const RETRYABLE_CONNECTION_CODES = new Set([
   "P1008",
   "P1017",
   "P2024",
+  "P2037",
 ]);
 
 function isRetryableConnectionError(err: unknown): boolean {
@@ -68,8 +70,43 @@ async function withConnectionRetry<T>(run: () => Promise<T>): Promise<T> {
   throw lastErr;
 }
 
+/**
+ * Cap the client-side connection pool WELL below the database role's hard cap.
+ *
+ * The default Prisma pool size is `num_cpus * 2 + 1` (e.g. 17 on an 8-core
+ * box). Firing the dashboard's ~13 parallel queries then tried to open 17
+ * connections at once, but the `db.prisma.io` role rejects that many
+ * (`P2037: too many connections`), which 500'd the whole CRM. A small, fixed
+ * pool makes parallel queries QUEUE inside the client instead of stampeding
+ * the server — each request still runs, just a few at a time. `pool_timeout`
+ * is widened so a brief queue never surfaces as `P2024`.
+ *
+ * Overridable per-environment via DB_CONNECTION_LIMIT / DB_POOL_TIMEOUT.
+ */
+function buildDatasourceUrl(): string | undefined {
+  const raw = process.env.DATABASE_URL;
+  if (!raw) return undefined;
+  try {
+    const url = new URL(raw);
+    if (!url.searchParams.has("connection_limit")) {
+      url.searchParams.set(
+        "connection_limit",
+        process.env.DB_CONNECTION_LIMIT ?? "5",
+      );
+    }
+    if (!url.searchParams.has("pool_timeout")) {
+      url.searchParams.set("pool_timeout", process.env.DB_POOL_TIMEOUT ?? "20");
+    }
+    return url.toString();
+  } catch {
+    return raw;
+  }
+}
+
 function makeClient(): PrismaClient {
+  const datasourceUrl = buildDatasourceUrl();
   const base = new PrismaClient({
+    ...(datasourceUrl ? { datasourceUrl } : {}),
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
   // Retry ONLY transient connection failures (never query errors). Keeps a
