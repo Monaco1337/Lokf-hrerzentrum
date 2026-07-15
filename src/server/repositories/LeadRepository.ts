@@ -10,6 +10,7 @@
 import type { Lead as PrismaLead, Prisma } from "@prisma/client";
 
 import {
+  CONTACT_BLOCKING_STATES,
   type ContactState,
   type EmploymentStatus,
   type FunnelPath,
@@ -562,6 +563,40 @@ export class LeadRepository {
           { lastWhatsappReplyAt: { not: null } },
           { whatsappStatus: "beantwortet" },
           { lastInboundMessage: { not: null } },
+        ],
+      },
+      orderBy: { lastWhatsappReplyAt: "desc" },
+      select: { id: true },
+      take: limit,
+    });
+    return rows.map((r) => r.id);
+  }
+
+  /**
+   * One-time reactivation reprocessing set: reactivation (alt-lead / campaign)
+   * chats that ALREADY have a lead reply, EXCLUDING opted-out leads and every
+   * chat a human already handled or that is completed (Kontaktschutz:
+   * reactivationExcluded / campaignCompleted / manueller Kontakt / blockierender
+   * contactState). Ordered newest-reply first.
+   */
+  async idsForReactivationReprocessing(limit = 5000): Promise<string[]> {
+    const rows = await prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        optOut: false,
+        reactivationExcluded: false,
+        campaignCompleted: false,
+        lastManualContactAt: null,
+        contactState: { notIn: Array.from(CONTACT_BLOCKING_STATES) },
+        AND: [
+          { OR: [{ leadType: "alt_lead" }, { campaign: { not: null } }] },
+          {
+            OR: [
+              { lastWhatsappReplyAt: { not: null } },
+              { whatsappStatus: "beantwortet" },
+              { lastInboundMessage: { not: null } },
+            ],
+          },
         ],
       },
       orderBy: { lastWhatsappReplyAt: "desc" },

@@ -12,7 +12,10 @@
  * message is ever sent twice, no matter how often a webhook (or the backfill)
  * fires. Every classification is written to the audit log + lead timeline.
  */
-import { AuditAction } from "@/features/fairtrain-funnel/types";
+import {
+  AuditAction,
+  CONTACT_BLOCKING_STATES,
+} from "@/features/fairtrain-funnel/types";
 import type { BackfillSummary } from "@/features/fairtrain-funnel/automation/types";
 
 import { auditLogService } from "./AuditLogService";
@@ -207,22 +210,35 @@ export class WhatsAppReplyClassificationService {
   }
 
   /**
-   * Retro/backfill + resend: for every lead that has ever replied, make sure the
-   * correct follow-up actually went out — including "yesterday's" replies that
-   * were classified while the send was still blocked/simulated.
+   * Retro/backfill + resend: re-run the reactivation workflow for every open
+   * reactivation chat that ALREADY has a lead reply — the one-time cleanup for
+   * answers that arrived before the automations were live.
+   *
+   * Selection (scope "reactivation", default): alt-lead / campaign chats with a
+   * reply, EXCLUDING opted-out leads and every chat a human already handled or
+   * that is completed (Kontaktschutz). Scope "all" re-processes every replied
+   * lead (legacy behaviour) but still honours the same per-lead guards.
    *
    * Idempotency is anchored on FOLLOWUP_SENT_TAG (the single "already followed
-   * up" marker), NOT on the classification tag. A lead is therefore followed up
-   * EXACTLY once, no matter how often this runs or how it mixes with live sends:
-   *   • already followed up (tag) or opted out       → skip
-   *   • classified but never followed up             → re-run the follow-up
-   *   • never classified                             → classify + follow-up
+   * up" / "automatically processed" marker), NOT on the classification tag. A
+   * lead is therefore followed up EXACTLY once, no matter how often this runs or
+   * how it mixes with live sends:
+   *   • already followed up (tag) / opted out / manually handled → skip
+   *   • classified but never followed up                         → re-run follow-up
+   *   • never classified                                         → classify + follow-up
    */
   async backfillUnprocessedReplies(opts: {
     actor: string;
     limit?: number;
+    scope?: "reactivation" | "all";
   }): Promise<BackfillSummary> {
-    const ids = await leadRepository.idsWithWhatsappReply(opts.limit ?? 5000);
+    const scope = opts.scope ?? "reactivation";
+    const ids =
+      scope === "all"
+        ? await leadRepository.idsWithWhatsappReply(opts.limit ?? 5000)
+        : await leadRepository.idsForReactivationReprocessing(
+            opts.limit ?? 5000,
+          );
     const summary: BackfillSummary = {
       total: ids.length,
       processed: 0,
@@ -244,6 +260,18 @@ export class WhatsAppReplyClassificationService {
         // Already followed up (live or a previous run) or opted out → never
         // send again.
         if (tags.includes(FOLLOWUP_SENT_TAG) || lead.optOut) {
+          summary.skipped += 1;
+          continue;
+        }
+        // Manually handled / completed chat (Kontaktschutz) → never auto-touch.
+        // Defense in depth: the reactivation query already excludes these, but a
+        // race (handled between query and processing) must not slip through.
+        if (
+          lead.reactivationExcluded ||
+          lead.campaignCompleted ||
+          lead.lastManualContactAt ||
+          CONTACT_BLOCKING_STATES.has(lead.contactState)
+        ) {
           summary.skipped += 1;
           continue;
         }

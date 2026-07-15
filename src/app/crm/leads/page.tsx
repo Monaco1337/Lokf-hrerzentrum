@@ -20,6 +20,21 @@ import { leadService } from "@/server/services/LeadService";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The "Leads" view is the overview of genuine website applicants — people who
+ * filled out the Eignungscheck on our website. Reactivation "Alt-Leads"
+ * (leadType "alt_lead") live in the Reaktivierungs-Kampagne, not here, so this
+ * page defaults to leadType "neu". An explicit ?leadType= in the URL still wins.
+ */
+const WEBSITE_LEAD_TYPE = "neu";
+
+/**
+ * Show ALL matching leads, not a page of 100. The set is naturally bounded by
+ * the website-applicant filter; the cap is a safety valve against an unbounded
+ * query/render.
+ */
+const LEADS_VIEW_LIMIT = 20000;
+
 function safeEnumParse<T extends string>(
   schema: { safeParse(v: string): { success: boolean; data?: T } },
   v: string | undefined,
@@ -99,16 +114,18 @@ export default async function LeadsPage({
         ),
         hasNewReply: raw.data.newReply || undefined,
         temperature,
-        leadType: raw.data.leadType,
+        // Default to website applicants; only override when the URL asks for a
+        // specific leadType (e.g. deep-links). Reactivation Alt-Leads stay out.
+        leadType: raw.data.leadType ?? WEBSITE_LEAD_TYPE,
         campaign: raw.data.campaign,
         campaignStatus: raw.data.campaignStatus,
       }
-    : {};
+    : { leadType: WEBSITE_LEAD_TYPE };
 
   const currentUser = await requireCrmUser();
   const filters = applyScope(baseFilters, currentUser);
   const [leads, userRows] = await Promise.all([
-    leadService.list(filters),
+    leadService.list(filters, { limit: LEADS_VIEW_LIMIT }),
     userRepository.list({ includeInactive: false }),
   ]);
   // Temperature is derived from engagement, so it is filtered after load.

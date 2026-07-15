@@ -177,14 +177,18 @@ export async function simulateAutomationRule(
 
 const BackfillSchema = z.object({
   limit: z.number().int().min(1).max(10000).optional(),
+  scope: z.enum(["reactivation", "all"]).optional(),
 });
 
 /**
- * Retro/backfill: process every already-received WhatsApp reply that was never
- * classified — classify (Quick-Reply + free text), set situation tags + funnel
- * phase, and start the matching follow-up automation. Idempotent: leads that
- * already carry a situation tag are skipped, so no message is ever sent twice.
- * Afterwards the system continues in normal live mode automatically.
+ * One-time reactivation reprocessing: re-run the reactivation workflow for every
+ * open reactivation chat that already has a lead reply (answers that arrived
+ * before the automations were live). Classifies the last reply (Quick-Reply +
+ * free text), sets situation tags + funnel phase, updates status/pipeline and
+ * sends the matching follow-up template — creating a task only when a human is
+ * required. Excludes opted-out and manually-handled/completed chats. Idempotent:
+ * a chat is marked "automatically processed" (FOLLOWUP_SENT_TAG) and never
+ * followed up twice. Afterwards the system continues in normal live mode.
  */
 export async function backfillWhatsappReplies(
   raw: unknown,
@@ -195,6 +199,7 @@ export async function backfillWhatsappReplies(
     const actor = await requirePermission("canManageAutomations");
     const summary = await whatsAppReplyClassificationService.backfillUnprocessedReplies({
       actor: actor.id,
+      scope: parsed.data.scope ?? "reactivation",
       ...(parsed.data.limit === undefined ? {} : { limit: parsed.data.limit }),
     });
     revalidatePath("/crm/automation");

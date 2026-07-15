@@ -328,8 +328,11 @@ export class LeadService {
     return result;
   }
 
-  async list(filters: LeadFilters): Promise<LeadSummary[]> {
-    return leadRepository.list(filters);
+  async list(
+    filters: LeadFilters,
+    opts: { limit?: number; offset?: number } = {},
+  ): Promise<LeadSummary[]> {
+    return leadRepository.list(filters, opts);
   }
 
   async kpis(): Promise<LeadKpis> {

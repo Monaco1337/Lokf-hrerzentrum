@@ -46,7 +46,7 @@ export function RulesManager({ rules, templates, users, previewLeads, runLogs }:
   function runBackfill() {
     if (
       !window.confirm(
-        "Vorhandene WhatsApp-Antworten jetzt nachträglich verarbeiten? Bereits klassifizierte Leads werden übersprungen – es werden keine doppelten Nachrichten gesendet.",
+        "Offene Reaktivierungs-Chats mit vorhandener Antwort jetzt einmalig automatisch nachbearbeiten? Die KI wertet die letzte Nachricht aus, verschickt die passende Vorlage und aktualisiert Status/Pipeline. Manuell bearbeitete oder abgeschlossene Chats sowie Abmeldungen werden ausgeschlossen – jeder Chat wird nur einmal verarbeitet (keine doppelten Nachrichten).",
       )
     )
       return;
@@ -109,11 +109,11 @@ export function RulesManager({ rules, templates, users, previewLeads, runLogs }:
             type="button"
             disabled={pending}
             onClick={runBackfill}
-            title="Bereits erhaltene WhatsApp-Antworten nachträglich klassifizieren und passende Folge-Automationen starten. Idempotent – keine doppelten Nachrichten."
+            title="Einmalige Nachbearbeitung: offene Reaktivierungs-Chats mit vorhandener Antwort automatisch auswerten, passende Vorlage senden und Status/Pipeline aktualisieren. Schließt manuell bearbeitete/abgeschlossene Chats und Abmeldungen aus. Idempotent – keine doppelten Nachrichten."
             className="inline-flex items-center gap-2 rounded-xl bg-surface-subtle px-4 py-2 text-[13px] font-semibold text-ink ring-1 ring-ink/10 hover:bg-accent-50 hover:text-accent-900 disabled:opacity-50"
           >
             <HistoryIcon className="h-4 w-4" />
-            Vorhandene Antworten nachträglich verarbeiten
+            Offene Reaktivierungs-Antworten nachbearbeiten
           </button>
           <button
             type="button"
@@ -142,7 +142,7 @@ export function RulesManager({ rules, templates, users, previewLeads, runLogs }:
             <li>✔ {backfill.employed} Beschäftigt</li>
             <li>✔ {backfill.job_seeking} Arbeitssuchend</li>
             <li>✔ {backfill.other} Sonstige Situation</li>
-            <li>✔ {backfill.skipped} übersprungen (bereits klassifiziert)</li>
+            <li>✔ {backfill.skipped} übersprungen (bereits bearbeitet / manuell / abgemeldet)</li>
             <li className={backfill.errors > 0 ? "text-rose-700" : ""}>
               ✔ {backfill.errors} Fehler
             </li>
