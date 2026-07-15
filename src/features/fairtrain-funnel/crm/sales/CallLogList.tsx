@@ -55,7 +55,7 @@ export function CallLogList({
               avatar={e.user.avatar}
               size="sm"
             />
-            <div className="flex-1 space-y-1">
+            <div className="min-w-0 flex-1 space-y-1">
               <div className="flex flex-wrap items-center gap-2 text-[12.5px]">
                 <span className="font-semibold text-navy-950">
                   {e.user.name}
@@ -74,12 +74,12 @@ export function CallLogList({
                 </span>
               </div>
               {e.note ? (
-                <p className="whitespace-pre-line text-[12.5px] text-ink-soft">
+                <p className="whitespace-pre-line text-[12.5px] text-ink-soft [overflow-wrap:anywhere]">
                   {e.note}
                 </p>
               ) : null}
               {e.nextStep ? (
-                <p className="text-[11.5px] text-ink-muted">
+                <p className="text-[11.5px] text-ink-muted [overflow-wrap:anywhere]">
                   <span className="font-semibold text-ink-soft">
                     Nächster Schritt:
                   </span>{" "}

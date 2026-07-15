@@ -97,7 +97,7 @@ export function CallLogPanel({
         <label className="text-[11.5px] font-semibold uppercase tracking-wide text-ink-muted">
           Anrufergebnis
         </label>
-        <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-1.5">
           {OUTCOMES.map((o) => {
             const active = outcome === o;
             return (
@@ -106,7 +106,7 @@ export function CallLogPanel({
                 type="button"
                 onClick={() => setOutcome(o)}
                 className={[
-                  "rounded-lg border px-2.5 py-1.5 text-left text-[11.5px] font-medium transition",
+                  "flex min-h-[38px] min-w-0 items-center rounded-lg border px-2.5 py-1.5 text-left text-[11.5px] font-medium leading-tight transition [overflow-wrap:anywhere] hyphens-auto",
                   active
                     ? "border-brand-600 bg-brand-50 text-brand-900 shadow-sm"
                     : "border-ink/10 bg-white text-ink-soft hover:border-ink/20 hover:text-ink",

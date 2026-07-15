@@ -58,7 +58,7 @@ export function NotesPanel({
         ) : (
           notes.map((n) => (
             <li key={n.id} className="rounded-lg border border-ink/10 p-3">
-              <p className="whitespace-pre-line text-sm text-ink">{n.body}</p>
+              <p className="whitespace-pre-line text-sm text-ink [overflow-wrap:anywhere]">{n.body}</p>
               <p className="mt-1 text-xs text-ink-muted">
                 {n.author} • {n.createdAt.toLocaleString("de-DE")}
               </p>

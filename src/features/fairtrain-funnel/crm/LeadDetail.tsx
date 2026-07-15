@@ -121,9 +121,9 @@ export function LeadDetail({
       id: "kommunikation",
       label: "Kommunikation",
       content: (
-        <div className="space-y-4">
+        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
           <LeadMultichatPanel conversation={conversation} whatsappLive={whatsappLive} />
-          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+          <div className="min-w-0 space-y-4">
             <SectionCard title="Anruf / Rückruf protokollieren">
               <CallLogPanel leadId={lead.id} initial={data.callLogs} canTrack={canTrack} />
             </SectionCard>
