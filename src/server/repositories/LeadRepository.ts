@@ -645,6 +645,30 @@ export class LeadRepository {
     if (filters.campaign) where.campaign = filters.campaign;
     if (filters.campaignStatus) where.campaignStatus = filters.campaignStatus;
 
+    if (filters.funnelOrJobseekerCallback) {
+      // Union of the two high-value groups (see LeadFilters doc). Combined via
+      // AND with any other active filters; nothing is deleted, only hidden.
+      const hyperfilter: Prisma.LeadWhereInput = {
+        OR: [
+          // Group 1: Web-Bewerber = Eignungscheck/Funnel abgeschlossen.
+          { leadType: "neu" },
+          // Group 2: arbeitssuchend UND per WhatsApp Rückruf gewünscht.
+          {
+            AND: [
+              { replyIntent: "callback" },
+              {
+                OR: [
+                  { tags: { has: "arbeitssuchend" } },
+                  { employmentStatus: "UNEMPLOYED" },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+      where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), hyperfilter];
+    }
+
     const rows = await prisma.lead.findMany({
       where,
       orderBy: [

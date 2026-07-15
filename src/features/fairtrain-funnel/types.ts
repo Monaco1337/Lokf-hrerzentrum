@@ -692,6 +692,15 @@ export interface LeadFilters {
   campaign?: string | undefined;
   /** Filter by campaign lifecycle status. */
   campaignStatus?: string | undefined;
+  /**
+   * "Leads"-Hyperfilter: show ONLY the two high-value groups (union):
+   *   1. Web-Bewerber, die den Eignungscheck/Funnel abgeschlossen haben
+   *      (leadType "neu" — ein Web-Lead entsteht nur durch den Funnel), ODER
+   *   2. "arbeitssuchend" (WhatsApp-Tag oder Beschäftigungsstatus arbeitslos)
+   *      UND per WhatsApp-Rückruf gewünscht (replyIntent "callback").
+   * Blendet alles andere nur aus — es werden keine Daten verändert/gelöscht.
+   */
+  funnelOrJobseekerCallback?: boolean | undefined;
 }
 
 export interface LeadKpis {
