@@ -23,3 +23,5 @@ tsconfig.tsbuildinfo
 .shots/
 .tmp_shots/
 .tmp_*
+.vercel
+.env*
