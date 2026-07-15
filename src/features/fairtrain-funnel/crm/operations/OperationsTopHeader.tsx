@@ -20,38 +20,55 @@ const HEALTH = {
   crit: { dot: "bg-red-500", label: "Eskalation" },
 } as const;
 
-async function loadHealth() {
-  const [slaBreached, hotUnassigned, callbacksOverdue] = await Promise.all([
-    prisma.lead.count({
-      where: {
-        deletedAt: null,
-        slaBreachedAt: { not: null },
-        status: { notIn: [LeadStatus.CLOSED, LeadStatus.LOST, LeadStatus.REJECTED] },
-      },
-    }),
-    prisma.lead.count({
-      where: { deletedAt: null, priority: "HOT", assignedToId: null },
-    }),
-    prisma.lead.count({
-      where: {
-        deletedAt: null,
-        nextFollowUpAt: { lt: new Date() },
-        status: { notIn: [LeadStatus.CLOSED, LeadStatus.LOST, LeadStatus.REJECTED] },
-      },
-    }),
-  ]);
-  let level: keyof typeof HEALTH = "ok";
-  if (slaBreached > 0 || hotUnassigned > 0) level = "crit";
-  else if (callbacksOverdue > 0) level = "warn";
-  const meta = HEALTH[level];
-  return {
-    level,
-    slaBreached,
-    hotUnassigned,
-    callbacksOverdue,
-    label: meta.label,
-    dotClass: meta.dot,
-  } satisfies HeaderHealth;
+async function loadHealth(): Promise<HeaderHealth> {
+  // This header renders in the CRM LAYOUT — it wraps every CRM page. A DB blip
+  // here must NEVER crash the whole shell (that would white-screen the entire
+  // CRM). On any failure we degrade to a neutral "stabil" state; the counts
+  // reconcile on the next render once the DB is healthy again.
+  try {
+    const [slaBreached, hotUnassigned, callbacksOverdue] = await Promise.all([
+      prisma.lead.count({
+        where: {
+          deletedAt: null,
+          slaBreachedAt: { not: null },
+          status: { notIn: [LeadStatus.CLOSED, LeadStatus.LOST, LeadStatus.REJECTED] },
+        },
+      }),
+      prisma.lead.count({
+        where: { deletedAt: null, priority: "HOT", assignedToId: null },
+      }),
+      prisma.lead.count({
+        where: {
+          deletedAt: null,
+          nextFollowUpAt: { lt: new Date() },
+          status: { notIn: [LeadStatus.CLOSED, LeadStatus.LOST, LeadStatus.REJECTED] },
+        },
+      }),
+    ]);
+    let level: keyof typeof HEALTH = "ok";
+    if (slaBreached > 0 || hotUnassigned > 0) level = "crit";
+    else if (callbacksOverdue > 0) level = "warn";
+    const meta = HEALTH[level];
+    return {
+      level,
+      slaBreached,
+      hotUnassigned,
+      callbacksOverdue,
+      label: meta.label,
+      dotClass: meta.dot,
+    } satisfies HeaderHealth;
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[ops-header] health load failed — degrading gracefully", err);
+    return {
+      level: "ok",
+      slaBreached: 0,
+      hotUnassigned: 0,
+      callbacksOverdue: 0,
+      label: HEALTH.ok.label,
+      dotClass: HEALTH.ok.dot,
+    } satisfies HeaderHealth;
+  }
 }
 
 export async function OperationsTopHeader() {

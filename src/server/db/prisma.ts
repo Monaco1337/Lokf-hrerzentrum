@@ -54,7 +54,10 @@ const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 async function withConnectionRetry<T>(run: () => Promise<T>): Promise<T> {
-  const delays = [120, 350, 800];
+  // Ride out a saturation window of a few seconds rather than surfacing a
+  // connection blip as a crash. Total worst-case added latency ≈ 5.9s across
+  // retries — acceptable on the critical auth/landing path vs a white screen.
+  const delays = [150, 400, 900, 1600, 2800];
   let lastErr: unknown;
   for (let attempt = 0; attempt <= delays.length; attempt += 1) {
     try {
@@ -71,15 +74,17 @@ async function withConnectionRetry<T>(run: () => Promise<T>): Promise<T> {
 }
 
 /**
- * Cap the client-side connection pool WELL below the database role's hard cap.
+ * Cap the client-side connection pool at the SERVERLESS-recommended size of 1.
  *
- * The default Prisma pool size is `num_cpus * 2 + 1` (e.g. 17 on an 8-core
- * box). Firing the dashboard's ~13 parallel queries then tried to open 17
- * connections at once, but the `db.prisma.io` role rejects that many
- * (`P2037: too many connections`), which 500'd the whole CRM. A small, fixed
- * pool makes parallel queries QUEUE inside the client instead of stampeding
- * the server — each request still runs, just a few at a time. `pool_timeout`
- * is widened so a brief queue never surfaces as `P2024`.
+ * On Vercel every concurrent request runs in its own isolated function
+ * instance, each with its own PrismaClient + pool. With a pool of 5 and a
+ * handful of concurrent operators/tabs, the total open connections quickly
+ * blew past the `db.prisma.io` role's hard cap → `P1001 / P2037` → the whole
+ * CRM white-screened. `connection_limit=1` means each instance holds at most
+ * ONE connection; parallel queries within a request simply queue on it. That
+ * keeps total connections ≈ number of concurrent instances (tiny for a small
+ * team) and reliably under the cap. `pool_timeout` is widened so queued
+ * queries never surface as `P2024`.
  *
  * Overridable per-environment via DB_CONNECTION_LIMIT / DB_POOL_TIMEOUT.
  */
@@ -91,11 +96,11 @@ function buildDatasourceUrl(): string | undefined {
     if (!url.searchParams.has("connection_limit")) {
       url.searchParams.set(
         "connection_limit",
-        process.env.DB_CONNECTION_LIMIT ?? "5",
+        process.env.DB_CONNECTION_LIMIT ?? "1",
       );
     }
     if (!url.searchParams.has("pool_timeout")) {
-      url.searchParams.set("pool_timeout", process.env.DB_POOL_TIMEOUT ?? "20");
+      url.searchParams.set("pool_timeout", process.env.DB_POOL_TIMEOUT ?? "30");
     }
     return url.toString();
   } catch {
