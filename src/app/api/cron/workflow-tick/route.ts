@@ -1,18 +1,18 @@
 /**
- * Campaign runner cron endpoint.
+ * Workflow tick cron endpoint.
  *
- * Drains the due CampaignMessageJob queue (Tag 0/3/7), re-checking the
- * stop-rules before every send and finalizing stale leads to "inaktiv".
+ * Resumes every due workflow reminder (WorkflowRun in status "waiting" whose
+ * resumeAt has passed). The engine re-checks the stop rules before firing —
+ * a lead that replied or started the funnel is skipped, so a reminder never
+ * races a real reaction.
  *
- * Auth: CRON_SECRET, accepted either as `x-cron-secret` (external crontab) or
- * `Authorization: Bearer <secret>` (Vercel Cron sets this automatically when a
- * CRON_SECRET env var is present). Compared in constant time.
+ * Auth mirrors campaign-runner: CRON_SECRET via `x-cron-secret` or
+ * `Authorization: Bearer <secret>` (compared in constant time).
  */
 import { NextResponse } from "next/server";
 import { timingSafeEqual } from "node:crypto";
 
-import { isWorkflowEngineEnabled, serverEnv } from "@/server/env";
-import { campaignService } from "@/server/services/CampaignService";
+import { serverEnv } from "@/server/env";
 import { workflowEngine } from "@/server/services/workflow/WorkflowEngine";
 
 function safeEqual(a: string, b: string): boolean {
@@ -36,14 +36,8 @@ async function handle(req: Request): Promise<Response> {
   if (!isAuthorized(req)) {
     return NextResponse.json({ ok: false, code: "FORBIDDEN" }, { status: 403 });
   }
-  const summary = await campaignService.runDueJobs();
-  // When the unified engine is live it OWNS reactivation; also advance any due
-  // workflow reminders here so the existing daily cron keeps everything moving
-  // even before a dedicated workflow-tick schedule is configured.
-  const workflow = isWorkflowEngineEnabled()
-    ? await workflowEngine.resumeDue()
-    : null;
-  return NextResponse.json({ ok: true, ...summary, workflow });
+  const summary = await workflowEngine.resumeDue();
+  return NextResponse.json({ ok: true, ...summary });
 }
 
 export async function GET(req: Request): Promise<Response> {

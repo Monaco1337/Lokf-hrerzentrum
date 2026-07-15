@@ -65,6 +65,17 @@ const RawEnvSchema = z.object({
 
   CRON_SECRET: z.string().default(""),
 
+  // Unified Workflow Engine. When "1"/"true", the WhatsApp webhook and the
+  // scheduler route through the new engine; anything else keeps the legacy
+  // campaign/inbound path (instant, code-free rollback).
+  WORKFLOW_ENGINE_ENABLED: z.string().default(""),
+
+  // LLM reply analysis (optional). Empty key => deterministic classifier only
+  // (safe default, no external dependency). Used solely to CLASSIFY an inbound
+  // reply into a router path — it never generates any message text.
+  OPENAI_API_KEY: z.string().default(""),
+  OPENAI_MODEL: z.string().default("gpt-4o-mini"),
+
   // File storage (uploaded CV / certificates / etc.)
   STORAGE_DIR: z.string().min(1).default("./storage"),
   STORAGE_DOWNLOAD_SIGNING_SECRET: z.string().default(""),
@@ -134,6 +145,12 @@ export function getTokenPepper(): string {
 
 export function getCrmPasswordHash(): string {
   return serverEnv.CRM_PASSWORD_HASH;
+}
+
+/** Is the unified Workflow Engine live (webhook + scheduler route through it)? */
+export function isWorkflowEngineEnabled(): boolean {
+  const v = serverEnv.WORKFLOW_ENGINE_ENABLED.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "on" || v === "yes";
 }
 
 export function getStorageDownloadSigningSecret(): string {

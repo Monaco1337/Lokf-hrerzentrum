@@ -17,6 +17,7 @@ import {
   CommunicationDirection,
   MessageStatus,
 } from "@/features/fairtrain-funnel/types";
+import { isWorkflowEngineEnabled } from "@/server/env";
 
 import { auditLogService } from "./AuditLogService";
 import { employmentSituationService } from "./EmploymentSituationService";
@@ -292,12 +293,17 @@ export class WhatsAppWebhookService {
 
     // Reactivation campaign: an inbound reply / quick-reply button stops the
     // sequence (cancel follow-ups) and, for buttons, classifies the lead.
-    await campaignInboundService.handleInbound(lead.id, {
-      buttonId: event.buttonId,
-      buttonTitle: event.buttonTitle,
-      body: event.body,
-      at: event.at,
-    });
+    // When the unified engine is live it OWNS reactivation, so we skip the
+    // legacy stop/classify here (the engine's router handles the reply and the
+    // active run abandons its pending reminder automatically).
+    if (!isWorkflowEngineEnabled()) {
+      await campaignInboundService.handleInbound(lead.id, {
+        buttonId: event.buttonId,
+        buttonTitle: event.buttonTitle,
+        body: event.body,
+        at: event.at,
+      });
+    }
 
     // Auto-assign: a message on a rep's number belongs to that rep. We only
     // claim UNASSIGNED leads, so we never steal an active handover.
@@ -344,6 +350,19 @@ export class WhatsAppWebhookService {
         buttonId: event.buttonId,
         buttonTitle: event.buttonTitle,
       };
+
+      // Unified engine ON: ONE entry point. The engine classifies the reply
+      // (LLM + deterministic fallback), routes into exactly one path of the
+      // lead's active run (or the standalone router) and sends the single
+      // fitting follow-up — idempotent, never a duplicate.
+      if (isWorkflowEngineEnabled()) {
+        const { workflowEngine } = await import("./workflow/WorkflowEngine");
+        await workflowEngine.onInbound(lead.id, replyInput, {
+          at: event.at,
+          inboundKey: event.providerMessageId,
+        });
+        return;
+      }
 
       // First: the "Beschäftigten-Statusabfrage" router. It intercepts replies
       // that carry a concrete employment-situation signal (colour emoji, colour

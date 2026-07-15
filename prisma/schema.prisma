@@ -185,6 +185,7 @@ model Lead {
   portalLinks         PortalLink[]
   portalDocuments     PortalDocument[]
   campaignJobs        CampaignMessageJob[]
+  workflowRuns        WorkflowRun[]
 
   @@index([status])
   @@index([priority])
@@ -1019,4 +1020,107 @@ model CampaignMessageJob {
   @@unique([leadId, step, channel])
   @@index([status, scheduledFor])
   @@index([campaign, step])
+}
+
+// ----------------------------------------------------------------------------
+// Unified Workflow Engine (added 2026-07-15).
+//
+// ONE visual, branching process per business goal. A WorkflowDefinition holds
+// the graph (nodes + edges) authored in the visual builder. A WorkflowRun is
+// the per-lead execution state (a cursor into a graph snapshot) — it advances
+// step by step, pauses on `wait`/`aiRouter`, resumes via cron or inbound, and
+// guarantees a lead ever only gets the ONE next step. WorkflowRunStep is the
+// append-only per-node ledger whose unique `dedupKey` makes every send/action
+// idempotent (a node fires at most once per run → never a double message).
+//
+// Additive only. The legacy AutomationRule / CampaignMessageJob tables stay
+// untouched so nothing is lost and rollback is instant.
+// ----------------------------------------------------------------------------
+
+model WorkflowDefinition {
+  id String @id @default(cuid())
+
+  name        String
+  description String?
+
+  // Which business process this workflow drives. Used for overview grouping and
+  // for cross-process rules (e.g. funnel start cancels every `reactivation` run).
+  processKey String // reactivation | application | inbound_router | custom
+  trigger    String // WorkflowTrigger: MESSAGE_INBOUND | CAMPAIGN_ENROLL | LEAD_CREATED | FUNNEL_STARTED | FUNNEL_COMPLETED | MANUAL
+
+  status  String @default("draft") // draft | active | inactive
+  version Int    @default(1)
+
+  // The visual graph: JSON { nodes: WorkflowNode[], edges: WorkflowEdge[] }.
+  graph String @default("{\"nodes\":[],\"edges\":[]}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  runs WorkflowRun[]
+
+  @@index([processKey, status])
+  @@index([trigger, status])
+}
+
+model WorkflowRun {
+  id String @id @default(cuid())
+
+  definitionId      String
+  definition        WorkflowDefinition @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  definitionVersion Int                @default(1)
+  processKey        String
+
+  // Snapshot of the graph at enroll time so editing a definition never breaks
+  // a lead mid-flight.
+  graphSnapshot String @default("{}")
+
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  status        String    @default("active") // active | waiting | completed | canceled | failed | manual_review
+  currentNodeId String?
+  resumeAt      DateTime? // when a `wait` node should resume
+  enteredNodeAt DateTime  @default(now())
+  lastInboundAt DateTime?
+
+  // JSON: last classification, chosen path, reminder counters, etc.
+  context String @default("{}")
+
+  // Single-active-run guarantee: equals `processKey` while the run is
+  // active/waiting, set to NULL when terminal. Postgres allows many NULLs, so
+  // the unique key permits many finished runs but only ONE live run per lead &
+  // process — the DB-level "one next step" lock.
+  activeKey String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  steps WorkflowRunStep[]
+
+  @@unique([leadId, activeKey])
+  @@index([status, resumeAt])
+  @@index([leadId])
+  @@index([definitionId])
+}
+
+model WorkflowRunStep {
+  id String @id @default(cuid())
+
+  runId String
+  run   WorkflowRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  nodeId String
+  kind   String
+
+  // Idempotency guard: unique per (run, node[, occurrence]). A send node can
+  // therefore fire at most once — the hard "never a duplicate message" barrier.
+  dedupKey String @unique
+
+  status String // executed | skipped | failed
+  detail String @default("{}")
+
+  createdAt DateTime @default(now())
+
+  @@index([runId, createdAt])
 }

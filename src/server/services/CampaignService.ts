@@ -14,6 +14,7 @@ import {
 } from "@/features/fairtrain-funnel/campaign/types";
 import { MessageStatus } from "@/features/fairtrain-funnel/messaging/types";
 import type { LeadSummary } from "@/features/fairtrain-funnel/types";
+import { isWorkflowEngineEnabled } from "@/server/env";
 
 import {
   campaignRepository,
@@ -89,6 +90,26 @@ export class CampaignService {
       // documents/appointment, closed/rejected, or manually contacted.
       if (contactGuardService.isReactivationBlocked(lead)) {
         skipped += 1;
+        continue;
+      }
+
+      // Unified engine ON: drive reactivation through the workflow (first
+      // contact + reminders + KI routing = ONE process) instead of the legacy
+      // job queue, so a lead can never be sent to by both systems.
+      if (isWorkflowEngineEnabled()) {
+        const { workflowEngine } = await import("./workflow/WorkflowEngine");
+        const runId = await workflowEngine.enrollByProcess("reactivation", leadId);
+        if (runId) {
+          await leadRepository.update(leadId, {
+            automationPaused: false,
+            campaignStatus: "versandbereit",
+            communicationStarted: true,
+            nextCampaignActionAt: now,
+          });
+          enqueued += 1;
+        } else {
+          skipped += 1;
+        }
         continue;
       }
 

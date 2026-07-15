@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import type { WorkflowSummary } from "../automation/workflow/types";
 import type {
   AutomationLogEntry,
   AutomationRuleEntry,
@@ -17,13 +18,14 @@ import type {
 import { AutomationStatusBadge } from "./AutomationStatusBadge";
 import { RulesManager } from "./automation/RulesManager";
 import { TemplateManager } from "./automation/TemplateManager";
+import { WorkflowManager } from "./automation/WorkflowManager";
 import type {
   PreviewLead,
   WhatsAppSenderOption,
 } from "./automation/TemplateEditorModal";
 import { channelLabel } from "./leadLabels";
 
-type Tab = "templates" | "rules" | "logs";
+type Tab = "processes" | "templates" | "rules" | "logs";
 
 interface Props {
   templates: AutomationTemplateEntry[];
@@ -33,10 +35,13 @@ interface Props {
   previewLeads: PreviewLead[];
   whatsappNumbers: WhatsAppSenderOption[];
   users: Array<{ id: string; name: string }>;
+  workflows: WorkflowSummary[];
+  engineEnabled: boolean;
 }
 
-export function AutomationAdmin({ templates, rules, logs, runLogs, previewLeads, whatsappNumbers, users }: Props) {
-  const [tab, setTab] = useState<Tab>("templates");
+export function AutomationAdmin({ templates, rules, logs, runLogs, previewLeads, whatsappNumbers, users, workflows, engineEnabled }: Props) {
+  const [tab, setTab] = useState<Tab>("processes");
+  const workflowTemplates = templates.map((t) => ({ id: t.id, name: t.name, channel: t.channel }));
 
   const activeTemplates = templates.filter((t) => t.status === "active").length;
   const activeRules     = rules.filter((r) => r.status === "active").length;
@@ -86,7 +91,7 @@ export function AutomationAdmin({ templates, rules, logs, runLogs, previewLeads,
 
       {/* ── Tabs ────────────────────────────────────────────────────────────── */}
       <div className="inline-flex rounded-xl bg-surface-subtle p-1 ring-1 ring-ink/[0.05]">
-        {(["templates", "rules", "logs"] as Tab[]).map((t) => (
+        {(["processes", "templates", "rules", "logs"] as Tab[]).map((t) => (
           <button
             key={t}
             type="button"
@@ -104,7 +109,14 @@ export function AutomationAdmin({ templates, rules, logs, runLogs, previewLeads,
       </div>
 
       {/* ── Tab panels ──────────────────────────────────────────────────────── */}
-      {tab === "templates" ? (
+      {tab === "processes" ? (
+        <WorkflowManager
+          workflows={workflows}
+          templates={workflowTemplates}
+          users={users}
+          engineEnabled={engineEnabled}
+        />
+      ) : tab === "templates" ? (
         <TemplateManager
           templates={templates}
           previewLeads={previewLeads}
@@ -159,8 +171,9 @@ function StatTile({
 }
 
 const TAB_LABEL: Record<Tab, string> = {
+  processes: "Prozesse",
   templates: "Vorlagen",
-  rules: "Automationen",
+  rules: "Automationen (Klassisch)",
   logs: "Verlauf",
 };
 

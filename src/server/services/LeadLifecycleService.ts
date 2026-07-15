@@ -129,6 +129,17 @@ export class LeadLifecycleService {
     } catch {
       // best-effort trigger
     }
+
+    // Funnel start/completion cancels ALL reactivation & reminder flows so a
+    // lead in the application funnel never receives another reactivation
+    // message. Also cancels any legacy campaign jobs — closing the historic gap
+    // regardless of whether the new engine is live. Best-effort.
+    try {
+      const { workflowEngine } = await import("./workflow/WorkflowEngine");
+      await workflowEngine.onFunnelStarted(leadId);
+    } catch {
+      // best-effort cancellation
+    }
   }
 }
 

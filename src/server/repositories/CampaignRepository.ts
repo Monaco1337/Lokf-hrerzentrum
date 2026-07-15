@@ -227,6 +227,15 @@ export class CampaignRepository {
     return res.count;
   }
 
+  /** All still-queued jobs of a campaign (used by the one-time engine migration). */
+  async listQueuedJobs(campaign: string): Promise<CampaignJobRecord[]> {
+    const rows = await prisma.campaignMessageJob.findMany({
+      where: { campaign, status: "queued" },
+      orderBy: { scheduledFor: "asc" },
+    });
+    return rows.map(toJobRecord);
+  }
+
   async listJobsForLead(leadId: string): Promise<CampaignJobRecord[]> {
     const rows = await prisma.campaignMessageJob.findMany({
       where: { leadId },
