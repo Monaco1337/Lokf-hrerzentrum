@@ -50,6 +50,11 @@ interface ViewerTarget {
   mimeType: string | null;
 }
 
+function isImageDoc(d: PortalDocumentEntry): boolean {
+  if (d.mimeType) return d.mimeType.startsWith("image/");
+  return /\.(png|jpe?g|webp|gif)$/i.test(d.fileName ?? "");
+}
+
 export function PortalDocumentReview({
   leadId,
   documents,
@@ -156,7 +161,23 @@ export function PortalDocumentReview({
               className="rounded-xl border border-ink/10 bg-white/60 p-3"
             >
               <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
+                  {hasFile && isImageDoc(d) ? (
+                    <button
+                      type="button"
+                      onClick={() => openViewer(d)}
+                      className="h-11 w-11 shrink-0 overflow-hidden rounded-lg ring-1 ring-ink/10 transition hover:ring-ink/30"
+                      title="Vorschau öffnen"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={`/api/crm/files/${d.uploadedFileId}`}
+                        alt={d.fileName ?? "Vorschau"}
+                        className="h-full w-full object-cover"
+                      />
+                    </button>
+                  ) : null}
+                  <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink">
                     {PORTAL_DOCUMENT_LABEL[d.kind as PortalDocumentKind]}
                     {PORTAL_REQUIRED_DOCUMENTS.includes(d.kind) ? (
@@ -171,6 +192,7 @@ export function PortalDocumentReview({
                   {d.fileName ? (
                     <p className="truncate text-xs text-ink-muted">{d.fileName}</p>
                   ) : null}
+                  </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {hasFile ? (

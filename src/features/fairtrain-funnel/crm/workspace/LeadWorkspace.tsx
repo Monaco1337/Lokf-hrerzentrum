@@ -99,7 +99,7 @@ export function LeadWorkspace({ lead, tabs, leftRail, rightRail, progress }: Pro
     { label: "Termin", tab: "termine", icon: <CalendarIcon /> },
     { label: "Aufgabe", tab: "aufgaben", icon: <CheckIcon /> },
     { label: "Dokumente", tab: "unterlagen", icon: <DocIcon /> },
-    { label: "Notiz", tab: "notizen", icon: <NoteIcon /> },
+    { label: "Notiz", tab: "kommunikation", icon: <NoteIcon /> },
   ];
 
   const activeTab = tabs.find((t) => t.id === active) ?? tabs[0];

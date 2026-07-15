@@ -4,10 +4,10 @@ import { LeadDetail } from "@/features/fairtrain-funnel/crm/LeadDetail";
 import { requireCrmUser } from "@/server/actions/_helpers";
 import { ForbiddenError, NotFoundError } from "@/server/errors";
 import { taskRepository } from "@/server/repositories/TaskRepository";
-import { automationService } from "@/server/services/AutomationService";
 import { assertCanAccessLead } from "@/server/services/LeadAccess";
 import { leadService } from "@/server/services/LeadService";
 import { getWhatsAppConfigStatus } from "@/server/services/messaging/whatsappService";
+import { loadMultichatConversationForLead } from "@/server/services/MultichatService";
 import { userService } from "@/server/services/UserService";
 
 export const dynamic = "force-dynamic";
@@ -21,20 +21,21 @@ export default async function LeadDetailPage({
   const currentUser = await requireCrmUser();
   try {
     await assertCanAccessLead(currentUser, id);
-    const [data, automationTemplates, assignees, tasks] = await Promise.all([
+    const whatsappLive = getWhatsAppConfigStatus().isLive;
+    const [data, assignees, tasks, multichat] = await Promise.all([
       leadService.getFullDetail(id),
-      automationService.listTemplates(),
       userService.list({ includeInactive: false }),
       taskRepository.list({ leadId: id, includeDone: true }),
+      loadMultichatConversationForLead(id, whatsappLive),
     ]);
     return (
       <LeadDetail
         data={data}
-        automationTemplates={automationTemplates}
         currentUser={currentUser}
         assignees={assignees}
         tasks={tasks}
-        whatsappLive={getWhatsAppConfigStatus().isLive}
+        whatsappLive={whatsappLive}
+        conversation={multichat.conversation}
       />
     );
   } catch (err) {

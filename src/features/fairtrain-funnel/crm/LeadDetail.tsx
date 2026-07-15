@@ -1,10 +1,10 @@
 import type {
-  AutomationTemplateEntry,
   LeadFullDetail,
   TaskSummary,
   UserSummary,
 } from "../types";
 import { LeadStatus } from "../types";
+import type { MultichatConversation } from "../messaging/types";
 import { can } from "../auth/permissions";
 
 import { FollowUpScheduler } from "./FollowUpScheduler";
@@ -19,27 +19,13 @@ import {
   StammdatenCard,
   StatusHistoryCard,
 } from "./LeadFacts";
-import {
-  LeadAutomationSection,
-  LeadConsentSection,
-} from "./LeadDetailAutomation";
 import { LeadUploadedFiles } from "./LeadUploadedFiles";
-import { MagicLinkPanel } from "./MagicLinkPanel";
-import { NextStep } from "./NextStep";
 import { NotesPanel } from "./NotesPanel";
 import { buildTimeline } from "./sales/ActivityTimeline";
 import { CallLogPanel } from "./sales/CallLogPanel";
-import { buildCopilotRecommendation } from "./sales/copilotHeuristics";
-import { LeadCopilotPanel } from "./sales/LeadCopilotPanel";
 import { ProcessingPanel } from "./sales/ProcessingPanel";
 import { SensitiveRevealToggle } from "./SensitiveRevealToggle";
-import { LeadCommunicationLedger } from "./workspace/LeadCommunicationLedger";
-import {
-  LeadMessagingPanel,
-  type OutboundMessageRef,
-  type TemplateOption,
-} from "./workspace/LeadMessagingPanel";
-import { LeadDocumentChecklist } from "./workspace/LeadDocumentChecklist";
+import { LeadMultichatPanel } from "./messaging/LeadMultichatPanel";
 import { PortalDocumentReview } from "./workspace/PortalDocumentReview";
 import { PortalLinkPanel } from "./workspace/PortalLinkPanel";
 import { LeadTasksPanel } from "./workspace/LeadTasksPanel";
@@ -63,18 +49,18 @@ const APPOINTMENT_STAGES: ReadonlyArray<StageOption> = [
 
 export function LeadDetail({
   data,
-  automationTemplates,
   currentUser,
   assignees,
   tasks,
   whatsappLive = false,
+  conversation = null,
 }: {
   data: LeadFullDetail;
-  automationTemplates: AutomationTemplateEntry[];
   currentUser: UserSummary;
   assignees: ReadonlyArray<UserSummary>;
   tasks: ReadonlyArray<TaskSummary>;
   whatsappLive?: boolean;
+  conversation?: MultichatConversation | null;
 }) {
   const { lead } = data;
   const timeline = buildTimeline({
@@ -82,35 +68,8 @@ export function LeadDetail({
     calls: data.callLogs,
     statusHistory: data.statusHistory,
   });
-  const copilot = buildCopilotRecommendation(data);
   const canAssign = can(currentUser.role, "canAssignLeads");
   const canTrack = can(currentUser.role, "canTrackCalls");
-
-  const sentChannels = new Set(
-    data.automationLogs.filter((l) => l.status === "SENT" && !l.isTest).map((l) => l.channel),
-  );
-  const emailSent = sentChannels.has("EMAIL");
-  const whatsappSent = sentChannels.has("WHATSAPP");
-
-  const messageTemplates: TemplateOption[] = automationTemplates
-    .filter((t) => t.enabled && t.status === "active")
-    .map((t) => ({
-      id: t.id,
-      name: t.name,
-      channel: t.channel,
-      category: t.category,
-      body: t.body,
-      approvalStatus: t.metaApprovalStatus,
-    }));
-  const outboundMessages: OutboundMessageRef[] = data.communications
-    .filter((c) => c.direction === "OUT")
-    .slice(0, 6)
-    .map((c) => ({
-      id: c.id,
-      body: c.payload,
-      channel: c.channel,
-      status: c.status,
-    }));
 
   const hasCv =
     lead.unemployedSince ||
@@ -140,11 +99,13 @@ export function LeadDetail({
       id: "uebersicht",
       label: "Übersicht",
       content: (
-        <div className="space-y-6">
-          <StammdatenCard lead={lead} />
-          {hasAgency ? <AgenturCard lead={lead} /> : null}
-          {hasCv ? <LebenslaufCard lead={lead} /> : null}
-          <EligibilityCard answers={data.eligibilityAnswers} />
+        <div className="space-y-4">
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+            <StammdatenCard lead={lead} />
+            <EligibilityCard answers={data.eligibilityAnswers} />
+            {hasCv ? <LebenslaufCard lead={lead} /> : null}
+            {hasAgency ? <AgenturCard lead={lead} /> : null}
+          </div>
           <SectionCard title="Sensible Angaben">
             <p className="text-sm text-ink-soft">
               Werden nur auf Anforderung angezeigt. Jeder Aufruf wird protokolliert.
@@ -160,35 +121,16 @@ export function LeadDetail({
       id: "kommunikation",
       label: "Kommunikation",
       content: (
-        <div className="space-y-6">
-          <SectionCard title="Nachricht senden / simulieren">
-            <LeadMessagingPanel
-              leadId={lead.id}
-              templates={messageTemplates}
-              outbound={outboundMessages}
-              whatsappLive={whatsappLive}
-            />
-          </SectionCard>
-          <SectionCard title="Konversationsverlauf">
-            <LeadCommunicationLedger
-              communications={data.communications}
-              automationLogs={data.automationLogs}
-              callLogs={data.callLogs}
-            />
-          </SectionCard>
-          <SectionCard title="Anruf protokollieren">
-            <CallLogPanel leadId={lead.id} initial={data.callLogs} canTrack={canTrack} />
-          </SectionCard>
-          <SectionCard title="Magic-Link senden">
-            <MagicLinkPanel leadId={lead.id} />
-          </SectionCard>
-          <LeadAutomationSection
-            leadId={lead.id}
-            email={lead.email}
-            logs={data.automationLogs}
-            templates={automationTemplates}
-          />
-          <LeadConsentSection consents={data.consents} />
+        <div className="space-y-4">
+          <LeadMultichatPanel conversation={conversation} whatsappLive={whatsappLive} />
+          <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+            <SectionCard title="Anruf / Rückruf protokollieren">
+              <CallLogPanel leadId={lead.id} initial={data.callLogs} canTrack={canTrack} />
+            </SectionCard>
+            <SectionCard title="Notizen">
+              <NotesPanel leadId={lead.id} initialNotes={data.notes} />
+            </SectionCard>
+          </div>
         </div>
       ),
     },
@@ -196,24 +138,15 @@ export function LeadDetail({
       id: "unterlagen",
       label: "Unterlagen",
       content: (
-        <div className="space-y-6">
-          <SectionCard title="Bewerberportal – Unterlagenprüfung">
-            <PortalDocumentReview leadId={lead.id} documents={data.portalDocuments} />
-          </SectionCard>
-          <SectionCard title="Dokumenten-Checkliste">
-            <LeadDocumentChecklist
-              uploadedFiles={data.uploadedFiles}
-              documents={data.documents}
-            />
-          </SectionCard>
-          <SectionCard title="Bewerberportal-Link">
-            <PortalLinkPanel leadId={lead.id} link={data.portalLink} />
-          </SectionCard>
+        <div className="space-y-4">
           <SectionCard title="Hochgeladene Dateien">
             <LeadUploadedFiles files={data.uploadedFiles} />
           </SectionCard>
-          <SectionCard title="Vorlage senden / Magic-Link">
-            <MagicLinkPanel leadId={lead.id} />
+          <SectionCard title="Bewerberportal – Unterlagenprüfung">
+            <PortalDocumentReview leadId={lead.id} documents={data.portalDocuments} />
+          </SectionCard>
+          <SectionCard title="Bewerberportal-Link">
+            <PortalLinkPanel leadId={lead.id} link={data.portalLink} />
           </SectionCard>
         </div>
       ),
@@ -252,9 +185,6 @@ export function LeadDetail({
               reason="Agenturtermin-Status (Bewerberakte)"
             />
           </SectionCard>
-          <SectionCard title="Anruf / Rückruf protokollieren">
-            <CallLogPanel leadId={lead.id} initial={data.callLogs} canTrack={canTrack} />
-          </SectionCard>
         </div>
       ),
     },
@@ -276,9 +206,6 @@ export function LeadDetail({
           </SectionCard>
           {hasAgency ? <AgenturCard lead={lead} /> : null}
           <DocumentsCard documents={data.documents} />
-          <SectionCard title="Notizen zur Förderung">
-            <NotesPanel leadId={lead.id} initialNotes={data.notes} />
-          </SectionCard>
         </div>
       ),
     },
@@ -294,15 +221,6 @@ export function LeadDetail({
         </div>
       ),
     },
-    {
-      id: "notizen",
-      label: "Notizen",
-      content: (
-        <SectionCard title="Interne Notizen">
-          <NotesPanel leadId={lead.id} initialNotes={data.notes} />
-        </SectionCard>
-      ),
-    },
   ];
 
   const leftRail = (
@@ -310,22 +228,13 @@ export function LeadDetail({
   );
 
   const rightRail = (
-    <>
-      <LeadCopilotPanel rec={copilot} />
-      <NextStep
-        leadId={lead.id}
-        currentStatus={lead.status}
-        emailSent={emailSent}
-        whatsappSent={whatsappSent}
-      />
-      <ProcessingPanel
-        lead={lead}
-        calls={data.callLogs}
-        assignees={assignees}
-        canAssign={canAssign}
-        currentUser={currentUser}
-      />
-    </>
+    <ProcessingPanel
+      lead={lead}
+      calls={data.callLogs}
+      assignees={assignees}
+      canAssign={canAssign}
+      currentUser={currentUser}
+    />
   );
 
   const progress = <BewerberReise lead={lead} history={data.statusHistory} />;

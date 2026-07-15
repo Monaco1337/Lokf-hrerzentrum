@@ -58,9 +58,32 @@ const STATUS_RANK: Record<LeadStatus, number> = (() => {
   m[LeadStatus.LOST] = 0;
   m[LeadStatus.REJECTED] = 0;
   m[LeadStatus.BLOCKED] = 0;
-  m[LeadStatus.DOC_PENDING] = 3;
+  // Web-funnel / engagement statuses that aren't listed on a stage directly —
+  // mapped so the stepper reflects reality automatically (no manual status
+  // entry needed).
+  m[LeadStatus.LANDINGPAGE_OPENED] = 2;
+  m[LeadStatus.FORWARDED] = 2;
+  m[LeadStatus.FUNNEL_COMPLETED] = 3;
+  m[LeadStatus.DOC_PENDING] = 4;
+  m[LeadStatus.DOC_REVIEW] = 4;
   return m as Record<LeadStatus, number>;
 })();
+
+/**
+ * Funnel-phase → stage rank. The progress advances from whichever signal is
+ * furthest (status OR funnel-phase), so completing the Eignungscheck / uploading
+ * documents moves the stepper forward on its own — in the flow, not by hand.
+ */
+const PHASE_RANK: Record<string, number> = {
+  eligibility_started: 2,
+  eligibility_completed: 3,
+  qualified: 3,
+  waiting_for_documents: 4,
+  documents_received: 4,
+  waiting_for_appointment: 5,
+  appointment_scheduled: 5,
+  completed: 9,
+};
 
 const DATE_FMT = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
@@ -84,7 +107,11 @@ export function BewerberReise({
   lead: LeadDetail;
   history: ReadonlyArray<StatusHistoryEntry>;
 }) {
-  const currentRank = STATUS_RANK[lead.status] ?? 1;
+  const statusRank = STATUS_RANK[lead.status] ?? 1;
+  const phaseRank = PHASE_RANK[lead.funnelPhase] ?? 0;
+  // Terminal negatives (lost/rejected/blocked) stay at 0; otherwise take the
+  // furthest of status vs. funnel-phase so the stepper never lags behind.
+  const currentRank = statusRank === 0 ? 0 : Math.max(statusRank, phaseRank);
   const progressPct = Math.round((currentRank / STAGES.length) * 100);
 
   const enteredAt = new Map<string, Date>();

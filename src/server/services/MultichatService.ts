@@ -165,6 +165,110 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
   };
 }
 
+/**
+ * Single-lead variant used to embed the WhatsApp thread directly in the Lead
+ * Command Center (Kommunikation tab). Same shape as a conversation from
+ * `loadMultichat`, but scoped to one lead and always returned (even with zero
+ * messages, so the reply box is available for a first outbound).
+ */
+export async function loadMultichatConversationForLead(
+  leadId: string,
+  whatsappLive: boolean,
+): Promise<{ conversation: MultichatConversation | null; whatsappLive: boolean }> {
+  const [lead, rows, numberRecords] = await Promise.all([
+    prisma.lead.findUnique({
+      where: { id: leadId },
+      select: {
+        firstName: true,
+        lastName: true,
+        phone: true,
+        assignedToId: true,
+        assignedToUser: { select: { name: true } },
+        leadScore: true,
+        whatsappStatus: true,
+        source: true,
+        lastWhatsappReplyAt: true,
+        optOut: true,
+        contactState: true,
+        automationPaused: true,
+        lastManualContactAt: true,
+      },
+    }),
+    prisma.communicationEvent.findMany({
+      where: { leadId, channel: "WHATSAPP" },
+      orderBy: { createdAt: "desc" },
+      take: MESSAGES_PER_THREAD,
+      select: {
+        id: true,
+        direction: true,
+        payload: true,
+        status: true,
+        isDemo: true,
+        businessPhoneNumberId: true,
+        createdAt: true,
+      },
+    }),
+    whatsAppNumberRepository.listActive(),
+  ]);
+
+  if (!lead) return { conversation: null, whatsappLive };
+
+  const labelByPhoneId = new Map(
+    numberRecords.map((n) => [n.phoneNumberId, n.label]),
+  );
+
+  // rows are newest-first → reverse to chronological (oldest first) for the UI.
+  const messages: MultichatMessage[] = rows
+    .map((r) => ({
+      id: r.id,
+      direction: (r.direction === "IN" ? "IN" : "OUT") as "IN" | "OUT",
+      body: r.payload,
+      status: r.status,
+      isDemo: r.isDemo,
+      businessPhoneNumberId: r.businessPhoneNumberId,
+      createdAt: r.createdAt.toISOString(),
+    }))
+    .reverse();
+
+  const businessPhoneNumberId =
+    rows.find((r) => r.businessPhoneNumberId)?.businessPhoneNumberId ?? null;
+  const lastOutAt = [...messages]
+    .reverse()
+    .find((m) => m.direction === "OUT")?.createdAt;
+  const unread = messages.filter(
+    (m) => m.direction === "IN" && (!lastOutAt || m.createdAt > lastOutAt),
+  ).length;
+  const last = messages[messages.length - 1];
+  const name = `${lead.firstName} ${lead.lastName}`.trim();
+
+  const conversation: MultichatConversation = {
+    leadId,
+    leadName: name || lead.phone,
+    phone: lead.phone,
+    assignedUserId: lead.assignedToId,
+    assignedName: lead.assignedToUser?.name ?? null,
+    businessPhoneNumberId,
+    numberLabel: businessPhoneNumberId
+      ? labelByPhoneId.get(businessPhoneNumberId) ?? null
+      : null,
+    leadScore: lead.leadScore,
+    whatsappStatus: parseWhatsappStatus(lead.whatsappStatus),
+    source: lead.source,
+    hasNewReply: lead.lastWhatsappReplyAt !== null,
+    optOut: lead.optOut,
+    contactState: parseContactState(lead.contactState),
+    automationPaused: lead.automationPaused,
+    lastManualContactAt: lead.lastManualContactAt?.toISOString() ?? null,
+    lastAt: last?.createdAt ?? new Date(0).toISOString(),
+    preview: last ? previewOf(last.direction, last.body) : "",
+    unread,
+    total: messages.length,
+    messages,
+  };
+
+  return { conversation, whatsappLive };
+}
+
 function previewOf(direction: "IN" | "OUT", body: string): string {
   const clean = body.replace(/\s+/g, " ").trim();
   const short = clean.length > 90 ? `${clean.slice(0, 90)}…` : clean;
