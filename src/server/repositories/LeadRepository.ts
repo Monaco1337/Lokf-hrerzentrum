@@ -111,6 +111,8 @@ export interface CreateLeadInput {
   campaignCompleted?: boolean | undefined;
   employmentSnapshot?: string | null | undefined;
   nextCampaignActionAt?: Date | null | undefined;
+  /** Process step (separate from `status`) — set at creation when known. */
+  funnelPhase?: FunnelPhase | undefined;
 }
 
 export interface UpdateLeadFields {
@@ -346,6 +348,9 @@ export class LeadRepository {
           : {}),
         ...(input.nextCampaignActionAt !== undefined
           ? { nextCampaignActionAt: input.nextCampaignActionAt }
+          : {}),
+        ...(input.funnelPhase !== undefined
+          ? { funnelPhase: input.funnelPhase }
           : {}),
       },
     });

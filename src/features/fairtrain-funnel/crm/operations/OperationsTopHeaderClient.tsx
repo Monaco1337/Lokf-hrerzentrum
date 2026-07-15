@@ -102,7 +102,7 @@ export function OperationsTopHeaderClient({
             "hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold sm:inline-flex",
             healthTone,
           ].join(" ")}
-          title={`SLA-Verstöße: ${health.slaBreached} · Hot ohne Bearbeiter: ${health.hotUnassigned} · Rückrufe überfällig: ${health.callbacksOverdue}`}
+          title={`SLA-Verstöße: ${health.slaBreached} · Hot ohne Bearbeiter: ${health.hotUnassigned} · Wiedervorlagen überfällig: ${health.callbacksOverdue}`}
         >
           <span className={`h-1.5 w-1.5 rounded-full ${health.dotClass}`} />
           {health.label}
@@ -131,9 +131,10 @@ export function OperationsTopHeaderClient({
             <Link
               href="/crm/sales/followups"
               className="ops-chip ops-chip-amber transition hover:opacity-90"
+              title="Überfällige Wiedervorlagen (alle Leads) — nicht zu verwechseln mit den WhatsApp-Rückrufwünschen im Dashboard"
             >
               <span className="ops-dot bg-amber-500" />
-              {health.callbacksOverdue} Rückrufe
+              {health.callbacksOverdue} Wiedervorlagen
             </Link>
           )}
           {health.slaBreached === 0 &&

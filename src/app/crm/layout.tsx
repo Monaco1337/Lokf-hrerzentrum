@@ -14,6 +14,7 @@
 import { headers } from "next/headers";
 import Link from "next/link";
 
+import { AutoRefresh } from "@/features/fairtrain-funnel/crm/operations/AutoRefresh";
 import { OperationsTopHeader } from "@/features/fairtrain-funnel/crm/operations/OperationsTopHeader";
 import { userService } from "@/server/services/UserService";
 
@@ -51,6 +52,11 @@ export default async function CrmLayout({
   return (
     <OpsShellProvider>
       <div data-ops className="min-h-screen bg-[#F6F7F9] text-[#111827]">
+        {/* Keeps the sticky top bar (Eskalation/HOT/Rückrufe) and every page
+            reconciled with the DB automatically, everywhere in the CRM — not
+            only on the Dashboard. */}
+        <AutoRefresh />
+
         {/* Sticky top bar */}
         <OperationsTopHeader />
 

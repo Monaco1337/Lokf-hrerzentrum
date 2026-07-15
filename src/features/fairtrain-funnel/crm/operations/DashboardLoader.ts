@@ -64,9 +64,25 @@ const NEW_FUNNEL_STATUSES: ReadonlyArray<LeadStatus> = [
   LeadStatus.FUNNEL_COMPLETED,
 ];
 
-const QUALIFIED_STATUSES: ReadonlyArray<LeadStatus> = [
+/**
+ * "Qualifizierte Bewerber": a lead only counts once it made REAL progress
+ * beyond "just completed the funnel" — either flagged HOT (which itself only
+ * happens once the funnel is done AND documents are uploaded, see
+ * `PortalService.promoteHotIfEligible`) or already moved into document
+ * review / further. This is the single definition used everywhere on the
+ * Dashboard — no separate, drifting count elsewhere.
+ */
+const QUALIFIED_OR_BEYOND_STATUSES: ReadonlyArray<LeadStatus> = [
   LeadStatus.QUALIFIED,
   LeadStatus.HOT,
+  LeadStatus.DOC_REVIEW,
+  LeadStatus.DOC_READY,
+  LeadStatus.AA_APPOINTMENT_PENDING,
+  LeadStatus.AA_APPOINTMENT_DONE,
+  LeadStatus.GUTSCHEIN_PENDING,
+  LeadStatus.GUTSCHEIN_APPROVED,
+  LeadStatus.ENROLLED,
+  LeadStatus.STARTED,
 ];
 
 export interface DashboardKpis {
@@ -148,19 +164,38 @@ const CALLBACK_WHERE: Prisma.LeadWhereInput = {
 };
 
 /**
- * The three counts that cannot be derived from the status aggregate
- * (callback intent, documents awaiting review, "needs handling"). newFunnel and
- * qualified are derived from `loadByStatus` to keep the query fan-out small —
- * fewer DB connections per request eases pressure on the serverless Postgres.
+ * "Qualifizierte Bewerber" — the single, decoupled definition used everywhere
+ * on the Dashboard: real progress beyond a bare funnel completion. Computed
+ * directly (not derived from the status aggregate) so it never drifts from
+ * the `priority` field the rest of the CRM (top header, Pipeline, Dialer)
+ * reads for HOT leads.
+ */
+const QUALIFIED_WHERE: Prisma.LeadWhereInput = {
+  deletedAt: null,
+  leadType: APPLICATION_LEAD_TYPE,
+  status: { notIn: TERMINAL_STATUSES as string[] },
+  OR: [
+    { priority: "HOT" },
+    { status: { in: QUALIFIED_OR_BEYOND_STATUSES as string[] } },
+  ],
+};
+
+/**
+ * The counts that cannot be derived from the status aggregate (callback
+ * intent, documents awaiting review, qualified, "needs handling"). newFunnel
+ * IS derived from `loadByStatus` to keep the query fan-out small — fewer DB
+ * connections per request eases pressure on the serverless Postgres.
  */
 async function loadExtraCounts(): Promise<{
   callbacksOpen: number;
   docsAwaiting: number;
+  qualified: number;
   needsHandling: number;
 }> {
-  const [callbacksOpen, docsAwaiting, needsHandling] = await Promise.all([
+  const [callbacksOpen, docsAwaiting, qualified, needsHandling] = await Promise.all([
     prisma.lead.count({ where: CALLBACK_WHERE }),
     portalDocumentRepository.countAwaitingReview(),
+    prisma.lead.count({ where: QUALIFIED_WHERE }),
     prisma.lead.count({
       where: {
         deletedAt: null,
@@ -170,7 +205,7 @@ async function loadExtraCounts(): Promise<{
       },
     }),
   ]);
-  return { callbacksOpen, docsAwaiting, needsHandling };
+  return { callbacksOpen, docsAwaiting, qualified, needsHandling };
 }
 
 async function loadCallbacks(): Promise<CallbackLead[]> {
@@ -411,6 +446,7 @@ export async function loadDashboard(user: UserSummary): Promise<DashboardData> {
       safe(loadExtraCounts(), {
         callbacksOpen: 0,
         docsAwaiting: 0,
+        qualified: 0,
         needsHandling: 0,
       }),
       safe(loadCallbacks(), [] as CallbackLead[]),
@@ -425,16 +461,12 @@ export async function loadDashboard(user: UserSummary): Promise<DashboardData> {
     (sum, s) => sum + (byStatus[s] ?? 0),
     0,
   );
-  const qualified = QUALIFIED_STATUSES.reduce(
-    (sum, s) => sum + (byStatus[s] ?? 0),
-    0,
-  );
 
   const hero: DashboardKpis = {
     newFunnel,
     callbacksOpen: extra.callbacksOpen,
     docsAwaiting: extra.docsAwaiting,
-    qualified,
+    qualified: extra.qualified,
   };
 
   const documents = {

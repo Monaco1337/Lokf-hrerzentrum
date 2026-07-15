@@ -97,6 +97,7 @@ export async function createCrmLead(
         eligibilityAnswers: [],
         consents: [],
         uploadedFileIds: [],
+        isManualCrmEntry: true,
       },
       ctx,
     );

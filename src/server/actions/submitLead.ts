@@ -71,10 +71,10 @@ export async function submitLead(
       ctx,
     );
 
-    // The applicant just completed the public Eignungscheck → fire the
-    // "Funnel abgeschlossen" trigger and set the funnel phase. We deliberately
-    // do NOT force the pipeline status here (a fresh inbound website lead still
-    // needs first contact); the trigger + funnel phase update run best-effort.
+    // `LeadService.submit` already set status=FUNNEL_COMPLETED + funnelPhase
+    // at creation (single source of truth — no separate status jump here).
+    // This call fires the "Funnel abgeschlossen" Automation-Builder trigger
+    // and cancels any reactivation/reminder runs exactly once; best-effort.
     await leadLifecycleService.emitFunnelEvent(result.leadId, "FUNNEL_COMPLETED");
 
     return result;

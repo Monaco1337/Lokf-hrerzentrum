@@ -27,7 +27,9 @@ import {
   type UploadedFileKind,
 } from "@/features/fairtrain-funnel/types";
 
-import { LeadStatus } from "@/features/fairtrain-funnel/types";
+import { LeadPriority, LeadStatus } from "@/features/fairtrain-funnel/types";
+import { FUNNEL_PHASE_RANK, FunnelPhase } from "@/features/fairtrain-funnel/funnelPhase";
+import { SCORING_CONSTANTS } from "@/features/fairtrain-funnel/scoring/scoring";
 import { isTerminal, PIPELINE_RANK } from "@/features/fairtrain-funnel/statusMachine";
 
 import { leadRepository } from "../repositories/LeadRepository";
@@ -426,6 +428,7 @@ export class PortalService {
     await leadLifecycleService.record(link.leadId, "FUNNEL_STARTED", {
       actor: "applicant",
     });
+    await this.promoteHotIfEligible(link.leadId);
     const completion = await this.maybeComplete(link.entry.id, link.leadId);
     return { ok: true, completionPercent: completion };
   }
@@ -492,6 +495,7 @@ export class PortalService {
     await this.markDocumentsReceived(link.leadId);
     // New upload awaiting sighting → move the lead into DOC_REVIEW.
     await this.syncDocReviewStatus(link.leadId, "applicant");
+    await this.promoteHotIfEligible(link.leadId);
     const completion = await this.maybeComplete(link.entry.id, link.leadId);
     return {
       ok: true,
@@ -499,6 +503,48 @@ export class PortalService {
       fileName: persisted.originalName,
       fileId: persisted.id,
     };
+  }
+
+  /**
+   * Promote priority to HOT only once BOTH are true: the Eignungscheck
+   * (funnel) is completed AND at least one document has actually been
+   * uploaded. This is the single gate that decides "ready to handle NOW" —
+   * a fresh applicant who merely submitted the funnel is never auto-HOT;
+   * only once a real document is in do we know they are serious and
+   * reachable. Idempotent and forward-only (never downgrades an already-HOT
+   * or BLOCKED lead, never fires twice).
+   */
+  private async promoteHotIfEligible(leadId: string): Promise<void> {
+    const [lead, docs] = await Promise.all([
+      leadRepository.findById(leadId),
+      portalDocumentRepository.list(leadId),
+    ]);
+    if (!lead) return;
+    if (lead.priority === LeadPriority.HOT || lead.priority === LeadPriority.BLOCKED) {
+      return;
+    }
+    if (lead.score < SCORING_CONSTANTS.HOT_THRESHOLD) return;
+
+    const funnelDone =
+      FUNNEL_PHASE_RANK[lead.funnelPhase] >=
+      FUNNEL_PHASE_RANK[FunnelPhase.ELIGIBILITY_COMPLETED];
+    const hasUpload = docs.some(
+      (d) => d.status === "UPLOADED" || d.status === "APPROVED",
+    );
+    if (!funnelDone || !hasUpload) return;
+
+    await leadRepository.update(leadId, { priority: LeadPriority.HOT });
+    await auditLogService.append({
+      actor: "system",
+      action: AuditAction.LEAD_UPDATED,
+      entityType: "Lead",
+      entityId: leadId,
+      details: {
+        reason: "funnel_completed_and_documents_uploaded",
+        priority: LeadPriority.HOT,
+        score: lead.score,
+      },
+    });
   }
 
   /**

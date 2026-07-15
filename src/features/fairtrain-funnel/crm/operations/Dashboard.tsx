@@ -17,7 +17,6 @@ import type { Route } from "next";
 import type { ReactNode } from "react";
 
 import type { DashboardData } from "./DashboardLoader";
-import { AutoRefresh } from "./AutoRefresh";
 import { DashboardCallbacks } from "./DashboardCallbacks";
 import { DashboardNewFunnel } from "./DashboardNewFunnel";
 import { DashboardPipeline } from "./DashboardPipeline";
@@ -187,7 +186,7 @@ export function Dashboard(data: DashboardData) {
     {
       label: "Qualifizierte Bewerber",
       value: data.hero.qualified,
-      href: "/crm/leads?status=QUALIFIED,HOT",
+      href: "/crm/leads?status=QUALIFIED,HOT,DOC_REVIEW,DOC_READY,AA_APPOINTMENT_PENDING,AA_APPOINTMENT_DONE,GUTSCHEIN_PENDING,GUTSCHEIN_APPROVED,ENROLLED,STARTED",
       tone: "emerald",
       icon: <CheckIcon />,
     },
@@ -222,8 +221,6 @@ export function Dashboard(data: DashboardData) {
 
   return (
     <div className="space-y-6">
-      <AutoRefresh />
-
       <header className="flex flex-col gap-1">
         <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-muted">
           Dashboard · Operations Center

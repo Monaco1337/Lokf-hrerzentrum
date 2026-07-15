@@ -5,6 +5,7 @@
  * consent records, initial status history and audit log are written in a
  * single Prisma transaction.
  */
+import { FunnelPhase } from "@/features/fairtrain-funnel/funnelPhase";
 import { computeScore } from "@/features/fairtrain-funnel/scoring/scoring";
 import {
   AuditAction,
@@ -74,6 +75,14 @@ export interface SubmitLeadInput {
   }>;
   consents: ReadonlyArray<{ type: ConsentType; granted: boolean }>;
   uploadedFileIds: ReadonlyArray<string>;
+  /**
+   * True only for a CRM operator manually adding a contact (e.g. a phone
+   * lead) via `createCrmLead` — they never went through the public
+   * Eignungscheck. Defaults to false: the public wizard submission genuinely
+   * DID just complete the funnel, so it gets the honest FUNNEL_COMPLETED
+   * status + funnel phase instead of an instant QUALIFIED/HOT triage.
+   */
+  isManualCrmEntry?: boolean;
 
   // extended person data (all optional in MVP - the K.O. step alone can submit)
   birthDate?: Date | null;
@@ -144,12 +153,35 @@ export class LeadService {
       hasNoKbaDrugEntries: input.hasNoKbaDrugEntries ?? undefined,
     });
 
+    const isManualCrmEntry = input.isManualCrmEntry === true;
+
+    // Single source of truth for the initial pipeline position: a public
+    // Eignungscheck submission is, factually, "the funnel just got completed"
+    // — never an instant QUALIFIED/HOT triage. Blocked (hard K.O. exclusion)
+    // is the one legitimate immediate outcome and stays unchanged. This is
+    // what makes the lead show up in the Dashboard's "Neue Funnel-Leads" card
+    // right away instead of only under Leads. A manually added CRM contact
+    // never went through the funnel, so it starts at NEW as before.
     const initialStatus: LeadStatus =
       scoring.priority === LeadPriority.BLOCKED
         ? LeadStatus.BLOCKED
-        : scoring.priority === LeadPriority.HOT
-          ? LeadStatus.HOT
-          : LeadStatus.QUALIFIED;
+        : isManualCrmEntry
+          ? LeadStatus.NEW
+          : LeadStatus.FUNNEL_COMPLETED;
+
+    // HOT priority is a "handle this NOW" signal — it must only ever be true
+    // once the applicant is actually reachable AND serious, i.e. the funnel is
+    // done AND they already attached documents. A bare score >= 80 alone is
+    // NOT enough at the moment of submission (nobody has uploaded anything
+    // yet in the common case). If files were attached in this very
+    // submission, the condition is already satisfied and HOT applies right
+    // away; otherwise we cap to WARM and let `PortalService` promote to HOT
+    // the moment real documents come in.
+    const hasDocsAtSubmission = input.uploadedFileIds.length > 0;
+    const initialPriority: LeadPriority =
+      scoring.priority === LeadPriority.HOT && !hasDocsAtSubmission
+        ? LeadPriority.WARM
+        : scoring.priority;
 
     const leadId = await prisma.$transaction(async (tx) => {
       const lead = await leadRepository.create(
@@ -165,8 +197,14 @@ export class LeadService {
           acceptsShiftWork: input.acceptsShiftWork,
           motivationText: input.motivationText,
           score: scoring.score,
-          priority: scoring.priority,
+          priority: initialPriority,
           status: initialStatus,
+          // Process step (separate from `status`): they just finished the
+          // Eignungscheck, full stop — even a blocked lead did complete it.
+          // A manual CRM entry has no funnel phase yet (stays "none").
+          ...(isManualCrmEntry
+            ? {}
+            : { funnelPhase: FunnelPhase.ELIGIBILITY_COMPLETED }),
           source: input.source,
           utm: input.utm,
           assignedTo: null,
@@ -245,7 +283,8 @@ export class LeadService {
           entityId: lead.id,
           details: JSON.stringify({
             score: scoring.score,
-            priority: scoring.priority,
+            priority: initialPriority,
+            computedPriority: scoring.priority,
             blockedReasons: scoring.blockedReasons,
             source: input.source,
           }),
@@ -271,6 +310,12 @@ export class LeadService {
       // eslint-disable-next-line no-console
       console.error("[automation] rule LEAD_CREATED failed", { leadId, err });
     }
+
+    // Note: the "Funnel abgeschlossen" trigger + funnel-phase update for the
+    // PUBLIC wizard path is fired once, at the call site (`submitLead.ts`),
+    // after this transaction commits — never duplicated here, so the
+    // Automation-Builder trigger and any workflow it starts fire exactly once
+    // per submission.
 
     // Reactivation: if this wizard submission matches an active Alt-Lead
     // (same phone/email), they completed the Eignungscheck → stop that
@@ -300,7 +345,7 @@ export class LeadService {
 
     return {
       leadId,
-      priority: scoring.priority,
+      priority: initialPriority,
       status: initialStatus,
       score: scoring.score,
       blockedReasons: scoring.blockedReasons,
