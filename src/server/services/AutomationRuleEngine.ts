@@ -19,7 +19,6 @@ import {
   type ConditionLogic,
   FUNNEL_PHASE_LABEL,
   isFunnelPhase,
-  LeadPriority,
   LeadStatusSchema,
   type ConsentState,
   type LeadDetail,
@@ -52,6 +51,7 @@ import {
   type EmploymentSituation,
 } from "./EmploymentReplyClassifier";
 import { noteRepository } from "../repositories/NoteRepository";
+import { escalateLead } from "./LeadPriorityGate";
 import {
   analyzeReply,
   REPLY_INTENT_LABEL,
@@ -708,8 +708,12 @@ export class AutomationRuleEngine {
         return { type: action.type, result: `Bearbeiter zugewiesen` };
       }
       case "markEscalated": {
-        if (dryRun) return { type: action.type, result: `Würde eskaliert (Priorität: heiß)${tag}` };
-        await leadRepository.update(lead.id, { priority: LeadPriority.HOT });
+        if (dryRun) return { type: action.type, result: `Würde eskaliert${tag}` };
+        // "Eskalieren" ist kein Freifahrtschein für Priorität HOT — HOT bleibt
+        // reserviert für Bewerber mit abgeschlossenem Funnel + hochgeladenen
+        // Unterlagen (siehe LeadPriorityGate). Ohne das wird nur auf WARM
+        // angehoben, die Dringlichkeit bleibt trotzdem im Audit-Log sichtbar.
+        await escalateLead(lead.id, { actor, reason: "automation_markEscalated" });
         await auditLogRepository.append({
           actor,
           action: AuditAction.WORKFLOW_AUTOMATION,
@@ -717,7 +721,7 @@ export class AutomationRuleEngine {
           entityId: lead.id,
           details: JSON.stringify({ escalated: true, note: action.note ?? "" }),
         });
-        return { type: action.type, result: "Als eskaliert markiert (Priorität: heiß)" };
+        return { type: action.type, result: "Als eskaliert markiert" };
       }
       case "addActivityLog": {
         if (dryRun) return { type: action.type, result: `Log würde erstellt: ${action.note ?? "Eintrag"}${tag}` };

@@ -28,8 +28,6 @@ import {
 } from "@/features/fairtrain-funnel/types";
 
 import { LeadPriority, LeadStatus } from "@/features/fairtrain-funnel/types";
-import { FUNNEL_PHASE_RANK, FunnelPhase } from "@/features/fairtrain-funnel/funnelPhase";
-import { SCORING_CONSTANTS } from "@/features/fairtrain-funnel/scoring/scoring";
 import { isTerminal, PIPELINE_RANK } from "@/features/fairtrain-funnel/statusMachine";
 
 import { leadRepository } from "../repositories/LeadRepository";
@@ -40,6 +38,7 @@ import { auditLogService } from "./AuditLogService";
 import { documentReviewNotifier } from "./DocumentReviewNotifier";
 import { fileUploadService } from "./FileUploadService";
 import { leadLifecycleService } from "./LeadLifecycleService";
+import { meetsHotBar } from "./LeadPriorityGate";
 import { portalTokenService } from "./PortalTokenService";
 import { statusMachineService } from "./StatusMachineService";
 
@@ -515,23 +514,12 @@ export class PortalService {
    * or BLOCKED lead, never fires twice).
    */
   private async promoteHotIfEligible(leadId: string): Promise<void> {
-    const [lead, docs] = await Promise.all([
-      leadRepository.findById(leadId),
-      portalDocumentRepository.list(leadId),
-    ]);
+    const lead = await leadRepository.findById(leadId);
     if (!lead) return;
     if (lead.priority === LeadPriority.HOT || lead.priority === LeadPriority.BLOCKED) {
       return;
     }
-    if (lead.score < SCORING_CONSTANTS.HOT_THRESHOLD) return;
-
-    const funnelDone =
-      FUNNEL_PHASE_RANK[lead.funnelPhase] >=
-      FUNNEL_PHASE_RANK[FunnelPhase.ELIGIBILITY_COMPLETED];
-    const hasUpload = docs.some(
-      (d) => d.status === "UPLOADED" || d.status === "APPROVED",
-    );
-    if (!funnelDone || !hasUpload) return;
+    if (!(await meetsHotBar(lead))) return;
 
     await leadRepository.update(leadId, { priority: LeadPriority.HOT });
     await auditLogService.append({

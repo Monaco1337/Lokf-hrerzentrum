@@ -24,7 +24,6 @@ import {
   LeadStatus,
   type LeadSummary,
 } from "@/features/fairtrain-funnel/types";
-import { FUNNEL_PHASE_RANK, FunnelPhase } from "@/features/fairtrain-funnel/funnelPhase";
 import {
   evaluateSla,
   HOT_SLA_MINUTES,
@@ -32,8 +31,8 @@ import {
 } from "@/features/fairtrain-funnel/utils/sla";
 
 import { leadRepository } from "../repositories/LeadRepository";
-import { portalDocumentRepository } from "../repositories/PortalDocumentRepository";
 import { auditLogService } from "./AuditLogService";
+import { meetsHotBar } from "./LeadPriorityGate";
 import { statusMachineService } from "./StatusMachineService";
 
 export { evaluateSla, HOT_SLA_MINUTES };
@@ -45,14 +44,6 @@ const CONTACT_WINDOW_STATUSES: ReadonlySet<LeadStatus> = new Set([
   LeadStatus.QUALIFIED,
   LeadStatus.HOT,
   LeadStatus.CONTACT_PENDING,
-]);
-
-/** System-ish actors that never represent a deliberate human override. */
-const AUTOMATIC_ACTORS: ReadonlySet<string> = new Set([
-  "system",
-  "self",
-  "applicant",
-  "public",
 ]);
 
 export interface SlaSweepResult {
@@ -102,18 +93,22 @@ export class SlaService {
   /**
    * Correct leads that ended up `priority=HOT` WITHOUT having actually earned
    * it (funnel completed AND documents uploaded) — from before that rule
-   * existed, or from any future regression. Skips any lead where an operator
-   * deliberately set the priority by hand (found via AuditLog), so a human
-   * decision is never silently overridden.
+   * existed, from a regression, or from an automation/reply-classifier flow
+   * that escalates a lead for an urgent callback (health-related replies,
+   * "markEscalated" rule actions) regardless of lead type. Applies to EVERY
+   * lead, not just applications — a reactivated `alt_lead` that merely
+   * replies positively is not a "qualified HOT applicant" either. Skips any
+   * lead where an operator deliberately set the priority by hand (found via
+   * AuditLog), so a human decision is never silently overridden.
    */
   private async reconcileHotPriority(): Promise<number> {
     const hotLeads = await leadRepository.list(
-      { leadType: "neu", priority: LeadPriority.HOT },
-      { limit: 2000 },
+      { priority: LeadPriority.HOT },
+      { limit: 5000 },
     );
     let downgraded = 0;
     for (const lead of hotLeads) {
-      if (await this.earnsHotPriority(lead.id, lead.funnelPhase)) continue;
+      if (await meetsHotBar(lead)) continue;
       if (await this.hasManualPriorityOverride(lead.id)) continue;
 
       await leadRepository.update(lead.id, {
@@ -137,27 +132,23 @@ export class SlaService {
     return downgraded;
   }
 
-  private async earnsHotPriority(
-    leadId: string,
-    funnelPhase: LeadSummary["funnelPhase"],
-  ): Promise<boolean> {
-    const funnelDone =
-      FUNNEL_PHASE_RANK[funnelPhase] >=
-      FUNNEL_PHASE_RANK[FunnelPhase.ELIGIBILITY_COMPLETED];
-    if (!funnelDone) return false;
-    const docs = await portalDocumentRepository.list(leadId);
-    return docs.some((d) => d.status === "UPLOADED" || d.status === "APPROVED");
-  }
-
+  /**
+   * The ONLY genuine manual override entry point is the CRM "Priorität"
+   * quick-action (`setLeadPriority`), which logs `{ priority }` with no
+   * `reason` key. Every automated writer (this reconciliation, the portal
+   * upload gate, escalation flows) always includes a `reason`, and is
+   * sometimes attributed to the lead's assigned rep for traceability — so
+   * matching on the actor id alone would be unreliable. Matching on the
+   * absence of `reason` is not.
+   */
   private async hasManualPriorityOverride(leadId: string): Promise<boolean> {
     const entries = await auditLogService.listForEntity("Lead", leadId);
     return entries.some((e) => {
       if (e.action !== AuditAction.LEAD_UPDATED) return false;
-      if (AUTOMATIC_ACTORS.has(e.actor)) return false;
       if (!e.details) return false;
       try {
         const parsed = JSON.parse(e.details) as Record<string, unknown>;
-        return typeof parsed.priority === "string";
+        return typeof parsed.priority === "string" && !("reason" in parsed);
       } catch {
         return false;
       }

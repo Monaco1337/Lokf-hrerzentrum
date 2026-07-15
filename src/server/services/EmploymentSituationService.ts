@@ -26,6 +26,7 @@ import {
 } from "@/features/fairtrain-funnel/funnelPhase";
 
 import { auditLogService } from "./AuditLogService";
+import { escalateLead } from "./LeadPriorityGate";
 import {
   classifyEmploymentSituation,
   SITUATION_CONFIDENCE_THRESHOLD,
@@ -252,9 +253,15 @@ export class EmploymentSituationService {
       }
 
       case "health_related": {
-        // callback → follow-up text + high-priority Rückrufaufgabe + Prio HOT.
+        // callback → follow-up text + high-priority Rückrufaufgabe. Priorität
+        // wird eskaliert (HOT nur falls Funnel+Unterlagen es tatsächlich
+        // rechtfertigen, siehe LeadPriorityGate) — die Dringlichkeit selbst
+        // kommt über die Rückrufaufgabe mit kurzer Frist.
         const sent = await this.send(leadId, HEALTH_FOLLOW_UP, opts.actor);
-        await leadRepository.update(leadId, { priority: "HOT" });
+        await escalateLead(leadId, {
+          actor: opts.actor,
+          reason: "employment_situation_health_related",
+        });
         await this.createTask(lead, {
           title: `Rückruf erforderlich (Gesundheit): ${lead.firstName ?? ""} ${lead.lastName ?? ""}`.trim(),
           description:
