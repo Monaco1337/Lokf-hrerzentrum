@@ -135,42 +135,30 @@ const CALLBACK_WHERE: Prisma.LeadWhereInput = {
   OR: [{ replyIntent: "callback" }, { funnelPhase: "callback_required" }],
 };
 
-async function loadKpis(): Promise<{
-  hero: DashboardKpis;
+/**
+ * The three counts that cannot be derived from the status aggregate
+ * (callback intent, documents awaiting review, "needs handling"). newFunnel and
+ * qualified are derived from `loadByStatus` to keep the query fan-out small —
+ * fewer DB connections per request eases pressure on the serverless Postgres.
+ */
+async function loadExtraCounts(): Promise<{
+  callbacksOpen: number;
+  docsAwaiting: number;
   needsHandling: number;
 }> {
-  const [newFunnel, callbacksOpen, docsAwaiting, qualified, needsHandling] =
-    await Promise.all([
-      prisma.lead.count({
-        where: {
-          deletedAt: null,
-          leadType: APPLICATION_LEAD_TYPE,
-          status: { in: NEW_FUNNEL_STATUSES as string[] },
-        },
-      }),
-      prisma.lead.count({ where: CALLBACK_WHERE }),
-      portalDocumentRepository.countAwaitingReview(),
-      prisma.lead.count({
-        where: {
-          deletedAt: null,
-          leadType: APPLICATION_LEAD_TYPE,
-          status: { in: QUALIFIED_STATUSES as string[] },
-        },
-      }),
-      prisma.lead.count({
-        where: {
-          deletedAt: null,
-          leadType: APPLICATION_LEAD_TYPE,
-          status: { in: PROCESS_STATUSES as string[] },
-          OR: [{ assignedToId: null }, { needsManualReview: true }],
-        },
-      }),
-    ]);
-
-  return {
-    hero: { newFunnel, callbacksOpen, docsAwaiting, qualified },
-    needsHandling,
-  };
+  const [callbacksOpen, docsAwaiting, needsHandling] = await Promise.all([
+    prisma.lead.count({ where: CALLBACK_WHERE }),
+    portalDocumentRepository.countAwaitingReview(),
+    prisma.lead.count({
+      where: {
+        deletedAt: null,
+        leadType: APPLICATION_LEAD_TYPE,
+        status: { in: PROCESS_STATUSES as string[] },
+        OR: [{ assignedToId: null }, { needsManualReview: true }],
+      },
+    }),
+  ]);
+  return { callbacksOpen, docsAwaiting, needsHandling };
 }
 
 async function loadCallbacks(): Promise<CallbackLead[]> {
@@ -334,19 +322,78 @@ async function loadTimeline(): Promise<BusinessEvent[]> {
   }));
 }
 
+/** Zeroed WhatsApp KPIs — fallback when the stats query is unavailable. */
+const EMPTY_WHATSAPP: WhatsAppKpis = {
+  sent: 0,
+  delivered: 0,
+  read: 0,
+  replied: 0,
+  failed: 0,
+  notRegistered: 0,
+  invalidNumbers: 0,
+  culled: 0,
+  hot: 0,
+  warm: 0,
+  deliveryRate: 0,
+  readRate: 0,
+  replyRate: 0,
+};
+
+function emptyByStatus(): Record<LeadStatus, number> {
+  const b = {} as Record<LeadStatus, number>;
+  for (const s of Object.values(LeadStatus)) b[s] = 0;
+  return b;
+}
+
+/**
+ * Run a data-section promise but NEVER let a transient DB failure take down the
+ * whole Dashboard. `/crm` is the landing page — an operator must always be able
+ * to get in. On failure we log and degrade to a safe empty/zero value so the
+ * page still renders; the next auto-refresh reconciles once the DB recovers.
+ */
+async function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  try {
+    return await promise;
+  } catch (err) {
+    console.error("[dashboard] section load failed — degrading gracefully", err);
+    return fallback;
+  }
+}
+
 export async function loadDashboard(user: UserSummary): Promise<DashboardData> {
-  const [{ hero, needsHandling }, callbacks, docs, statusData, whatsapp, timeline] =
+  const [statusData, extra, callbacks, docs, whatsapp, timeline] =
     await Promise.all([
-      loadKpis(),
-      loadCallbacks(),
-      portalDocumentRepository.listAwaitingReview(8),
-      loadByStatus(),
-      aggregateWhatsAppKpis(),
-      loadTimeline(),
+      safe(loadByStatus(), { byStatus: emptyByStatus(), newToday: 0 }),
+      safe(loadExtraCounts(), {
+        callbacksOpen: 0,
+        docsAwaiting: 0,
+        needsHandling: 0,
+      }),
+      safe(loadCallbacks(), [] as CallbackLead[]),
+      safe(portalDocumentRepository.listAwaitingReview(8), []),
+      safe(aggregateWhatsAppKpis(), EMPTY_WHATSAPP),
+      safe(loadTimeline(), [] as BusinessEvent[]),
     ]);
 
+  const byStatus = statusData.byStatus;
+  const newFunnel = NEW_FUNNEL_STATUSES.reduce(
+    (sum, s) => sum + (byStatus[s] ?? 0),
+    0,
+  );
+  const qualified = QUALIFIED_STATUSES.reduce(
+    (sum, s) => sum + (byStatus[s] ?? 0),
+    0,
+  );
+
+  const hero: DashboardKpis = {
+    newFunnel,
+    callbacksOpen: extra.callbacksOpen,
+    docsAwaiting: extra.docsAwaiting,
+    qualified,
+  };
+
   const documents = {
-    count: hero.docsAwaiting,
+    count: extra.docsAwaiting,
     leads: docs.map((d) => ({
       leadId: d.leadId,
       leadName: d.leadName,
@@ -365,7 +412,7 @@ export async function loadDashboard(user: UserSummary): Promise<DashboardData> {
       newFunnel: hero.newFunnel,
       docsAwaiting: hero.docsAwaiting,
       callbacks: hero.callbacksOpen,
-      needsHandling,
+      needsHandling: extra.needsHandling,
     },
     callbacks,
     documents,

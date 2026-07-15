@@ -25,7 +25,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const TICK_MS = 5000;
+// Poll interval kept deliberately modest: every open CRM tab holds this stream
+// and each tick runs DB queries. 15s is still "near real-time" for the
+// dashboard while cutting the steady connection load on the serverless Postgres
+// (a key factor in earlier connection-exhaustion incidents).
+const TICK_MS = 15000;
 const MAX_LIFETIME_MS = 55000;
 
 export async function GET(): Promise<Response> {
