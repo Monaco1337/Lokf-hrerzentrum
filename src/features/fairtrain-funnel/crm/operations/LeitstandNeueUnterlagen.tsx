@@ -51,7 +51,7 @@ export function LeitstandNeueUnterlagen({ data }: { data: NewDocumentsData }) {
           />
         </div>
         <Link
-          href={"/crm/applicants/uploads" as Route}
+          href={"/crm/unterlagen" as Route}
           className="text-[12px] font-semibold text-brand-700 hover:text-brand-800"
         >
           Alle ansehen

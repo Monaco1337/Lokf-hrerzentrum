@@ -118,10 +118,10 @@ export function DashboardUnterlagen({
       )}
 
       <Link
-        href={"/crm/applicants/uploads" as Route}
+        href={"/crm/unterlagen" as Route}
         className="mt-4 block text-center text-[12px] font-semibold text-brand-700 hover:text-brand-800"
       >
-        Alle Uploads ansehen →
+        Alle Bewerberakten ansehen →
       </Link>
     </section>
   );

@@ -1,50 +1,66 @@
 "use client";
 /**
- * UnterlagenBoard — high-end applicant document control center.
+ * UnterlagenBoard — the unified "Bewerberakte" control center.
  *
- * Light "ops" design: searchable, filterable premium cards showing per-applicant
- * document completion. Each card links to the full lead detail.
+ * One place for every web-funnel applicant's documents: what the applicant
+ * uploaded through the portal, what still needs a review decision, and what is
+ * already approved. Each card deep-links into the lead's document reviewer
+ * (`/crm/leads/{id}?tab=unterlagen`) so the full file preview + approve/reject
+ * flow is exactly one click away.
+ *
+ * Light "ops" design; searchable + filterable premium cards.
  */
 import Link from "next/link";
 import type { Route } from "next";
 import { useMemo, useState } from "react";
 
-export type DocTone = "red" | "amber" | "green" | "blue" | "violet" | "slate";
+export type AkteDocStatus =
+  | "MISSING"
+  | "REQUESTED"
+  | "UPLOADED"
+  | "APPROVED"
+  | "REJECTED";
 
-export interface UnterlagenDoc {
+export interface AkteDoc {
   label: string;
+  status: AkteDocStatus;
   statusLabel: string;
-  tone: DocTone;
 }
 
-export interface UnterlagenApplicant {
+export interface BewerberakteApplicant {
   id: string;
   name: string;
   isDemo: boolean;
   city: string;
-  docCount: number;
+  phaseLabel: string;
+  createdAtLabel: string;
+  /** Completion of the required documents, 0..100. */
   pct: number;
-  missing: number;
-  ready: number;
-  sent: number;
-  docs: UnterlagenDoc[];
+  uploadedCount: number;
+  pendingReview: number;
+  approved: number;
+  rejected: number;
+  missingRequired: number;
 }
 
-type FilterKey = "all" | "incomplete" | "ready" | "checked";
+type FilterKey = "all" | "review" | "complete" | "incomplete";
 
-const CHIP_TONE: Record<DocTone, string> = {
-  red: "ops-chip ops-chip-red",
-  amber: "ops-chip ops-chip-amber",
-  green: "ops-chip ops-chip-green",
-  blue: "ops-chip ops-chip-blue",
-  violet: "ops-chip ops-chip-violet",
-  slate: "ops-chip ops-chip-slate",
+const STATUS_TONE: Record<AkteDocStatus, string> = {
+  MISSING: "ops-chip ops-chip-slate",
+  REQUESTED: "ops-chip ops-chip-amber",
+  UPLOADED: "ops-chip ops-chip-blue",
+  APPROVED: "ops-chip ops-chip-green",
+  REJECTED: "ops-chip ops-chip-red",
 };
+
+export interface BewerberakteRow extends BewerberakteApplicant {
+  docs: AkteDoc[];
+}
 
 export function UnterlagenBoard({
   applicants,
 }: {
-  applicants: ReadonlyArray<UnterlagenApplicant>;
+  applicants: ReadonlyArray<BewerberakteRow>;
 }) {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -52,21 +68,21 @@ export function UnterlagenBoard({
   const totals = useMemo(() => {
     return applicants.reduce(
       (acc, a) => {
-        acc.missing += a.missing;
-        acc.ready += a.ready;
-        acc.sent += a.sent;
+        acc.pendingReview += a.pendingReview;
+        acc.approved += a.approved;
+        acc.incomplete += a.missingRequired > 0 ? 1 : 0;
         return acc;
       },
-      { missing: 0, ready: 0, sent: 0 },
+      { pendingReview: 0, approved: 0, incomplete: 0 },
     );
   }, [applicants]);
 
   const counts = useMemo(
     () => ({
       all: applicants.length,
-      incomplete: applicants.filter((a) => a.missing > 0).length,
-      ready: applicants.filter((a) => a.ready > 0).length,
-      checked: applicants.filter((a) => a.sent > 0).length,
+      review: applicants.filter((a) => a.pendingReview > 0).length,
+      complete: applicants.filter((a) => a.missingRequired === 0).length,
+      incomplete: applicants.filter((a) => a.missingRequired > 0).length,
     }),
     [applicants],
   );
@@ -74,9 +90,9 @@ export function UnterlagenBoard({
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     return applicants.filter((a) => {
-      if (filter === "incomplete" && a.missing === 0) return false;
-      if (filter === "ready" && a.ready === 0) return false;
-      if (filter === "checked" && a.sent === 0) return false;
+      if (filter === "review" && a.pendingReview === 0) return false;
+      if (filter === "complete" && a.missingRequired !== 0) return false;
+      if (filter === "incomplete" && a.missingRequired === 0) return false;
       if (q) {
         const hay = `${a.name} ${a.city}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -89,21 +105,22 @@ export function UnterlagenBoard({
     <div className="space-y-5">
       <header className="space-y-4">
         <div>
-          <p className="ops-eyebrow">Unterlagen-Center</p>
+          <p className="ops-eyebrow">Bewerberakten-Center</p>
           <h1 className="mt-1 text-[26px] font-bold tracking-tight ops-text-primary sm:text-[28px]">
-            Digitale Bewerberakte
+            Bewerberakte
           </h1>
           <p className="mt-1 max-w-2xl text-[13px] ops-text-muted">
-            Lebenslauf, Ausweis, Zeugnisse, Agentur- und Gutscheinunterlagen –
-            auf einen Blick. Fehlende Akten blockieren die Bewilligung.
+            Alle Bewerber, die den Eignungscheck über unseren Funnel
+            abgeschlossen haben – mit allen hochgeladenen Unterlagen. Klicke auf
+            eine Akte, um die Dokumente zu sichten, freizugeben oder abzulehnen.
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatTile label="Bewerber" value={applicants.length} tone="neutral" />
-          <StatTile label="Dokumente fehlen" value={totals.missing} tone="red" />
-          <StatTile label="Bereit" value={totals.ready} tone="amber" />
-          <StatTile label="Geprüft" value={totals.sent} tone="green" />
+          <StatTile label="Zu prüfen" value={totals.pendingReview} tone="amber" />
+          <StatTile label="Freigegeben" value={totals.approved} tone="green" />
+          <StatTile label="Unvollständig" value={totals.incomplete} tone="red" />
         </div>
       </header>
 
@@ -130,9 +147,9 @@ export function UnterlagenBoard({
 
         <div className="flex flex-wrap gap-1.5">
           <FilterPill active={filter === "all"} onClick={() => setFilter("all")} label="Alle" count={counts.all} />
+          <FilterPill active={filter === "review"} onClick={() => setFilter("review")} label="Zu prüfen" count={counts.review} tone="amber" />
+          <FilterPill active={filter === "complete"} onClick={() => setFilter("complete")} label="Vollständig" count={counts.complete} tone="green" />
           <FilterPill active={filter === "incomplete"} onClick={() => setFilter("incomplete")} label="Unvollständig" count={counts.incomplete} tone="red" />
-          <FilterPill active={filter === "ready"} onClick={() => setFilter("ready")} label="Bereit" count={counts.ready} tone="amber" />
-          <FilterPill active={filter === "checked"} onClick={() => setFilter("checked")} label="Geprüft" count={counts.checked} tone="green" />
         </div>
       </div>
 
@@ -153,11 +170,11 @@ export function UnterlagenBoard({
   );
 }
 
-function ApplicantCard({ applicant: a }: { applicant: UnterlagenApplicant }) {
+function ApplicantCard({ applicant: a }: { applicant: BewerberakteRow }) {
   const tone = completionTone(a.pct);
   return (
     <Link
-      href={`/crm/leads/${a.id}` as Route}
+      href={`/crm/leads/${a.id}?tab=unterlagen` as Route}
       className="ops-card group flex h-full flex-col p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_30px_-16px_rgba(15,23,42,0.18)]"
     >
       <div className="flex items-start gap-3">
@@ -181,17 +198,23 @@ function ApplicantCard({ applicant: a }: { applicant: UnterlagenApplicant }) {
             ) : null}
           </div>
           <p className="mt-0.5 truncate text-[11.5px] ops-text-muted">
-            {a.city || "—"} · {a.docCount} Dokument{a.docCount === 1 ? "" : "e"}
+            {a.city || "—"} · {a.phaseLabel}
           </p>
         </div>
-        <span
-          className={[
-            "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ring-1",
-            tone.badge,
-          ].join(" ")}
-        >
-          {a.pct}%
-        </span>
+        {a.pendingReview > 0 ? (
+          <span className="shrink-0 rounded-full bg-[#eff6ff] px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#1d4ed8] ring-1 ring-[#bfdbfe]">
+            {a.pendingReview} neu
+          </span>
+        ) : (
+          <span
+            className={[
+              "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold tabular-nums ring-1",
+              tone.badge,
+            ].join(" ")}
+          >
+            {a.pct}%
+          </span>
+        )}
       </div>
 
       <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-[#eef0f3]">
@@ -203,23 +226,27 @@ function ApplicantCard({ applicant: a }: { applicant: UnterlagenApplicant }) {
 
       {a.docs.length > 0 ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {a.docs.slice(0, 6).map((d, i) => (
-            <span key={i} className={CHIP_TONE[d.tone]}>
+          {a.docs.map((d, i) => (
+            <span key={i} className={STATUS_TONE[d.status]}>
               {d.label} · {d.statusLabel}
             </span>
           ))}
-          {a.docs.length > 6 ? (
-            <span className="ops-chip ops-chip-slate">+{a.docs.length - 6}</span>
-          ) : null}
         </div>
       ) : (
-        <p className="mt-3 text-[11.5px] ops-text-dim">Noch keine Dokumente angelegt.</p>
+        <p className="mt-3 text-[11.5px] ops-text-dim">Noch keine Unterlagen hochgeladen.</p>
       )}
 
       <div className="mt-auto grid grid-cols-3 gap-1.5 pt-3.5 text-[11px] font-medium tabular-nums">
-        <CountCell label="fehlt" value={a.missing} tone={a.missing > 0 ? "red" : "muted"} />
-        <CountCell label="bereit" value={a.ready} tone={a.ready > 0 ? "amber" : "muted"} />
-        <CountCell label="geprüft" value={a.sent} tone={a.sent > 0 ? "green" : "muted"} />
+        <CountCell label="zu prüfen" value={a.pendingReview} tone={a.pendingReview > 0 ? "amber" : "muted"} />
+        <CountCell label="freigegeben" value={a.approved} tone={a.approved > 0 ? "green" : "muted"} />
+        <CountCell label="fehlt" value={a.missingRequired} tone={a.missingRequired > 0 ? "red" : "muted"} />
+      </div>
+
+      <div className="mt-3 inline-flex items-center gap-1 text-[11px] font-semibold text-[#0f766e] opacity-0 transition group-hover:opacity-100">
+        Akte öffnen
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
       </div>
     </Link>
   );
@@ -331,7 +358,7 @@ function completionTone(pct: number): {
       avatar: "bg-[#ecfdf5] text-[#065f46] ring-[#a7f3d0]",
     };
   }
-  if (pct >= 60) {
+  if (pct >= 50) {
     return {
       bar: "bg-gradient-to-r from-amber-400 to-amber-500",
       badge: "bg-[#fffbeb] text-[#92400e] ring-[#fde68a]",

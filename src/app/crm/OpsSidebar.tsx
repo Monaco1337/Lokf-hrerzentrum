@@ -61,8 +61,6 @@ const SECTIONS: ReadonlyArray<RawSection> = [
           { href: "/crm/leads", label: "Leads", icon: "leads", permission: "canManageLeads" },
           { href: "/crm/pipeline", label: "Pipeline", icon: "pipeline", permission: "canManageLeads" },
           { href: "/crm/sales/dialer", label: "Kontaktcenter", icon: "phone", permission: "canTrackCalls" },
-          { href: "/crm/sales/followups", label: "Follow-Ups", icon: "clock", permission: "canCreateTasks" },
-          { href: "/crm/tasks", label: "Aufgaben", icon: "checkbox", permission: "canCreateTasks" },
           { href: "/crm/multichat", label: "Multichat", icon: "message", permission: "canManageLeads" },
           { href: "/crm/communication", label: "Kommunikation", icon: "message" },
           { href: "/crm/import", label: "Lead-Import", icon: "import", permission: "canManageLeads" },
@@ -72,8 +70,7 @@ const SECTIONS: ReadonlyArray<RawSection> = [
         label: "Dokumente",
         icon: "folder",
         children: [
-          { href: "/crm/unterlagen", label: "Unterlagen", icon: "doc" },
-          { href: "/crm/applicants/uploads", label: "Uploads", icon: "upload" },
+          { href: "/crm/unterlagen", label: "Bewerberakte", icon: "doc" },
           { href: "/crm/bildungsgutschein", label: "Bildungsgutscheine", icon: "voucher" },
           { href: "/crm/applicants", label: "Bewerberportal", icon: "user-circle" },
         ],
