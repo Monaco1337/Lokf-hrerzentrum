@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
 
 import { Logo } from "@/components/ui/Logo";
 import { useOpsShell } from "@/app/crm/OpsShellProvider";
+import { runSlaSweepNow } from "@/server/actions/sla";
 
 import { LiveClock } from "./LiveClock";
 
@@ -54,6 +57,64 @@ function SidebarToggle() {
         )}
       </svg>
     </button>
+  );
+}
+
+/**
+ * Manually run the same reconciliation the hourly cron does — lets an
+ * operator fix a stale Eskalation/HOT-Zahl immediately instead of waiting.
+ */
+function SyncNowButton() {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [note, setNote] = useState<string | null>(null);
+
+  const run = () => {
+    setNote(null);
+    startTransition(async () => {
+      const result = await runSlaSweepNow();
+      if (result.ok) {
+        const { priorityDowngraded, slaCleared } = result.data;
+        setNote(
+          priorityDowngraded > 0 || slaCleared > 0
+            ? `${priorityDowngraded} Priorität korrigiert · ${slaCleared} Eskalation(en) bereinigt`
+            : "Bereits aktuell",
+        );
+        router.refresh();
+      } else {
+        setNote("Fehlgeschlagen — bitte erneut versuchen");
+      }
+    });
+  };
+
+  return (
+    <div className="hidden items-center gap-1.5 md:flex">
+      <button
+        type="button"
+        onClick={run}
+        disabled={isPending}
+        className="inline-flex items-center gap-1.5 rounded-lg border border-[#E5E7EB] bg-white px-2.5 py-1.5 text-[11px] font-medium text-[#374151] shadow-[0_1px_2px_rgba(15,23,42,0.04)] transition hover:border-[#D1D5DB] hover:bg-[#F9FAFB] hover:text-[#111827] disabled:opacity-60"
+        title="Eskalation/HOT-Zahlen sofort neu berechnen (sonst stündlich automatisch)"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className={`h-3.5 w-3.5 text-[#9CA3AF] ${isPending ? "animate-spin" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+          <path d="M21 3v6h-6" />
+        </svg>
+        {isPending ? "Synchronisiere…" : "Jetzt synchronisieren"}
+      </button>
+      {note && (
+        <span className="text-[11px] text-[#6B7280]">{note}</span>
+      )}
+    </div>
   );
 }
 
@@ -148,6 +209,8 @@ export function OperationsTopHeaderClient({
         </div>
 
         <div className="flex-1" />
+
+        <SyncNowButton />
 
         <LiveClock />
 
