@@ -1,18 +1,19 @@
 /**
- * /crm — the Leitstand. The first surface every operator lands on.
+ * /crm — the operative Dashboard. The first surface every operator lands on.
  *
- * Loads all data via `loadLeitstand()` (single Promise.all) and hands it to
- * the Leitstand component. Every count, every chip, every row reflects real
- * DB state — no demo math, no fillers, no fake stats.
+ * Loads process-scoped data via `loadDashboard()` (single Promise.all) and
+ * hands it to the Dashboard component. Every count, every card reflects real
+ * DB state — no demo math, no fillers. Scoped to the real application process
+ * (leadType=neu): reactivation/alt/marketing leads never surface here.
  */
-import { Leitstand } from "@/features/fairtrain-funnel/crm/operations/Leitstand";
-import { loadLeitstand } from "@/features/fairtrain-funnel/crm/operations/LeitstandLoader";
+import { Dashboard } from "@/features/fairtrain-funnel/crm/operations/Dashboard";
+import { loadDashboard } from "@/features/fairtrain-funnel/crm/operations/DashboardLoader";
 import { requireCrmUser } from "@/server/actions/_helpers";
 
 export const dynamic = "force-dynamic";
 
-export default async function LeitstandPage() {
+export default async function DashboardPage() {
   const user = await requireCrmUser();
-  const data = await loadLeitstand(user);
-  return <Leitstand {...data} />;
+  const data = await loadDashboard(user);
+  return <Dashboard {...data} />;
 }

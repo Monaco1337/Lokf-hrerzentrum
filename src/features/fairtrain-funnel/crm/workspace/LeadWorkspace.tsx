@@ -3,6 +3,7 @@
  * LeadWorkspace — the Lead Command Center shell (Bewerberakte).
  */
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import type { LeadDetail } from "../../types";
@@ -48,7 +49,14 @@ type Action =
   | { label: string; icon: ReactNode; tab: string };
 
 export function LeadWorkspace({ lead, tabs, leftRail, rightRail, progress }: Props) {
-  const [active, setActive] = useState<string>(tabs[0]?.id ?? "uebersicht");
+  // Allow deep-linking straight to a tab (e.g. Dashboard "Neue Unterlagen" →
+  // `?tab=unterlagen` opens the document reviewer immediately).
+  const requestedTab = useSearchParams().get("tab");
+  const initialTab =
+    requestedTab && tabs.some((t) => t.id === requestedTab)
+      ? requestedTab
+      : tabs[0]?.id ?? "uebersicht";
+  const [active, setActive] = useState<string>(initialTab);
   const status = STATUS_TONE[lead.status];
   const priority = PRIORITY_TONE[lead.priority];
   const initials = `${lead.firstName[0] ?? ""}${lead.lastName[0] ?? ""}`.toUpperCase();

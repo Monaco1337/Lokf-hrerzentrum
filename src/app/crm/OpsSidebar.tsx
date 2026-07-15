@@ -53,7 +53,7 @@ const SECTIONS: ReadonlyArray<RawSection> = [
   {
     title: "Operativ",
     entries: [
-      { href: "/crm", label: "Leitstand", icon: "leitstand" },
+      { href: "/crm", label: "Dashboard", icon: "leitstand" },
       {
         label: "Bewerber",
         icon: "applicants",

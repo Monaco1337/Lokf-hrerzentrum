@@ -82,6 +82,32 @@ export class AuditLogRepository {
     }));
   }
 
+  /**
+   * Recent entries restricted to a specific set of actions — powers the
+   * Dashboard's business-only activity timeline (no technical logs). Uses the
+   * `[action, createdAt]` index for an efficient newest-first scan.
+   */
+  async listRecentByActions(
+    actions: ReadonlyArray<AuditAction>,
+    limit = 40,
+  ): Promise<AuditLogEntry[]> {
+    if (actions.length === 0) return [];
+    const rows = await prisma.auditLog.findMany({
+      where: { action: { in: actions as string[] } },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      actor: r.actor,
+      action: parseAuditAction(r.action),
+      entityType: r.entityType,
+      entityId: r.entityId,
+      details: r.details,
+      createdAt: r.createdAt,
+    }));
+  }
+
   async countSince(at: Date): Promise<number> {
     return prisma.auditLog.count({ where: { createdAt: { gte: at } } });
   }

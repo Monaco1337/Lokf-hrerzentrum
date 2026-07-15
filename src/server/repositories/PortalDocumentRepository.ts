@@ -148,6 +148,7 @@ export class PortalDocumentRepository {
       leadName: string;
       pending: number;
       latestAt: Date | null;
+      kinds: PortalDocumentKind[];
     }>
   > {
     const rows = await prisma.portalDocument.findMany({
@@ -155,25 +156,35 @@ export class PortalDocumentRepository {
       orderBy: { uploadedAt: "desc" },
       select: {
         leadId: true,
+        kind: true,
         uploadedAt: true,
         lead: { select: { firstName: true, lastName: true } },
       },
     });
     const byLead = new Map<
       string,
-      { leadId: string; leadName: string; pending: number; latestAt: Date | null }
+      {
+        leadId: string;
+        leadName: string;
+        pending: number;
+        latestAt: Date | null;
+        kinds: PortalDocumentKind[];
+      }
     >();
     for (const row of rows) {
       const existing = byLead.get(row.leadId);
       const name = `${row.lead?.firstName ?? ""} ${row.lead?.lastName ?? ""}`.trim();
+      const kind = PortalDocumentKindSchema.parse(row.kind);
       if (existing) {
         existing.pending += 1;
+        if (!existing.kinds.includes(kind)) existing.kinds.push(kind);
       } else {
         byLead.set(row.leadId, {
           leadId: row.leadId,
           leadName: name || "Unbekannt",
           pending: 1,
           latestAt: row.uploadedAt,
+          kinds: [kind],
         });
       }
     }

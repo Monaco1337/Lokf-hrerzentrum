@@ -66,6 +66,32 @@ export class StatusHistoryRepository {
       where: { toStatus, createdAt: { gte: since } },
     });
   }
+
+  /**
+   * Recent append-only transitions INTO any of the given target statuses —
+   * powers the Dashboard's business timeline (e.g. "Funnel gestartet",
+   * "Funnel abgeschlossen", "Gutschein genehmigt"). Newest first.
+   */
+  async listRecentTransitionsTo(
+    toStatuses: ReadonlyArray<LeadStatus>,
+    limit = 40,
+  ): Promise<
+    ReadonlyArray<{ id: string; leadId: string; toStatus: LeadStatus; createdAt: Date }>
+  > {
+    if (toStatuses.length === 0) return [];
+    const rows = await prisma.statusHistory.findMany({
+      where: { toStatus: { in: toStatuses as string[] } },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      select: { id: true, leadId: true, toStatus: true, createdAt: true },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      leadId: r.leadId,
+      toStatus: parseLeadStatus(r.toStatus),
+      createdAt: r.createdAt,
+    }));
+  }
 }
 
 export const statusHistoryRepository = new StatusHistoryRepository();
