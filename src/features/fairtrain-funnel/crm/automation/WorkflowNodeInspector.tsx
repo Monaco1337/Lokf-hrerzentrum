@@ -11,11 +11,29 @@ import {
   NODE_KIND_LABEL,
   ROUTER_PATH_LABEL,
   ROUTER_PATHS,
+  type WorkflowConditionType,
   type WorkflowEdge,
   type WorkflowNode,
   type WorkflowNodeKind,
 } from "@/features/fairtrain-funnel/automation/workflow/graph";
 import type { WorkflowTemplateOption } from "@/features/fairtrain-funnel/automation/workflow/types";
+import { LeadStatus } from "@/features/fairtrain-funnel/types";
+
+const LEAD_STATUSES = Object.values(LeadStatus);
+
+/** Conditions where the value IS the Ja/Nein expectation (negatable signal). */
+const BOOLEAN_CONDITIONS: ReadonlySet<WorkflowConditionType> = new Set([
+  "funnelStarted",
+  "hasReplied",
+  "isOptedOut",
+  "hasWhatsappConsent",
+]);
+/** Conditions where the value is a concrete comparison target. */
+const VALUE_CONDITIONS: ReadonlySet<WorkflowConditionType> = new Set([
+  "hasTag",
+  "leadStatusEquals",
+  "funnelPhaseEquals",
+]);
 
 export type Selection =
   | { type: "node"; node: WorkflowNode }
@@ -262,26 +280,85 @@ export function WorkflowNodeInspector({
             <select
               className="input h-9 w-full text-[13px]"
               value={node.conditionType ?? "hasReplied"}
-              onChange={(e) => onNodeChange({ conditionType: e.target.value as never })}
+              onChange={(e) =>
+                onNodeChange({
+                  conditionType: e.target.value as never,
+                  conditionValue: "",
+                })
+              }
             >
               <option value="funnelStarted">Funnel gestartet</option>
               <option value="hasReplied">Hat geantwortet</option>
+              <option value="hasWhatsappConsent">Hat WhatsApp-Einwilligung</option>
               <option value="hasTag">Hat Tag</option>
               <option value="leadStatusEquals">Lead-Status ist</option>
               <option value="funnelPhaseEquals">Funnel-Phase ist</option>
               <option value="isOptedOut">Abgemeldet (Opt-out)</option>
             </select>
           </Field>
-          {["hasTag", "leadStatusEquals", "funnelPhaseEquals"].includes(
-            node.conditionType ?? "",
-          ) ? (
-            <Field label="Wert">
+
+          {BOOLEAN_CONDITIONS.has(node.conditionType ?? "hasReplied") ? (
+            <Field label="Erwarteter Wert">
+              <select
+                className="input h-9 w-full text-[13px]"
+                value={node.conditionValue ?? "true"}
+                onChange={(e) => onNodeChange({ conditionValue: e.target.value })}
+              >
+                <option value="true">Ja</option>
+                <option value="false">Nein</option>
+              </select>
+            </Field>
+          ) : null}
+
+          {node.conditionType === "funnelPhaseEquals" ? (
+            <Field label="Funnel-Phase">
+              <select
+                className="input h-9 w-full text-[13px]"
+                value={node.conditionValue ?? ""}
+                onChange={(e) => onNodeChange({ conditionValue: e.target.value })}
+              >
+                <option value="">– Phase wählen –</option>
+                {FUNNEL_PHASE_OPTIONS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
+
+          {node.conditionType === "leadStatusEquals" ? (
+            <Field label="Lead-Status">
+              <select
+                className="input h-9 w-full text-[13px]"
+                value={node.conditionValue ?? ""}
+                onChange={(e) => onNodeChange({ conditionValue: e.target.value })}
+              >
+                <option value="">– Status wählen –</option>
+                {LEAD_STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          ) : null}
+
+          {node.conditionType === "hasTag" ? (
+            <Field label="Tag">
               <input
                 className="input h-9 w-full text-[13px]"
+                placeholder="z.B. vip"
                 value={node.conditionValue ?? ""}
                 onChange={(e) => onNodeChange({ conditionValue: e.target.value })}
               />
             </Field>
+          ) : null}
+
+          {node.conditionType && VALUE_CONDITIONS.has(node.conditionType) && !node.conditionValue ? (
+            <p className="text-[11.5px] text-amber-600">
+              Bitte einen Wert auswählen — sonst greift die Bedingung nie.
+            </p>
           ) : null}
         </>
       ) : null}

@@ -41,6 +41,7 @@ import {
   type WorkflowRunRecord,
 } from "../../repositories/WorkflowRunRepository";
 import { taskRepository } from "../../repositories/TaskRepository";
+import { consentService } from "../ConsentService";
 import type { EmploymentReplyInput } from "../EmploymentReplyClassifier";
 import { classifyReply, type WorkflowClassification } from "./ReplyClassifier";
 import { executeActionNode } from "./nodeExecutors";
@@ -365,22 +366,43 @@ export class WorkflowEngine {
     return (FUNNEL_PHASE_RANK[phase] ?? 0) >= FUNNEL_PHASE_RANK[FunnelPhase.ELIGIBILITY_STARTED];
   }
 
+  /**
+   * Ja/Nein conditions store the EXPECTED value in `conditionValue` ("true" /
+   * "false", default "true" for nodes saved before this existed) — the raw
+   * signal gets negated when the operator picked "Nein". Value-comparison
+   * conditions (hasTag/leadStatusEquals/funnelPhaseEquals) use
+   * `conditionValue` for the comparison target instead, so they are excluded
+   * here.
+   */
+  private isNegated(node: WorkflowNode): boolean {
+    return node.conditionValue === "false";
+  }
+
   private async evalCondition(leadId: string, node: WorkflowNode): Promise<boolean> {
     const lead = await leadRepository.findById(leadId);
     if (!lead) return false;
     switch (node.conditionType) {
       case "funnelStarted":
-        return this.funnelStarted(lead);
-      case "hasReplied":
-        return !!lead.lastInboundMessageAt;
+        return this.isNegated(node) ? !this.funnelStarted(lead) : this.funnelStarted(lead);
+      case "hasReplied": {
+        const replied = !!lead.lastInboundMessageAt;
+        return this.isNegated(node) ? !replied : replied;
+      }
       case "hasTag":
         return !!node.conditionValue && (lead.tags ?? []).includes(node.conditionValue);
       case "leadStatusEquals":
         return lead.status === node.conditionValue;
       case "funnelPhaseEquals":
         return lead.funnelPhase === node.conditionValue;
-      case "isOptedOut":
-        return !!lead.optOut;
+      case "isOptedOut": {
+        const optedOut = !!lead.optOut;
+        return this.isNegated(node) ? !optedOut : optedOut;
+      }
+      case "hasWhatsappConsent": {
+        const consents = await consentService.currentStates(leadId);
+        const granted = consents.find((c) => c.type === "WHATSAPP")?.granted ?? false;
+        return this.isNegated(node) ? !granted : granted;
+      }
       default:
         return true;
     }
