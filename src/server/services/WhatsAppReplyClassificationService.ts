@@ -22,8 +22,8 @@ import {
   type InboundEventContext,
 } from "./AutomationRuleEngine";
 import {
-  ALL_SITUATION_TAGS,
   classifyEmploymentReply,
+  EMPLOYMENT_QUICK_REPLY,
   SITUATION_EMPLOYMENT_STATUS,
   SITUATION_FUNNEL_LABEL,
   SITUATION_FUNNEL_TAG,
@@ -32,6 +32,7 @@ import {
   type EmploymentReplyInput,
   type EmploymentSituation,
 } from "./EmploymentReplyClassifier";
+import { FOLLOWUP_SENT_TAG } from "./EmploymentSituationClassifier";
 import { employmentSituationService } from "./EmploymentSituationService";
 import { leadLifecycleService } from "./LeadLifecycleService";
 import { analyzeReply, REPLY_INTENT_LABEL } from "./ReplyIntentClassifier";
@@ -66,6 +67,13 @@ function mergeTags(
   return Array.from(new Set([...(existing ?? []), ...add]));
 }
 
+/** Legacy quick-reply payload id per situation (rebuilt for the resend run). */
+const LEGACY_QUICK_REPLY_ID: Record<EmploymentSituation, string> = {
+  employed: EMPLOYMENT_QUICK_REPLY.EMPLOYED,
+  job_seeking: EMPLOYMENT_QUICK_REPLY.JOB_SEEKING,
+  other: EMPLOYMENT_QUICK_REPLY.OTHER,
+};
+
 export class WhatsAppReplyClassificationService {
   /** Return the already-recorded situation (via tag), or null if unclassified. */
   situationFromTags(
@@ -76,10 +84,6 @@ export class WhatsAppReplyClassificationService {
     if (set.has(SITUATION_TAG.job_seeking)) return "job_seeking";
     if (set.has(SITUATION_TAG.other)) return "other";
     return null;
-  }
-
-  private isClassified(tags: ReadonlyArray<string> | undefined): boolean {
-    return (tags ?? []).some((t) => ALL_SITUATION_TAGS.includes(t));
   }
 
   /**
@@ -115,12 +119,16 @@ export class WhatsAppReplyClassificationService {
     // automation is started.
     const analysis = analyzeReply(input);
     const manualTag = analysis.manualReview ? ["manuelle_pruefung"] : [];
+    // When the follow-up decision is actually carried out here (live webhook or
+    // backfill), mark it so the retro/resend run never touches this lead again.
+    const followUpTag = opts.runAutomation ? [FOLLOWUP_SENT_TAG] : [];
 
     await leadRepository.update(leadId, {
       tags: mergeTags(lead.tags, [
         SITUATION_TAG[situation],
         SITUATION_FUNNEL_TAG[situation],
         ...manualTag,
+        ...followUpTag,
       ]),
       employmentStatus: SITUATION_EMPLOYMENT_STATUS[situation],
       replyInterest: analysis.interest,
@@ -189,11 +197,26 @@ export class WhatsAppReplyClassificationService {
     }
   }
 
+  /** Mark a lead's follow-up as carried out (idempotency across live + resend). */
+  private async markFollowUpSent(leadId: string): Promise<void> {
+    const lead = await leadRepository.findById(leadId);
+    if (!lead) return;
+    await leadRepository.update(leadId, {
+      tags: mergeTags(lead.tags, [FOLLOWUP_SENT_TAG]),
+    });
+  }
+
   /**
-   * Retro/backfill: process every WhatsApp reply that was never classified,
-   * then hand back a summary. Idempotent — already-classified leads are skipped
-   * so a re-run never sends a duplicate message. Afterwards the system simply
-   * continues in normal live mode (new replies are handled by the webhook).
+   * Retro/backfill + resend: for every lead that has ever replied, make sure the
+   * correct follow-up actually went out — including "yesterday's" replies that
+   * were classified while the send was still blocked/simulated.
+   *
+   * Idempotency is anchored on FOLLOWUP_SENT_TAG (the single "already followed
+   * up" marker), NOT on the classification tag. A lead is therefore followed up
+   * EXACTLY once, no matter how often this runs or how it mixes with live sends:
+   *   • already followed up (tag) or opted out       → skip
+   *   • classified but never followed up             → re-run the follow-up
+   *   • never classified                             → classify + follow-up
    */
   async backfillUnprocessedReplies(opts: {
     actor: string;
@@ -217,7 +240,10 @@ export class WhatsAppReplyClassificationService {
           summary.skipped += 1;
           continue;
         }
-        if (this.isClassified(lead.tags)) {
+        const tags = lead.tags ?? [];
+        // Already followed up (live or a previous run) or opted out → never
+        // send again.
+        if (tags.includes(FOLLOWUP_SENT_TAG) || lead.optOut) {
           summary.skipped += 1;
           continue;
         }
@@ -238,23 +264,45 @@ export class WhatsAppReplyClassificationService {
           continue;
         }
 
-        // First try the "Beschäftigten-Statusabfrage" router (colour emoji /
-        // word / matching free text). If it handled the reply, count it and
-        // move on — no legacy classification, no duplicate follow-up.
+        // Rebuild the legacy quick-reply id so MESSAGE_INBOUND conditions
+        // (Quick-Reply-Auswahl) still match on the resend.
+        const legacySit = this.situationFromTags(tags);
+        const replyInput: EmploymentReplyInput = legacySit
+          ? {
+              body,
+              buttonId: LEGACY_QUICK_REPLY_ID[legacySit],
+              buttonTitle: SITUATION_LABEL[legacySit],
+            }
+          : { body };
+
+        // 1) "Beschäftigten-Statusabfrage" router (colour emoji / word / free
+        // text). `force` re-runs the follow-up even for a lead that was already
+        // classified (V2) but never received its message. Legacy button ids are
+        // deferred by the router, so those fall through to step 2/3.
         const routed = await employmentSituationService.classifyAndRoute(
           id,
-          { body },
-          { actor: opts.actor, at },
+          replyInput,
+          { actor: opts.actor, at, force: true },
         );
         if (routed.handled) {
-          if (routed.alreadyHandled) summary.skipped += 1;
-          else summary.processed += 1;
+          summary.processed += 1;
           continue;
         }
 
+        // 2) Legacy-classified but never followed up → re-run the follow-up now.
+        if (legacySit) {
+          const context = buildInboundEventContext(replyInput);
+          await this.runFollowUp(id, context, opts.actor);
+          await this.markFollowUpSent(id);
+          summary.processed += 1;
+          summary[legacySit] += 1;
+          continue;
+        }
+
+        // 3) Never classified → classify + follow-up (writes FOLLOWUP_SENT_TAG).
         const res = await this.classifyAndApply(
           id,
-          { body },
+          replyInput,
           { actor: opts.actor, at, runAutomation: true, advanceLifecycle: true },
         );
         if (!res || !res.applied) {

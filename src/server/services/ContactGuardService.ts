@@ -45,6 +45,18 @@ export interface ContactGuardDecision {
   reason?: string;
 }
 
+export interface ContactGuardOptions {
+  /**
+   * Ignore the plain `automationPaused` flag. Used ONLY for a direct response to
+   * the lead's own inbound action (WhatsApp reply / quick-reply): the
+   * reactivation campaign auto-pauses a lead on ANY reply, which must never
+   * block the follow-up the lead literally just asked for. Genuine manual
+   * handling (reactivationExcluded / blocking contactState / lastManualContactAt)
+   * still blocks.
+   */
+  ignoreAutomationPaused?: boolean;
+}
+
 /**
  * Pipeline statuses that mean the lead already moved past a cold first contact
  * (is being handled / in the funnel / has documents / an appointment / closed).
@@ -80,7 +92,10 @@ export class ContactGuardService {
    * Should an AUTOMATIC outbound message to this lead be blocked? Returns the
    * first matching reason. Manual, operator-initiated sends bypass this guard.
    */
-  evaluate(lead: GuardableLead): ContactGuardDecision {
+  evaluate(
+    lead: GuardableLead,
+    opts: ContactGuardOptions = {},
+  ): ContactGuardDecision {
     if (lead.reactivationExcluded) {
       return {
         blocked: true,
@@ -96,7 +111,7 @@ export class ContactGuardService {
         reason: `Automatischer Versand blockiert: ${CONTACT_STATE_LABEL[lead.contactState]}.`,
       };
     }
-    if (lead.automationPaused) {
+    if (lead.automationPaused && !opts.ignoreAutomationPaused) {
       return {
         blocked: true,
         code: "automation_paused",

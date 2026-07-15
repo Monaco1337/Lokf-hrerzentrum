@@ -1,9 +1,15 @@
 /**
  * AutomationRuleEngine — evaluates rule conditions against a lead and executes
- * its actions. Internal CRM mutations (tasks, status, follow-ups, audit) run for
- * real so demo simulations are realistic; outbound messages are NEVER sent —
- * `sendTemplateSimulation` only renders + logs. Every run is persisted to
- * AutomationRunLog and mirrored to the AuditLog.
+ * its actions. Every run is persisted to AutomationRunLog and mirrored to the
+ * AuditLog.
+ *
+ * Sending semantics for `sendTemplateSimulation`:
+ *   • dryRun (Testmodus / runMode "simulation" / "Simulieren"-Button) → render +
+ *     log only, NEVER send.
+ *   • live run (production_ready rule fired by a real trigger) → REAL send via
+ *     MessageLedgerService (opt-out, Kontaktschutz, Meta-approval enforced there).
+ *     For a MESSAGE_INBOUND run the auto-set reactivation pause is ignored, so
+ *     the follow-up the lead just asked for is not swallowed.
  */
 import {
   AuditAction,
@@ -198,6 +204,10 @@ export class AutomationRuleEngine {
     const consents = await consentService.currentStates(leadId);
     const isDemoLead = (await demoSeedRepository.listByType("Lead")).includes(leadId);
 
+    // A MESSAGE_INBOUND run is a direct response to the lead's own reply, so its
+    // sends may proceed even when the reactivation campaign auto-paused the lead.
+    const inboundResponse = trigger === "MESSAGE_INBOUND";
+
     const runs: AutomationRunLogEntry[] = [];
     for (const rule of executable) {
       const dryRun = rule.runMode === "simulation";
@@ -217,7 +227,14 @@ export class AutomationRuleEngine {
       } else {
         for (const action of rule.actions) {
           try {
-            const res = await this.runAction(action, lead, actor, dryRun, guard);
+            const res = await this.runAction(
+              action,
+              lead,
+              actor,
+              dryRun,
+              guard,
+              inboundResponse,
+            );
             actions.push(res);
             if (res.stop) break;
           } catch (err) {
@@ -346,9 +363,10 @@ export class AutomationRuleEngine {
     if (!allPassed) {
       status = "SKIPPED";
     } else {
+      // "Simulieren" is a DRY RUN: never mutate, never send a real message.
       for (const action of rule.actions) {
         try {
-          const res = await this.runAction(action, lead, actor, false, guard);
+          const res = await this.runAction(action, lead, actor, true, guard);
           actions.push(res);
           if (res.stop) break;
         } catch (err) {
@@ -559,6 +577,7 @@ export class AutomationRuleEngine {
     actor: string,
     dryRun = false,
     guard?: (c: RuleCondition) => boolean,
+    inboundResponse = false,
   ): Promise<ActionResult> {
     const tag = dryRun ? " (Testmodus)" : "";
     switch (action.type) {
@@ -588,8 +607,12 @@ export class AutomationRuleEngine {
         }
 
         // Kontaktschutz: never auto-message a lead a human already handles
-        // (waiting for Eignungscheck/Unterlagen, manuell kontaktiert, …).
-        const guard = contactGuardService.evaluate(lead);
+        // (waiting for Eignungscheck/Unterlagen, manuell kontaktiert, …). For a
+        // direct response to the lead's own reply the auto-set campaign pause is
+        // ignored — the lead literally just asked for this follow-up.
+        const guard = contactGuardService.evaluate(lead, {
+          ignoreAutomationPaused: inboundResponse,
+        });
         if (guard.blocked) {
           return {
             type: action.type,
@@ -609,6 +632,7 @@ export class AutomationRuleEngine {
           actorId: actor,
           sentBy: "AUTOMATION",
           bypassConsent: true,
+          respondingToInbound: inboundResponse,
         });
         if (entry.status === "FAILED") {
           return {

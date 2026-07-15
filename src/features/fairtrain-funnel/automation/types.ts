@@ -379,7 +379,7 @@ export type RuleActionType =
   (typeof RuleActionType)[keyof typeof RuleActionType];
 
 export const ACTION_LABEL: Record<RuleActionType, string> = {
-  sendTemplateSimulation: "Vorlage senden (Simulation)",
+  sendTemplateSimulation: "WhatsApp-/E-Mail-Vorlage senden",
   createTask: "Aufgabe erstellen",
   createFollowUp: "Follow-up planen",
   changeLeadStatus: "Lead-Status ändern",

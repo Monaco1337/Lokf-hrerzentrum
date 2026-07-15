@@ -128,6 +128,14 @@ export interface SendTemplateArgs {
    * this, so a lead being handled manually is never auto-messaged again.
    */
   bypassContactGuard?: boolean;
+  /**
+   * This send is a direct RESPONSE to the lead's own inbound message (reply /
+   * quick-reply). The reactivation campaign auto-pauses a lead on ANY reply, so
+   * a plain `automationPaused` must NOT block the follow-up the lead just asked
+   * for. Genuine manual handling still blocks. Distinct from bypassContactGuard,
+   * which lifts the guard entirely.
+   */
+  respondingToInbound?: boolean;
 }
 
 export interface LogManualArgs {
@@ -156,6 +164,11 @@ export interface SendTextArgs {
   bypassConsent?: boolean;
   /** Bypass the contact-protection gate (manual, operator-initiated replies). */
   bypassContactGuard?: boolean;
+  /**
+   * Direct RESPONSE to the lead's own inbound message: a plain, auto-set
+   * `automationPaused` must not block it (genuine manual handling still does).
+   */
+  respondingToInbound?: boolean;
 }
 
 /**
@@ -294,7 +307,9 @@ export class MessageLedgerService {
     // a human already handled (waiting for Eignungscheck/Unterlagen, manually
     // contacted, no interest, …). Manual operator sends set bypassContactGuard.
     if (channel !== CommunicationChannel.INTERNAL && !args.bypassContactGuard) {
-      const guard = contactGuardService.evaluate(lead);
+      const guard = contactGuardService.evaluate(lead, {
+        ignoreAutomationPaused: args.respondingToInbound ?? false,
+      });
       if (guard.blocked) {
         throw new ValidationError(guard.reason ?? CONTACT_BLOCK_MESSAGE);
       }
@@ -503,7 +518,9 @@ export class MessageLedgerService {
 
     // Contact-protection gate: block automatic free-text sends to a handled lead.
     if (channel !== CommunicationChannel.INTERNAL && !args.bypassContactGuard) {
-      const guard = contactGuardService.evaluate(lead);
+      const guard = contactGuardService.evaluate(lead, {
+        ignoreAutomationPaused: args.respondingToInbound ?? false,
+      });
       if (guard.blocked) {
         throw new ValidationError(guard.reason ?? CONTACT_BLOCK_MESSAGE);
       }

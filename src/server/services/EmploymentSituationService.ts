@@ -35,6 +35,7 @@ import {
   SITUATION_LABEL_V2,
   SITUATION_TAG_V2,
   ALL_SITUATION_TAGS_V2,
+  FOLLOWUP_SENT_TAG,
   type EmploymentSituationCategory,
   type SituationClassification,
   type SituationReplyInput,
@@ -60,6 +61,14 @@ interface RouteOpts {
   at: Date;
   /** Send the follow-up messages + create tasks (default true). */
   runFollowUp?: boolean;
+  /**
+   * Retro/resend mode: re-run the follow-up even for a lead that already carries
+   * a situation tag but never received its follow-up (e.g. yesterday's replies
+   * that were classified while the send was still blocked). The FOLLOWUP_SENT_TAG
+   * guard (checked by the caller) keeps this idempotent — a lead is followed up
+   * exactly once.
+   */
+  force?: boolean;
 }
 
 function mergeTags(
@@ -143,8 +152,11 @@ export class EmploymentSituationService {
       return { handled: false, classification };
     }
 
-    // Idempotency: already tagged → never re-classify or re-send.
-    if (this.isHandled(lead.tags)) {
+    // Idempotency: already tagged → never re-classify or re-send. In force mode
+    // (retro/resend) we deliberately continue so a classified-but-never-followed-
+    // up lead still gets its one follow-up; the FOLLOWUP_SENT_TAG guard prevents
+    // any double send.
+    if (this.isHandled(lead.tags) && !opts.force) {
       return { handled: true, alreadyHandled: true, classification };
     }
 
@@ -157,9 +169,13 @@ export class EmploymentSituationService {
     // NEVER auto-send a (possibly wrong) message.
     const manualReview = classification.manualReview;
 
+    const willFollowUp = opts.runFollowUp !== false;
     const tags = mergeTags(lead.tags, [
       tag,
       ...(manualReview ? ["manuelle_pruefung"] : []),
+      // Mark the follow-up decision as carried out so the retro/resend backfill
+      // never touches this lead again (idempotent across live + backfill).
+      ...(willFollowUp ? [FOLLOWUP_SENT_TAG] : []),
     ]);
 
     await leadRepository.update(leadId, {
@@ -199,7 +215,7 @@ export class EmploymentSituationService {
     });
 
     let messageSent = false;
-    if (opts.runFollowUp !== false) {
+    if (willFollowUp) {
       messageSent = await this.runFollowUp(
         leadId,
         classification,
@@ -318,6 +334,9 @@ export class EmploymentSituationService {
         actorId,
         channel: "WHATSAPP",
         bypassConsent: true,
+        // Direct response to the lead's own reply → an auto-set campaign pause
+        // must not block it (genuine manual handling still does).
+        respondingToInbound: true,
       });
       return true;
     } catch {

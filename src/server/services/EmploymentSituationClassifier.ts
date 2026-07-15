@@ -82,6 +82,15 @@ export const SITUATION_TAG_V2: Record<EmploymentSituationCategory, string> = {
 export const ALL_SITUATION_TAGS_V2: ReadonlyArray<string> =
   Object.values(SITUATION_TAG_V2);
 
+/**
+ * Marker tag written once the follow-up decision for a reply was actually
+ * carried out (message sent OR intentionally suppressed for manual review).
+ * The retro/resend backfill uses this as the single source of truth for
+ * "already followed up", so a lead never receives a follow-up twice — neither
+ * live nor across repeated backfill runs.
+ */
+export const FOLLOWUP_SENT_TAG = "wa_folgeversand";
+
 export const SITUATION_INTENT: Record<
   EmploymentSituationCategory,
   SituationIntent
