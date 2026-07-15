@@ -85,6 +85,27 @@ export default async function LeadsPage({
     return t === "HOT" || t === "WARM" || t === "COLD" ? t : undefined;
   })();
 
+  // The default sidebar "Leads" view (no explicit filters) is the curated
+  // hyperfilter. Any explicit drill-down (status/quality/… from the Leitstand,
+  // Pipeline or Alarme) shows the EXACT bucket instead, so the drill-down always
+  // matches the count that was clicked — no widget drifts out of sync.
+  const hasExplicitFilter =
+    raw.success &&
+    Boolean(
+      raw.data.status ||
+        raw.data.priority ||
+        raw.data.preferredLocation ||
+        raw.data.funnelPath ||
+        raw.data.slaBreachedOnly ||
+        raw.data.whatsapp ||
+        raw.data.quality ||
+        raw.data.temp ||
+        raw.data.newReply ||
+        raw.data.leadType ||
+        raw.data.campaign ||
+        raw.data.campaignStatus,
+    );
+
   const baseFilters: LeadFilters = raw.success
     ? {
         status: parseStatusFilter(raw.data.status),
@@ -108,9 +129,10 @@ export default async function LeadsPage({
         leadType: raw.data.leadType,
         campaign: raw.data.campaign,
         campaignStatus: raw.data.campaignStatus,
-        // Hyperfilter: only funnel completers (Web-Bewerber) OR arbeitssuchende
-        // mit WhatsApp-Rückrufwunsch. Everything else is hidden (not deleted).
-        funnelOrJobseekerCallback: true,
+        // Hyperfilter only on the plain view: funnel completers (Web-Bewerber)
+        // OR arbeitssuchende mit WhatsApp-Rückrufwunsch. Explicit drill-downs
+        // show their exact bucket. Nothing is deleted, only hidden.
+        funnelOrJobseekerCallback: hasExplicitFilter ? undefined : true,
       }
     : { funnelOrJobseekerCallback: true };
 

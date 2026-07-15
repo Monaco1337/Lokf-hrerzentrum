@@ -63,9 +63,13 @@ const STAGES: ReadonlyArray<FunnelStage> = [
   },
   {
     key: "docs",
-    label: "Unterlagen erhalten",
-    statuses: [LeadStatus.DOC_REVIEW, LeadStatus.DOC_READY],
-    href: "/crm/leads?status=DOC_READY" as Route,
+    label: "Unterlagen",
+    statuses: [
+      LeadStatus.DOC_PENDING,
+      LeadStatus.DOC_REVIEW,
+      LeadStatus.DOC_READY,
+    ],
+    href: "/crm/leads?status=DOC_PENDING,DOC_REVIEW,DOC_READY" as Route,
     rank: 5,
   },
   {

@@ -1,9 +1,15 @@
 "use client";
 /**
  * useCrmLiveUpdates — subscribes to the CRM SSE channel (/api/crm/events/stream)
- * and returns live counters. When a counter changes versus the last push, it
- * calls router.refresh() so server components re-render with fresh data — a
- * real-time dashboard update without a full page reload.
+ * and drives near-real-time, whole-dashboard synchronisation.
+ *
+ * The server pushes a `rev` signature covering all live-relevant CRM state
+ * (leads + documents). Whenever `rev` changes versus the last push, the hook
+ * calls router.refresh(), so EVERY server-rendered widget (KPIs, WhatsApp,
+ * Funnel/Pipeline, Alarme, Prioritäten, Unterlagen, Aktivitäten) re-renders
+ * together from the single loader — no widget drifts out of sync, no reload.
+ *
+ * `docsAwaiting` is also surfaced for the live "Neue Unterlagen" badge.
  *
  * EventSource reconnects automatically, so short serverless stream lifetimes
  * are transparent. Falls back silently to the existing polling (AutoRefresh)
@@ -21,7 +27,7 @@ export function useCrmLiveUpdates(): CrmLiveState {
   const router = useRouter();
   const [connected, setConnected] = useState(false);
   const [docsAwaiting, setDocsAwaiting] = useState<number | null>(null);
-  const lastRef = useRef<number | null>(null);
+  const lastRev = useRef<string | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined" || typeof EventSource === "undefined") {
@@ -31,14 +37,26 @@ export function useCrmLiveUpdates(): CrmLiveState {
 
     const onUpdate = (event: MessageEvent) => {
       try {
-        const data = JSON.parse(event.data) as { docsAwaiting?: number };
-        if (typeof data.docsAwaiting !== "number") return;
+        const data = JSON.parse(event.data) as {
+          docsAwaiting?: number;
+          rev?: string;
+        };
         setConnected(true);
-        setDocsAwaiting(data.docsAwaiting);
-        if (lastRef.current !== null && data.docsAwaiting !== lastRef.current) {
+        if (typeof data.docsAwaiting === "number") {
+          setDocsAwaiting(data.docsAwaiting);
+        }
+        // Prefer the broad revision; fall back to the docs counter for
+        // backward compatibility with an older server frame.
+        const rev =
+          data.rev ??
+          (typeof data.docsAwaiting === "number"
+            ? String(data.docsAwaiting)
+            : null);
+        if (rev === null) return;
+        if (lastRev.current !== null && rev !== lastRev.current) {
           router.refresh();
         }
-        lastRef.current = data.docsAwaiting;
+        lastRev.current = rev;
       } catch {
         // ignore malformed frame
       }

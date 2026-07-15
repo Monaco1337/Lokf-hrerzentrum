@@ -2,14 +2,22 @@
  * GET /api/crm/events/stream — Server-Sent Events channel for near-real-time
  * CRM dashboard updates without a page reload.
  *
- * Emits a small `crm-update` event every few seconds carrying live counters
- * (currently: documents awaiting review). The client (useCrmLiveUpdates) reacts
- * by updating the live badge and calling router.refresh() when a counter
- * changes, so server components re-render with fresh data.
+ * Emits a `crm-update` event every few seconds carrying:
+ *   - docsAwaiting: live "Neue Unterlagen" badge counter.
+ *   - rev: a lightweight revision signature of ALL live-relevant CRM state
+ *     (max Lead.updatedAt + active lead count + docs awaiting). Because every
+ *     meaningful change — a WhatsApp reply, a pipeline/status move, a tag/funnel
+ *     update, a document upload (→ contactState) — bumps the affected lead row,
+ *     this single cheap aggregate reflects them all. The client
+ *     (useCrmLiveUpdates) calls router.refresh() whenever `rev` changes, so the
+ *     WHOLE dashboard (KPIs, WhatsApp, Funnel/Pipeline, Alarme, Prioritäten,
+ *     Unterlagen, Aktivitäten) reconciles together from the single loader —
+ *     high-end synchronised, no widget drifts.
  *
  * The stream self-closes just under the serverless limit; EventSource
  * transparently reconnects, so this works on Vercel too.
  */
+import { prisma } from "@/server/db/prisma";
 import { portalDocumentRepository } from "@/server/repositories/PortalDocumentRepository";
 import { requireCrmActor } from "@/server/actions/_helpers";
 
@@ -42,9 +50,22 @@ export async function GET(): Promise<Response> {
 
       const send = async () => {
         try {
-          const docsAwaiting =
-            await portalDocumentRepository.countAwaitingReview();
-          const payload = JSON.stringify({ docsAwaiting, ts: Date.now() });
+          const [docsAwaiting, leadAgg] = await Promise.all([
+            portalDocumentRepository.countAwaitingReview(),
+            // Bounded, cheap aggregate over live leads. max(updatedAt) shifts on
+            // ANY lead mutation; _count catches creates/soft-deletes.
+            prisma.lead.aggregate({
+              where: { deletedAt: null },
+              _max: { updatedAt: true },
+              _count: true,
+            }),
+          ]);
+          const rev = [
+            leadAgg._max.updatedAt?.getTime() ?? 0,
+            leadAgg._count ?? 0,
+            docsAwaiting,
+          ].join(":");
+          const payload = JSON.stringify({ docsAwaiting, rev, ts: Date.now() });
           controller.enqueue(
             encoder.encode(`event: crm-update\ndata: ${payload}\n\n`),
           );
