@@ -38,6 +38,7 @@ import { taskRepository } from "../repositories/TaskRepository";
 import { userRepository } from "../repositories/UserRepository";
 import { auditLogService } from "./AuditLogService";
 import { consentService } from "./ConsentService";
+import { contactGuardService } from "./ContactGuardService";
 import {
   classifyEmploymentQuickReply,
   classifyEmploymentReply,
@@ -577,10 +578,47 @@ export class AutomationRuleEngine {
           ownerName: lead.assignedTo,
         });
         const preview = renderTemplate(tpl.body, ctx).slice(0, 160);
-        if (!dryRun) await automationTemplateRepository.recordUsage(tpl.id);
+
+        // Testmodus / simulation runMode: render + log only, NEVER send.
+        if (dryRun) {
+          return {
+            type: action.type,
+            result: `Simulierter ${tpl.channel}-Versand · "${tpl.name}": ${preview}`,
+          };
+        }
+
+        // Kontaktschutz: never auto-message a lead a human already handles
+        // (waiting for Eignungscheck/Unterlagen, manuell kontaktiert, …).
+        const guard = contactGuardService.evaluate(lead);
+        if (guard.blocked) {
+          return {
+            type: action.type,
+            result: `Übersprungen: ${guard.reason ?? "Kontaktschutz aktiv"}`,
+          };
+        }
+
+        // REAL send through the central ledger. Opt-out, the "Senden über"
+        // sender resolution and (for live) the Meta-approval / Meta-Template-Name
+        // checks are all enforced there. Consent is bypassed on purpose: the
+        // lead is in an operator-configured automation (e.g. reacting to an
+        // inbound reply / reactivation) exactly like the campaign template send.
+        const { messageLedgerService } = await import("./MessageLedgerService");
+        const entry = await messageLedgerService.sendTemplate({
+          leadId: lead.id,
+          templateId: tpl.id,
+          actorId: actor,
+          sentBy: "AUTOMATION",
+          bypassConsent: true,
+        });
+        if (entry.status === "FAILED") {
+          return {
+            type: action.type,
+            result: `${tpl.channel}-Versand fehlgeschlagen · "${tpl.name}": ${entry.failedReason ?? "unbekannter Fehler"}`,
+          };
+        }
         return {
           type: action.type,
-          result: `Simulierter ${tpl.channel}-Versand · "${tpl.name}": ${preview}`,
+          result: `${tpl.channel}-Vorlage gesendet · "${tpl.name}"`,
         };
       }
       case "createTask": {

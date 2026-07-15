@@ -20,6 +20,7 @@
 import { EmploymentStatus } from "@/features/fairtrain-funnel/types";
 import { FunnelPhase } from "@/features/fairtrain-funnel/funnelPhase";
 
+import { EMPLOYMENT_QUICK_REPLY } from "./EmploymentReplyClassifier";
 import { isOptOutMessage } from "./WhatsAppOptOutService";
 
 export type EmploymentSituationCategory =
@@ -255,9 +256,17 @@ function quickReplyCategory(
     return "health_related";
   if (/(weiss|weiß|sicher|unbefristet|stabil)/.test(title))
     return "stable_employment";
-  if (/(anders|andere|sonstige|💬)/.test(title)) return "other";
+  // Only the explicit 💬 emoji maps to ANDERE here — the generic word
+  // „sonstige"/„andere" is deliberately NOT matched so the legacy reactivation
+  // button „Sonstige Situation" is never hijacked (it defers to the old flow).
+  if (/💬/.test(title)) return "other";
   return null;
 }
+
+/** Stable payload ids of the LEGACY reactivation buttons (deferred, not ours). */
+const LEGACY_QUICK_REPLY_IDS: ReadonlySet<string> = new Set(
+  Object.values(EMPLOYMENT_QUICK_REPLY).map((id) => id.toLowerCase()),
+);
 
 /**
  * Classify a reply to the Beschäftigten-Statusabfrage. Always returns a result;
@@ -275,6 +284,22 @@ export function classifyEmploymentSituation(
     body: input.body,
     buttonTitle: input.buttonTitle,
   });
+
+  // Defer the LEGACY reactivation quick-replies (Beschäftigt / Arbeitssuchend /
+  // Sonstige) to the existing flow — the new router must never hijack them.
+  if (input.buttonId && LEGACY_QUICK_REPLY_IDS.has(fold(input.buttonId))) {
+    return {
+      category: "other",
+      intent: "manual_review",
+      confidence: optOut ? 1 : 0,
+      matchedKeywords: [],
+      source: "fallback",
+      signalDetected: false,
+      manualReview: true,
+      interest: false,
+      optOut,
+    };
+  }
 
   // 1) Quick-reply button — authoritative.
   const quick = quickReplyCategory(input);

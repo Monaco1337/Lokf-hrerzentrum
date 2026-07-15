@@ -137,6 +137,34 @@ describe("quick-reply buttons", () => {
   });
 });
 
+describe("legacy reactivation buttons defer to the old flow", () => {
+  it("does NOT hijack the legacy Beschäftigt / Arbeitssuchend / Sonstige buttons", () => {
+    for (const id of [
+      "situation_beschaeftigt",
+      "situation_arbeitssuchend",
+      "situation_sonstige",
+    ]) {
+      const c = classifyEmploymentSituation({ buttonId: id });
+      expect(c.signalDetected).toBe(false);
+    }
+  });
+
+  it("does NOT hijack the legacy 'Sonstige Situation' even if the title arrives", () => {
+    const c = classifyEmploymentSituation({
+      buttonId: "situation_sonstige",
+      buttonTitle: "Sonstige Situation",
+      body: "Sonstige Situation",
+    });
+    expect(c.signalDetected).toBe(false);
+  });
+
+  it("still handles the NEW 💬 ANDERE button (own payload id)", () => {
+    const c = classifyEmploymentSituation({ buttonId: "situation_andere" });
+    expect(c.signalDetected).toBe(true);
+    expect(c.category).toBe("other");
+  });
+});
+
 describe("mixed emoji + free text (always analyse the whole message)", () => {
   it("🟡 + matching text → GELB with very high confidence", () => {
     const c = classifyEmploymentSituation({
