@@ -59,10 +59,14 @@ export async function releaseCampaign(
       REACTIVATION_CAMPAIGN_KEY,
       limit,
     );
-    const result = await campaignService.enqueueTag0(
-      leads.map((l) => l.id),
-      { whatsappOnly: parsed.data.whatsappOnly ?? false },
-    );
+    const releasedIds = leads.map((l) => l.id);
+    const result = await campaignService.enqueueTag0(releasedIds, {
+      whatsappOnly: parsed.data.whatsappOnly ?? false,
+    });
+
+    // Reactivation only sends the Erstkontakt — kill any leftover timed
+    // reminders so no second message can go out before the lead replies.
+    await campaignService.cancelReminders();
 
     // Mark the newest still-open import batch as released (best-effort audit).
     const batches = await campaignRepository.listBatches(
@@ -80,13 +84,15 @@ export async function releaseCampaign(
 
     // One-click UX: dispatch the just-queued Tag-0 messages immediately so the
     // operator only clicks once ("100 Leads anschreiben" → they go out now).
-    // Wrapped so a timeout on a very large batch can never fail the release —
-    // the enqueue already succeeded and the hourly cron drains the remainder.
+    // IMPORTANT: only the leads we just released are sent (bounded work) — never
+    // the whole due queue — so this always finishes fast and returns feedback
+    // instead of timing out. Any remainder on a very large batch is drained by
+    // the hourly cron.
     let sent = 0;
     let failed = 0;
     let sendDeferred = false;
     try {
-      const summary = await campaignService.runDueJobs();
+      const summary = await campaignService.runJobsForLeads(releasedIds);
       sent = summary.sent;
       failed = summary.failed;
     } catch {
@@ -109,6 +115,8 @@ export async function releaseCampaign(
 export async function sendDueCampaignJobs(): Promise<Result<RunSummary>> {
   return runAction(async () => {
     await requirePermission("canManageLeads");
+    // Keep the queue clean: no timed reminders are sent anymore.
+    await campaignService.cancelReminders();
     const summary = await campaignService.runDueJobs();
     revalidate();
     return summary;

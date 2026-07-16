@@ -211,8 +211,6 @@ export function ReactivationCampaign({
           <StatCard label="Offen" value={overview.open} tone="blue" />
           <StatCard label="Heute angeschrieben" value={overview.contactedToday} tone="green" />
           <StatCard label="Warten auf Antwort" value={overview.waitingReply} tone="amber" />
-          <StatCard label="Erinnerung 24 h" value={overview.reminder24h} tone="amber" />
-          <StatCard label="Erinnerung 48 h" value={overview.reminder48h} tone="amber" />
           <StatCard label="Eignungscheck gestartet" value={overview.eligibilityStarted} tone="violet" />
           <StatCard label="Bereits im Funnel" value={overview.inFunnel} tone="green" />
           <StatCard label="Abgeschlossen" value={overview.completed} />
@@ -339,11 +337,14 @@ export function ReactivationCampaign({
 
         <section className="rounded-2xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur">
           <h2 className="text-[13px] font-semibold text-slate-900">
-            Fällige Erinnerungen
+            Warteschlange (Erstkontakt)
           </h2>
           <p className="mt-1 text-[13px] text-slate-500">
-            <strong className="text-slate-700">{dueCount}</strong> fällige Jobs.
-            Erinnerungen laufen automatisch per Cron – hier manuell auslösbar.
+            <strong className="text-slate-700">{dueCount}</strong> Erstkontakte in
+            der Warteschlange (z. B. Rest eines großen Stapels). Es wird nur der
+            Erstkontakt gesendet – danach wartet das System auf die Antwort und
+            der KI-Antwort-Router übernimmt. Cron sendet automatisch weiter, hier
+            manuell auslösbar.
           </p>
           {failedReasons.length > 0 ? (
             <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3">
@@ -366,7 +367,7 @@ export function ReactivationCampaign({
               disabled={pending}
               className="rounded-xl border border-black/[0.08] bg-white/70 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:bg-white disabled:opacity-50"
             >
-              {pending ? "Verarbeite…" : "Fällige jetzt senden"}
+              {pending ? "Verarbeite…" : "Warteschlange jetzt senden"}
             </button>
             {failedCount > 0 ? (
               <button

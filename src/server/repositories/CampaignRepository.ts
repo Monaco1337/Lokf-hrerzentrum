@@ -203,6 +203,35 @@ export class CampaignRepository {
     });
   }
 
+  /**
+   * Queued jobs for a specific set of leads (the just-released batch). Lets the
+   * release action dispatch ONLY the leads it just enqueued — bounded work that
+   * never times out on the whole due queue.
+   */
+  async findQueuedJobsForLeads(
+    leadIds: string[],
+  ): Promise<CampaignJobRecord[]> {
+    if (leadIds.length === 0) return [];
+    const rows = await prisma.campaignMessageJob.findMany({
+      where: { status: "queued", leadId: { in: leadIds } },
+      orderBy: { scheduledFor: "asc" },
+    });
+    return rows.map(toJobRecord);
+  }
+
+  /**
+   * Cancel every still-queued follow-up (step ≥ 2). Reactivation only sends the
+   * Erstkontakt now — after that we wait for the lead's reply and let the KI
+   * reply-router respond, so timed reminders must never fire (no double sends).
+   */
+  async cancelFollowupJobs(campaign: string, reason: string): Promise<number> {
+    const res = await prisma.campaignMessageJob.updateMany({
+      where: { campaign, status: "queued", step: { gte: 2 } },
+      data: { status: "canceled", reason },
+    });
+    return res.count;
+  }
+
   async updateJob(
     id: string,
     data: {

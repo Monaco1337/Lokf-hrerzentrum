@@ -168,6 +168,43 @@ export class CampaignService {
     return summary;
   }
 
+  /**
+   * Dispatch ONLY the queued jobs of the just-released leads. Bounded to the
+   * release batch (never the whole due queue), so "N Leads anschreiben" always
+   * completes fast and gives immediate feedback instead of timing out.
+   */
+  async runJobsForLeads(
+    leadIds: string[],
+    now: Date = new Date(),
+  ): Promise<RunSummary> {
+    void now;
+    const summary: RunSummary = {
+      processed: 0,
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+      finalized: 0,
+    };
+    const jobs = await campaignRepository.findQueuedJobsForLeads(leadIds);
+    for (const job of jobs) {
+      summary.processed += 1;
+      const outcome = await this.sendJob(job);
+      summary[outcome] += 1;
+    }
+    return summary;
+  }
+
+  /**
+   * Turn off all pending timed reminders (step ≥ 2). Reactivation sends only the
+   * Erstkontakt; the reply-router handles everything after the lead answers.
+   */
+  async cancelReminders(): Promise<number> {
+    return campaignRepository.cancelFollowupJobs(
+      REACTIVATION_CAMPAIGN_KEY,
+      "Erinnerungen deaktiviert – Antwort-Automation übernimmt nach Antwort",
+    );
+  }
+
   private async sendJob(
     job: CampaignJobRecord,
   ): Promise<"sent" | "failed" | "skipped"> {
@@ -185,6 +222,18 @@ export class CampaignService {
       await campaignRepository.updateJob(job.id, {
         status: "canceled",
         reason: "Kampagne gestoppt (Reaktion/Übernahme)",
+      });
+      return "skipped";
+    }
+
+    // Only the Erstkontakt (step 1) is ever sent. Timed reminders are disabled:
+    // after the first contact we wait for the lead's reply and let the KI
+    // reply-router respond. Any lingering follow-up job is canceled here so no
+    // second message can go out before an answer.
+    if (job.step !== 1) {
+      await campaignRepository.updateJob(job.id, {
+        status: "canceled",
+        reason: "Erinnerungen deaktiviert – Antwort-Automation übernimmt",
       });
       return "skipped";
     }
@@ -317,39 +366,13 @@ export class CampaignService {
       campaignStatus,
       communicationStarted: true,
       ...(step === 1 ? { firstContactSentAt } : {}),
-      nextCampaignActionAt: now,
+      nextCampaignActionAt: null,
     });
 
-    // Enqueue the next step, anchored on the first-contact date. Follow-ups
-    // inherit exactly the channels this lead was released with: we derive them
-    // from the already-enqueued jobs, so a WhatsApp-only release never spawns an
-    // e-mail follow-up (and vice versa) — no per-lead flag needed.
-    const next = campaignStepConfig(step + 1);
-    if (next && firstContactSentAt) {
-      const scheduledFor = new Date(
-        firstContactSentAt.getTime() + next.dayOffset * DAY_MS,
-      );
-      const existingJobs = await campaignRepository.listJobsForLead(lead.id);
-      const usedChannels = new Set(existingJobs.map((j) => j.channel));
-      if (lead.phone && usedChannels.has("WHATSAPP")) {
-        await campaignRepository.enqueueJob({
-          leadId: lead.id,
-          campaign: REACTIVATION_CAMPAIGN_KEY,
-          step: next.step,
-          channel: "WHATSAPP",
-          scheduledFor,
-        });
-      }
-      if (lead.email && usedChannels.has("EMAIL")) {
-        await campaignRepository.enqueueJob({
-          leadId: lead.id,
-          campaign: REACTIVATION_CAMPAIGN_KEY,
-          step: next.step,
-          channel: "EMAIL",
-          scheduledFor,
-        });
-      }
-    }
+    // No timed follow-up is enqueued: reactivation sends ONLY the Erstkontakt.
+    // From here the lead is "waiting for reply" — when they answer, the KI
+    // reply-router (Workflow-Engine) sends the fitting message. This guarantees
+    // no second automatic message before a reply (no double sends).
   }
 
   /**
