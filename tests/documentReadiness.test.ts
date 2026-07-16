@@ -65,6 +65,8 @@ function makeLead(overrides: Partial<LeadDetail> = {}): LeadDetail {
     campaignCompleted: false,
     employmentSnapshot: null,
     nextCampaignActionAt: null,
+    callbackRequestedAt: null,
+    callbackHandledAt: null,
     motivationText: "Ich bin motiviert weil ich seit Jahren in Bewegung sein moechte.",
     utm: null,
     birthDate: null,

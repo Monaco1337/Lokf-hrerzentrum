@@ -794,6 +794,8 @@ export class AutomationService {
       campaignCompleted: false,
       employmentSnapshot: null,
       nextCampaignActionAt: null,
+      callbackRequestedAt: null,
+      callbackHandledAt: null,
       createdAt: now,
       updatedAt: now,
       motivationText: "Ich möchte Lokführer werden.",

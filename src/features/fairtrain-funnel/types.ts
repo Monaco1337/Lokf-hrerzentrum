@@ -520,6 +520,9 @@ export interface LeadSummary {
   campaignCompleted: boolean;
   employmentSnapshot: string | null;
   nextCampaignActionAt: Date | null;
+  // Alt-Lead callback requests (see CallbackRequestService).
+  callbackRequestedAt: Date | null;
+  callbackHandledAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -693,12 +696,14 @@ export interface LeadFilters {
   /** Filter by campaign lifecycle status. */
   campaignStatus?: string | undefined;
   /**
-   * "Leads"-Hyperfilter: show ONLY the two high-value groups (union):
-   *   1. Web-Bewerber, die den Eignungscheck/Funnel abgeschlossen haben
-   *      (leadType "neu" — ein Web-Lead entsteht nur durch den Funnel), ODER
-   *   2. "arbeitssuchend" (WhatsApp-Tag oder Beschäftigungsstatus arbeitslos)
-   *      UND per WhatsApp-Rückruf gewünscht (replyIntent "callback").
-   * Blendet alles andere nur aus — es werden keine Daten verändert/gelöscht.
+   * "Leads"-Hyperfilter: show ONLY Web-Bewerber, die den Eignungscheck/Funnel
+   * gestartet oder abgeschlossen haben (leadType "neu" — ein Web-Lead entsteht
+   * nur durch den Funnel). Alt-Leads aus der Reaktivierung erscheinen hier
+   * grundsätzlich NICHT, auch nicht bei WhatsApp-Rückrufwunsch — die laufen
+   * stattdessen über "Rückrufe angefordert" (siehe CallbackRequestService),
+   * bis sie selbst den Funnel starten/abschließen und automatisch zu einem
+   * normalen Lead werden. Blendet alles andere nur aus — es werden keine
+   * Daten verändert/gelöscht.
    */
   funnelOrJobseekerCallback?: boolean | undefined;
 }

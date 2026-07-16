@@ -36,7 +36,10 @@ const BOARD_STATUSES: ReadonlyArray<LeadStatus> = [
 
 export default async function PipelinePage() {
   const user = await requireCrmUser();
-  const scope = applyScope({ status: BOARD_STATUSES }, user);
+  // Alt-Leads (Reaktivierung) never appear in the Pipeline until they
+  // themselves start/complete the Eignungscheck and become "neu" (see
+  // LeadService.submit) — mirrors the Dashboard/Leads scoping.
+  const scope = applyScope({ status: BOARD_STATUSES, leadType: "neu" }, user);
   const leads = await leadService.list(scope);
   const enriched = await leadInsightsService.enrich(leads);
   return <PipelineBoard leads={enriched} />;

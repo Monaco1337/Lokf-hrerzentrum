@@ -16,6 +16,7 @@ import {
 } from "@/features/fairtrain-funnel/auth/permissions";
 import type { Role } from "@/features/fairtrain-funnel/types";
 import { requireCrmUser } from "@/server/actions/_helpers";
+import { leadRepository } from "@/server/repositories/LeadRepository";
 
 import {
   OpsSidebarClient,
@@ -62,6 +63,12 @@ const SECTIONS: ReadonlyArray<RawSection> = [
           { href: "/crm/pipeline", label: "Pipeline", icon: "pipeline", permission: "canManageLeads" },
           { href: "/crm/sales/dialer", label: "Kontaktcenter", icon: "phone", permission: "canTrackCalls" },
           { href: "/crm/multichat", label: "Multichat", icon: "message", permission: "canManageLeads" },
+          {
+            href: "/crm/callback-requests",
+            label: "Rückrufe angefordert",
+            icon: "phone",
+            permission: "canManageLeads",
+          },
           { href: "/crm/communication", label: "Kommunikation", icon: "message" },
           { href: "/crm/import", label: "Lead-Import", icon: "import", permission: "canManageLeads" },
         ],
@@ -101,7 +108,7 @@ function leafAllowed(role: Role, leaf: RawLeaf): boolean {
   return !leaf.permission || can(role, leaf.permission);
 }
 
-function buildSections(role: Role): OpsNavSection[] {
+function buildSections(role: Role, callbackRequestCount: number): OpsNavSection[] {
   const out: OpsNavSection[] = [];
   for (const section of SECTIONS) {
     const entries: OpsNavSection["entries"] = [];
@@ -109,7 +116,15 @@ function buildSections(role: Role): OpsNavSection[] {
       if (isGroup(entry)) {
         const children = entry.children
           .filter((c) => leafAllowed(role, c))
-          .map((c) => ({ href: c.href, label: c.label, icon: c.icon, badge: c.badge }));
+          .map((c) => ({
+            href: c.href,
+            label: c.label,
+            icon: c.icon,
+            badge:
+              c.href === "/crm/callback-requests" && callbackRequestCount > 0
+                ? String(callbackRequestCount)
+                : c.badge,
+          }));
         if (children.length > 0) {
           entries.push({ kind: "group", label: entry.label, icon: entry.icon, children });
         }
@@ -132,6 +147,7 @@ export async function OpsSidebar() {
   let role: Role = "READ_ONLY";
   let displayName = "";
   let initials = "";
+  let callbackRequestCount = 0;
   try {
     const user = await requireCrmUser();
     role = user.role;
@@ -143,12 +159,13 @@ export async function OpsSidebar() {
       .slice(0, 2)
       .join("")
       .toUpperCase();
+    callbackRequestCount = await leadRepository.countCallbackRequests();
   } catch {
     /* Unauthenticated requests are handled by middleware; render minimal shell. */
   }
   return (
     <OpsSidebarClient
-      sections={buildSections(role)}
+      sections={buildSections(role, callbackRequestCount)}
       role={role}
       displayName={displayName}
       initials={initials}

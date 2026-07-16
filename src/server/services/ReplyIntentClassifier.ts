@@ -97,6 +97,11 @@ const CALLBACK_PATTERNS: RegExp[] = [
   /telefon(isch|ieren)?/,
   /(bitte\s+)?anrufen/,
   /erreichen\s+sie\s+mich/,
+  /melden?\s+sie\s+sich/,
+  /meldet?\s+euch/,
+  /meld(e|et)\s+dich/,
+  /beratung/,
+  /berat(en|er)/,
 ];
 
 const QUESTION_PATTERNS: RegExp[] = [

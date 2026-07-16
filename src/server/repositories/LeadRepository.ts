@@ -182,6 +182,37 @@ export interface UpdateLeadFields {
   campaignCompleted?: boolean;
   employmentSnapshot?: string | null;
   nextCampaignActionAt?: Date | null;
+  // Alt-Lead callback requests (see CallbackRequestService).
+  callbackRequestedAt?: Date | null;
+  callbackHandledAt?: Date | null;
+  // Funnel submission fields — writable so an Alt-Lead that completes the
+  // public Eignungscheck can be converted IN PLACE (see LeadService.submit)
+  // instead of creating a duplicate lead.
+  funnelPath?: FunnelPath;
+  preferredLocation?: PreferredLocation;
+  acceptsShiftWork?: boolean;
+  motivationText?: string | null;
+  birthDate?: Date | null;
+  birthPlace?: string | null;
+  street?: string | null;
+  houseNumber?: string | null;
+  postalCode?: string | null;
+  addressCity?: string | null;
+  nationality?: string | null;
+  agencyCity?: string | null;
+  agencyCustomerNumber?: string | null;
+  agencyCaseWorker?: string | null;
+  unemployedSince?: string | null;
+  careerHistory?: string | null;
+  schoolEducation?: string | null;
+  graduationYear?: string | null;
+  languages?: string | null;
+  computerSkills?: string | null;
+  interests?: string | null;
+  acceptsTravelHotel?: boolean | null;
+  acceptsPsychLoad?: boolean | null;
+  hasNoKbaDrugEntries?: boolean | null;
+  utm?: string | null;
 }
 
 function rowToSummary(row: LeadRowWithAssignee): LeadSummary {
@@ -242,6 +273,8 @@ function rowToSummary(row: LeadRowWithAssignee): LeadSummary {
     campaignCompleted: row.campaignCompleted,
     employmentSnapshot: row.employmentSnapshot,
     nextCampaignActionAt: row.nextCampaignActionAt,
+    callbackRequestedAt: row.callbackRequestedAt,
+    callbackHandledAt: row.callbackHandledAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
   };
@@ -497,6 +530,48 @@ export class LeadRepository {
       data.employmentSnapshot = fields.employmentSnapshot;
     if (fields.nextCampaignActionAt !== undefined)
       data.nextCampaignActionAt = fields.nextCampaignActionAt;
+    if (fields.callbackRequestedAt !== undefined)
+      data.callbackRequestedAt = fields.callbackRequestedAt;
+    if (fields.callbackHandledAt !== undefined)
+      data.callbackHandledAt = fields.callbackHandledAt;
+    if (fields.funnelPath !== undefined) data.funnelPath = fields.funnelPath;
+    if (fields.preferredLocation !== undefined)
+      data.preferredLocation = fields.preferredLocation;
+    if (fields.acceptsShiftWork !== undefined)
+      data.acceptsShiftWork = fields.acceptsShiftWork;
+    if (fields.motivationText !== undefined)
+      data.motivationText = fields.motivationText;
+    if (fields.birthDate !== undefined) data.birthDate = fields.birthDate;
+    if (fields.birthPlace !== undefined) data.birthPlace = fields.birthPlace;
+    if (fields.street !== undefined) data.street = fields.street;
+    if (fields.houseNumber !== undefined) data.houseNumber = fields.houseNumber;
+    if (fields.postalCode !== undefined) data.postalCode = fields.postalCode;
+    if (fields.addressCity !== undefined) data.addressCity = fields.addressCity;
+    if (fields.nationality !== undefined) data.nationality = fields.nationality;
+    if (fields.agencyCity !== undefined) data.agencyCity = fields.agencyCity;
+    if (fields.agencyCustomerNumber !== undefined)
+      data.agencyCustomerNumber = fields.agencyCustomerNumber;
+    if (fields.agencyCaseWorker !== undefined)
+      data.agencyCaseWorker = fields.agencyCaseWorker;
+    if (fields.unemployedSince !== undefined)
+      data.unemployedSince = fields.unemployedSince;
+    if (fields.careerHistory !== undefined)
+      data.careerHistory = fields.careerHistory;
+    if (fields.schoolEducation !== undefined)
+      data.schoolEducation = fields.schoolEducation;
+    if (fields.graduationYear !== undefined)
+      data.graduationYear = fields.graduationYear;
+    if (fields.languages !== undefined) data.languages = fields.languages;
+    if (fields.computerSkills !== undefined)
+      data.computerSkills = fields.computerSkills;
+    if (fields.interests !== undefined) data.interests = fields.interests;
+    if (fields.acceptsTravelHotel !== undefined)
+      data.acceptsTravelHotel = fields.acceptsTravelHotel;
+    if (fields.acceptsPsychLoad !== undefined)
+      data.acceptsPsychLoad = fields.acceptsPsychLoad;
+    if (fields.hasNoKbaDrugEntries !== undefined)
+      data.hasNoKbaDrugEntries = fields.hasNoKbaDrugEntries;
+    if (fields.utm !== undefined) data.utm = fields.utm;
 
     const row = await client.lead.update({
       where: { id },
@@ -651,27 +726,11 @@ export class LeadRepository {
     if (filters.campaignStatus) where.campaignStatus = filters.campaignStatus;
 
     if (filters.funnelOrJobseekerCallback) {
-      // Union of the two high-value groups (see LeadFilters doc). Combined via
-      // AND with any other active filters; nothing is deleted, only hidden.
-      const hyperfilter: Prisma.LeadWhereInput = {
-        OR: [
-          // Group 1: Web-Bewerber = Eignungscheck/Funnel abgeschlossen.
-          { leadType: "neu" },
-          // Group 2: arbeitssuchend UND per WhatsApp Rückruf gewünscht.
-          {
-            AND: [
-              { replyIntent: "callback" },
-              {
-                OR: [
-                  { tags: { has: "arbeitssuchend" } },
-                  { employmentStatus: "UNEMPLOYED" },
-                ],
-              },
-            ],
-          },
-        ],
-      };
-      where.AND = [...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []), hyperfilter];
+      // Web-Bewerber only (see LeadFilters doc). Alt-Leads NEVER show here by
+      // default, even with a WhatsApp-Rückrufwunsch — those surface in the
+      // dedicated "Rückrufe angefordert" queue instead (CallbackRequestService)
+      // until they themselves start/complete the funnel and become "neu".
+      where.leadType = "neu";
     }
 
     const rows = await prisma.lead.findMany({
@@ -771,6 +830,72 @@ export class LeadRepository {
       return false;
     });
     return match ? rowToSummary(match) : null;
+  }
+
+  /**
+   * Find ANY Alt-Lead (reactivation) matching a phone tail or email —
+   * regardless of campaign/active status. Used by `LeadService.submit` to
+   * detect that a fresh public Eignungscheck submission is actually one of
+   * our Alt-Leads starting/completing the funnel, so it can be converted IN
+   * PLACE (leadType → "neu") instead of creating a duplicate lead. Broader
+   * than `findActiveCampaignLeadByContact` on purpose: it must also catch an
+   * Alt-Lead already flagged for a callback request (automation paused).
+   */
+  async findAltLeadByContact(
+    phone: string,
+    email: string,
+  ): Promise<LeadSummary | null> {
+    const emailNorm = email.trim().toLowerCase();
+    const digits = phone.replace(/\D/g, "");
+    const tail = digits.length >= 6 ? digits.slice(-8) : null;
+    if (!emailNorm && !tail) return null;
+
+    const candidates = await prisma.lead.findMany({
+      where: { deletedAt: null, leadType: "alt_lead" },
+      include: ASSIGNEE_INCLUDE,
+      take: 2000,
+    });
+    const match = (candidates as LeadRowWithAssignee[]).find((c) => {
+      if (emailNorm && (c.email ?? "").trim().toLowerCase() === emailNorm) {
+        return true;
+      }
+      if (tail) {
+        return (c.phone ?? "").replace(/\D/g, "").endsWith(tail);
+      }
+      return false;
+    });
+    return match ? rowToSummary(match) : null;
+  }
+
+  /**
+   * Open Alt-Lead callback requests — the "Rückrufe angefordert" queue (see
+   * CallbackRequestService). Oldest request first so nothing sits ignored.
+   */
+  async listCallbackRequests(): Promise<LeadSummary[]> {
+    const rows = await prisma.lead.findMany({
+      where: {
+        deletedAt: null,
+        leadType: "alt_lead",
+        callbackRequestedAt: { not: null },
+        callbackHandledAt: null,
+      },
+      orderBy: { callbackRequestedAt: "asc" },
+      include: ASSIGNEE_INCLUDE,
+      take: 500,
+    });
+    return (rows as LeadRowWithAssignee[]).map(rowToSummary);
+  }
+
+  /** Lightweight count for the "Rückrufe angefordert" sidebar badge. */
+  async countCallbackRequests(): Promise<number> {
+    return prisma.lead.count({
+      where: {
+        deletedAt: null,
+        leadType: "alt_lead",
+        callbackRequestedAt: { not: null },
+        callbackHandledAt: null,
+      },
+    });
   }
 
   async countReadyCampaignLeads(campaign: string): Promise<number> {

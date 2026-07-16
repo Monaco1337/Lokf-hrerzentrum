@@ -20,6 +20,7 @@ import {
 import { isWorkflowEngineEnabled } from "@/server/env";
 
 import { auditLogService } from "./AuditLogService";
+import { callbackRequestService } from "./CallbackRequestService";
 import { employmentSituationService } from "./EmploymentSituationService";
 import { leadLifecycleService } from "./LeadLifecycleService";
 import { whatsAppReplyClassificationService } from "./WhatsAppReplyClassificationService";
@@ -361,6 +362,11 @@ export class WhatsAppWebhookService {
           at: event.at,
           inboundKey: event.providerMessageId,
         });
+        await callbackRequestService.detectAndFlag(lead.id, {
+          actor: "whatsapp-webhook",
+          at: event.at,
+          reason: "whatsapp_reply_callback_signal",
+        });
         return;
       }
 
@@ -383,6 +389,17 @@ export class WhatsAppWebhookService {
           { actor: "whatsapp-webhook", at: event.at, runAutomation: true },
         );
       }
+
+      // Alt-Lead "Rückrufe angefordert": ONE checkpoint after classification
+      // catches every path above (WorkflowEngine / EmploymentSituationService
+      // / WhatsAppReplyClassificationService all persist their result on the
+      // lead first) — an Alt-Lead that just signalled a callback/consultation
+      // wish is opened in the dedicated queue instead of the Dashboard/Leads.
+      await callbackRequestService.detectAndFlag(lead.id, {
+        actor: "whatsapp-webhook",
+        at: event.at,
+        reason: "whatsapp_reply_callback_signal",
+      });
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("[automation] reply classification / MESSAGE_INBOUND failed", {

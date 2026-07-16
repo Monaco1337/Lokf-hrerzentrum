@@ -29,6 +29,7 @@ import { NotFoundError } from "../errors";
 import { auditLogRepository } from "../repositories/AuditLogRepository";
 import { automationLogRepository } from "../repositories/AutomationLogRepository";
 import { callLogRepository } from "../repositories/CallLogRepository";
+import { campaignRepository } from "../repositories/CampaignRepository";
 import { communicationRepository } from "../repositories/CommunicationRepository";
 import { documentRepository } from "../repositories/DocumentRepository";
 import { eligibilityAnswerRepository } from "../repositories/EligibilityAnswerRepository";
@@ -42,10 +43,7 @@ import { uploadedFileRepository } from "../repositories/UploadedFileRepository";
 import { auditLogService } from "./AuditLogService";
 import { automationRuleEngine } from "./AutomationRuleEngine";
 import { automationService } from "./AutomationService";
-import { REACTIVATION_CAMPAIGN_KEY } from "@/features/fairtrain-funnel/campaign/types";
 
-import { campaignStopService } from "./CampaignStopService";
-import { leadLifecycleService } from "./LeadLifecycleService";
 import { consentService, type ConsentContext } from "./ConsentService";
 import { fileUploadService } from "./FileUploadService";
 import { leadImportService } from "./LeadImportService";
@@ -183,54 +181,91 @@ export class LeadService {
         ? LeadPriority.WARM
         : scoring.priority;
 
+    // Reactivation: an Alt-Lead that itself starts/completes the public
+    // Eignungscheck becomes a normal lead FROM THIS MOMENT ON — converted IN
+    // PLACE (same lead id, same WhatsApp chat history) instead of creating a
+    // duplicate "neu" record next to the untouched Alt-Lead. Never applies to
+    // a manually added CRM contact (never went through the public funnel).
+    const altLeadMatch = isManualCrmEntry
+      ? null
+      : await leadRepository.findAltLeadByContact(input.phone, input.email);
+
     const leadId = await prisma.$transaction(async (tx) => {
-      const lead = await leadRepository.create(
-        {
-          firstName: input.firstName,
-          lastName: input.lastName,
-          email: input.email,
-          phone: input.phone,
-          city: input.city,
-          funnelPath: input.funnelPath,
-          employmentStatus: input.employmentStatus,
-          preferredLocation: input.preferredLocation,
-          acceptsShiftWork: input.acceptsShiftWork,
-          motivationText: input.motivationText,
-          score: scoring.score,
-          priority: initialPriority,
-          status: initialStatus,
-          // Process step (separate from `status`): they just finished the
-          // Eignungscheck, full stop — even a blocked lead did complete it.
-          // A manual CRM entry has no funnel phase yet (stays "none").
-          ...(isManualCrmEntry
-            ? {}
-            : { funnelPhase: FunnelPhase.ELIGIBILITY_COMPLETED }),
-          source: input.source,
-          utm: input.utm,
-          assignedTo: null,
-          birthDate: input.birthDate ?? null,
-          birthPlace: input.birthPlace ?? null,
-          street: input.street ?? null,
-          houseNumber: input.houseNumber ?? null,
-          postalCode: input.postalCode ?? null,
-          addressCity: input.addressCity ?? null,
-          nationality: input.nationality ?? null,
-          agencyCity: input.agencyCity ?? null,
-          agencyCustomerNumber: input.agencyCustomerNumber ?? null,
-          agencyCaseWorker: input.agencyCaseWorker ?? null,
-          unemployedSince: input.unemployedSince ?? null,
-          careerHistory: input.careerHistory ?? null,
-          schoolEducation: input.schoolEducation ?? null,
-          graduationYear: input.graduationYear ?? null,
-          languages: input.languages ?? null,
-          computerSkills: input.computerSkills ?? null,
-          interests: input.interests ?? null,
-          acceptsTravelHotel: input.acceptsTravelHotel ?? null,
-          acceptsPsychLoad: input.acceptsPsychLoad ?? null,
-          hasNoKbaDrugEntries: input.hasNoKbaDrugEntries ?? null,
-        },
-        tx,
-      );
+      const funnelSubmissionFields = {
+        firstName: input.firstName,
+        lastName: input.lastName,
+        email: input.email,
+        phone: input.phone,
+        city: input.city,
+        funnelPath: input.funnelPath,
+        employmentStatus: input.employmentStatus,
+        preferredLocation: input.preferredLocation,
+        acceptsShiftWork: input.acceptsShiftWork,
+        motivationText: input.motivationText,
+        score: scoring.score,
+        priority: initialPriority,
+        status: initialStatus,
+        source: input.source,
+        utm: input.utm,
+        birthDate: input.birthDate ?? null,
+        birthPlace: input.birthPlace ?? null,
+        street: input.street ?? null,
+        houseNumber: input.houseNumber ?? null,
+        postalCode: input.postalCode ?? null,
+        addressCity: input.addressCity ?? null,
+        nationality: input.nationality ?? null,
+        agencyCity: input.agencyCity ?? null,
+        agencyCustomerNumber: input.agencyCustomerNumber ?? null,
+        agencyCaseWorker: input.agencyCaseWorker ?? null,
+        unemployedSince: input.unemployedSince ?? null,
+        careerHistory: input.careerHistory ?? null,
+        schoolEducation: input.schoolEducation ?? null,
+        graduationYear: input.graduationYear ?? null,
+        languages: input.languages ?? null,
+        computerSkills: input.computerSkills ?? null,
+        interests: input.interests ?? null,
+        acceptsTravelHotel: input.acceptsTravelHotel ?? null,
+        acceptsPsychLoad: input.acceptsPsychLoad ?? null,
+        hasNoKbaDrugEntries: input.hasNoKbaDrugEntries ?? null,
+      };
+
+      const lead = altLeadMatch
+        ? await leadRepository.update(
+            altLeadMatch.id,
+            {
+              ...funnelSubmissionFields,
+              // Process step (separate from `status`): they just finished
+              // the Eignungscheck, full stop — even a blocked lead did
+              // complete it.
+              funnelPhase: FunnelPhase.ELIGIBILITY_COMPLETED,
+              // From this moment on this is a normal lead: it now shows up
+              // in the Dashboard, under "Leads" and in the Pipeline, and runs
+              // the exact same post-funnel automation as any other "neu"
+              // lead (`automationPaused` stays false — that flag is what
+              // `AutomationService` checks to skip Alt-Leads, see there).
+              // The Alt-Lead campaign layer + any open callback request are
+              // done; the campaign's queued jobs are canceled post-commit.
+              leadType: "neu",
+              campaignCompleted: true,
+              automationPaused: false,
+              callbackRequestedAt: null,
+              callbackHandledAt: null,
+            },
+            tx,
+          )
+        : await leadRepository.create(
+            {
+              ...funnelSubmissionFields,
+              // Process step (separate from `status`): they just finished the
+              // Eignungscheck, full stop — even a blocked lead did complete it.
+              // A manual CRM entry has no funnel phase yet (stays "none").
+              ...(isManualCrmEntry
+                ? {}
+                : { funnelPhase: FunnelPhase.ELIGIBILITY_COMPLETED }),
+              assignedTo: null,
+            },
+            tx,
+          );
 
       await sensitiveAnswersRepository.create(
         {
@@ -267,28 +302,45 @@ export class LeadService {
       await statusHistoryRepository.append(
         {
           leadId: lead.id,
-          fromStatus: null,
+          fromStatus: altLeadMatch ? altLeadMatch.status : null,
           toStatus: initialStatus,
           changedBy: "self",
-          reason: "initial submission",
+          reason: altLeadMatch
+            ? "alt_lead_funnel_conversion"
+            : "initial submission",
         },
         tx,
       );
 
       await auditLogRepository.append(
-        {
-          actor: "self",
-          action: AuditAction.LEAD_CREATED,
-          entityType: "Lead",
-          entityId: lead.id,
-          details: JSON.stringify({
-            score: scoring.score,
-            priority: initialPriority,
-            computedPriority: scoring.priority,
-            blockedReasons: scoring.blockedReasons,
-            source: input.source,
-          }),
-        },
+        altLeadMatch
+          ? {
+              actor: "self",
+              action: AuditAction.LEAD_UPDATED,
+              entityType: "Lead",
+              entityId: lead.id,
+              details: JSON.stringify({
+                reason: "alt_lead_converted_to_neu",
+                score: scoring.score,
+                priority: initialPriority,
+                computedPriority: scoring.priority,
+                blockedReasons: scoring.blockedReasons,
+                source: input.source,
+              }),
+            }
+          : {
+              actor: "self",
+              action: AuditAction.LEAD_CREATED,
+              entityType: "Lead",
+              entityId: lead.id,
+              details: JSON.stringify({
+                score: scoring.score,
+                priority: initialPriority,
+                computedPriority: scoring.priority,
+                blockedReasons: scoring.blockedReasons,
+                source: input.source,
+              }),
+            },
         tx,
       );
 
@@ -317,30 +369,33 @@ export class LeadService {
     // Automation-Builder trigger and any workflow it starts fire exactly once
     // per submission.
 
-    // Reactivation: if this wizard submission matches an active Alt-Lead
-    // (same phone/email), they completed the Eignungscheck → stop that
-    // campaign. Best-effort; never blocks the public submit.
-    try {
-      const match = await leadRepository.findActiveCampaignLeadByContact(
-        REACTIVATION_CAMPAIGN_KEY,
-        input.phone,
-        input.email,
-        leadId,
-      );
-      if (match) {
-        await campaignStopService.stop(
-          match.id,
-          "eignungscheck_completed",
-          "qualifiziert",
+    // Reactivation: this wizard submission was an Alt-Lead itself (converted
+    // in place above, same `leadId`) — cancel any still-queued campaign
+    // follow-ups so no reactivation message goes out after the conversion.
+    // `campaignStopService.stop` gates on `leadType === "alt_lead"`, which no
+    // longer holds here (already flipped to "neu"), so queued jobs are
+    // canceled directly instead. Best-effort; never blocks the public submit.
+    if (altLeadMatch) {
+      try {
+        const canceled = await campaignRepository.cancelQueuedJobsForLead(
+          leadId,
+          "stop:eignungscheck_completed",
         );
-        // Single source of truth: the matched lead completed the Eignungscheck.
-        await leadLifecycleService.record(match.id, "FUNNEL_COMPLETED", {
-          actor: "self",
+        await auditLogService.append({
+          actor: "system",
+          action: AuditAction.MESSAGE_RECEIVED,
+          entityType: "Lead",
+          entityId: leadId,
+          details: {
+            campaignStop: "eignungscheck_completed",
+            status: "qualifiziert",
+            canceledJobs: canceled,
+          },
         });
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("[campaign] eignungscheck-complete stop failed", { leadId, err });
       }
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("[campaign] eignungscheck-complete stop failed", { leadId, err });
     }
 
     return {

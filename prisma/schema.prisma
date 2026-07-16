@@ -147,6 +147,16 @@ model Lead {
   employmentSnapshot   String? // snapshot at import, e.g. "arbeitslos_nein"
   nextCampaignActionAt DateTime? // drives the campaign runner (separate from nextFollowUpAt)
 
+  // Alt-Lead callback requests (added 2026-07-15). Set when the AI detects a
+  // callback/consultation request from a reactivated Alt-Lead in Multichat
+  // (see CallbackRequestService). `callbackRequestedAt` marks WHEN the
+  // request came in; `callbackHandledAt` is null while the request is still
+  // open (queue = alt_lead + callbackRequestedAt set + callbackHandledAt
+  // null) and set once an operator called back / picked a next step. Never
+  // touches `leadType`/`status` directly by itself.
+  callbackRequestedAt DateTime?
+  callbackHandledAt   DateTime?
+
   // SLA
   slaBreachedAt  DateTime?
   nextFollowUpAt DateTime?
@@ -204,6 +214,8 @@ model Lead {
   @@index([campaign])
   @@index([campaignStatus])
   @@index([nextCampaignActionAt])
+  @@index([callbackRequestedAt])
+  @@index([callbackHandledAt])
 }
 
 // ----------------------------------------------------------------------------

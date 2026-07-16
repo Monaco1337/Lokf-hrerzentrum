@@ -339,3 +339,41 @@ export interface MultichatData {
   numbers: MultichatNumberOption[];
   whatsappLive: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// "Rückrufe angefordert" — Alt-Lead callback requests (CallbackRequestService).
+// Kept UI-safe/serialisable here (no server imports) so the client Inbox can
+// import types without pulling server code into the client bundle.
+// ---------------------------------------------------------------------------
+
+export type CallbackNextStep =
+  | "done"
+  | "send_eligibility"
+  | "consultation_required"
+  | "appointment_scheduled";
+
+export const CALLBACK_NEXT_STEP_LABEL: Record<CallbackNextStep, string> = {
+  done: "Erledigt (keine weitere Aktion)",
+  send_eligibility: "Eignungscheck senden",
+  consultation_required: "Beratung erforderlich",
+  appointment_scheduled: "Termin vereinbart",
+};
+
+export interface CallbackRequestItem {
+  leadId: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  callbackRequestedAt: string;
+  funnelPhase: string;
+  funnelPhaseLabel: string;
+  lastInboundMessage: string | null;
+  lastInboundMessageAt: string | null;
+  conversation: MultichatConversation | null;
+}
+
+export interface CallbackRequestsData {
+  items: CallbackRequestItem[];
+  whatsappLive: boolean;
+}
