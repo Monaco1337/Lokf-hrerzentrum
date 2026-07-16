@@ -7,7 +7,9 @@ import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import type { LeadDetail } from "../../types";
+import type { NextActionCue } from "../nextActionCue";
 import { PRIORITY_TONE, STATUS_TONE } from "../leadLabels";
+import { WorkspaceNavProvider } from "./workspaceNav";
 
 export interface WorkspaceTab {
   id: string;
@@ -21,8 +23,46 @@ interface Props {
   tabs: ReadonlyArray<WorkspaceTab>;
   leftRail: ReactNode;
   rightRail: ReactNode;
+  /** Progress stepper — stages can jump to a tab via WorkspaceNav context. */
   progress: ReactNode;
+  nextAction: NextActionCue;
 }
+
+const NEXT_TONE: Record<
+  NextActionCue["tone"],
+  { card: string; chip: string; btn: string }
+> = {
+  critical: {
+    card: "border-rose-200 bg-rose-50/70",
+    chip: "bg-rose-500 text-white",
+    btn: "bg-rose-600 text-white hover:bg-rose-700",
+  },
+  urgent: {
+    card: "border-amber-200 bg-amber-50/70",
+    chip: "bg-amber-500 text-white",
+    btn: "bg-amber-600 text-white hover:bg-amber-700",
+  },
+  warning: {
+    card: "border-amber-200 bg-amber-50/70",
+    chip: "bg-amber-500 text-white",
+    btn: "bg-amber-600 text-white hover:bg-amber-700",
+  },
+  active: {
+    card: "border-emerald-200 bg-emerald-50/70",
+    chip: "bg-emerald-500 text-white",
+    btn: "bg-emerald-600 text-white hover:bg-emerald-700",
+  },
+  success: {
+    card: "border-emerald-200 bg-emerald-50/70",
+    chip: "bg-emerald-500 text-white",
+    btn: "bg-emerald-600 text-white hover:bg-emerald-700",
+  },
+  wait: {
+    card: "border-sky-200 bg-sky-50/70",
+    chip: "bg-sky-500 text-white",
+    btn: "bg-sky-600 text-white hover:bg-sky-700",
+  },
+};
 
 function waLink(phone: string): string {
   const digits = phone.replace(/[^\d+]/g, "");
@@ -48,7 +88,14 @@ type Action =
   | { label: string; icon: ReactNode; href: string; external?: boolean; tone?: "wa" }
   | { label: string; icon: ReactNode; tab: string };
 
-export function LeadWorkspace({ lead, tabs, leftRail, rightRail, progress }: Props) {
+export function LeadWorkspace({
+  lead,
+  tabs,
+  leftRail,
+  rightRail,
+  progress,
+  nextAction,
+}: Props) {
   // Allow deep-linking straight to a tab (e.g. Dashboard "Neue Unterlagen" →
   // `?tab=unterlagen` opens the document reviewer immediately).
   const requestedTab = useSearchParams().get("tab");
@@ -105,6 +152,7 @@ export function LeadWorkspace({ lead, tabs, leftRail, rightRail, progress }: Pro
   const activeTab = tabs.find((t) => t.id === active) ?? tabs[0];
 
   return (
+    <WorkspaceNavProvider value={{ goTo }}>
     <div className="space-y-4">
       <Link
         href="/crm/leads"
@@ -133,6 +181,28 @@ export function LeadWorkspace({ lead, tabs, leftRail, rightRail, progress }: Pro
               <h1 className="font-display text-[26px] font-bold tracking-tight text-navy-950">
                 {lead.firstName} {lead.lastName}
               </h1>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[12.5px] text-ink-soft">
+                <a href={`tel:${lead.phone}`} className="hover:text-brand-700">
+                  {lead.phone}
+                </a>
+                <span aria-hidden className="text-ink-muted/40">·</span>
+                <a
+                  href={`mailto:${lead.email}`}
+                  className="max-w-[220px] truncate hover:text-brand-700"
+                >
+                  {lead.email}
+                </a>
+                {lead.city ? (
+                  <>
+                    <span aria-hidden className="text-ink-muted/40">·</span>
+                    <span>{lead.city}</span>
+                  </>
+                ) : null}
+                <span aria-hidden className="text-ink-muted/40">·</span>
+                <span className="text-ink-muted">
+                  {lead.assignedToUser?.name ?? "Nicht zugewiesen"}
+                </span>
+              </div>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <Chip pill={status.pill} dot={status.dot} label={status.label} />
                 <Chip pill={priority.pill} dot={priority.dot} label={priority.label} />
@@ -190,6 +260,8 @@ export function LeadWorkspace({ lead, tabs, leftRail, rightRail, progress }: Pro
         </div>
       </div>
 
+      <NextActionBanner cue={nextAction} goTo={goTo} />
+
       {progress}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[272px_minmax(0,1fr)_320px] xl:gap-5">
@@ -228,7 +300,109 @@ export function LeadWorkspace({ lead, tabs, leftRail, rightRail, progress }: Pro
         </div>
       </div>
     </div>
+    </WorkspaceNavProvider>
   );
+}
+
+function NextActionBanner({
+  cue,
+  goTo,
+}: {
+  cue: NextActionCue;
+  goTo: (tab: string) => void;
+}) {
+  const tone = NEXT_TONE[cue.tone] ?? NEXT_TONE.active;
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-x-4 gap-y-3 rounded-2xl border px-5 py-3.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur ${tone.card}`}
+    >
+      <span
+        className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${tone.chip}`}
+      >
+        <NextActionIcon icon={cue.icon} />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted">
+          Nächster Schritt
+        </p>
+        <p className="truncate text-[14px] font-bold tracking-tight text-navy-950">
+          {cue.label}
+        </p>
+        <p className="truncate text-[12.5px] text-ink-soft">{cue.reason}</p>
+      </div>
+      {cue.target.kind === "href" ? (
+        <a
+          href={cue.target.href}
+          {...(cue.target.href.startsWith("http")
+            ? { target: "_blank", rel: "noopener noreferrer" }
+            : {})}
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold shadow-sm transition ${tone.btn}`}
+        >
+          {cue.label}
+        </a>
+      ) : (
+        <button
+          type="button"
+          onClick={() => cue.target.kind === "tab" && goTo(cue.target.tab)}
+          className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl px-4 py-2 text-[13px] font-semibold shadow-sm transition ${tone.btn}`}
+        >
+          {cue.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function NextActionIcon({ icon }: { icon: NextActionCue["icon"] }) {
+  const p = { ...ai, className: "h-5 w-5" };
+  switch (icon) {
+    case "call":
+      return (
+        <svg {...p}>
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.71 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.71A2 2 0 0 1 22 16.92Z" />
+        </svg>
+      );
+    case "whatsapp":
+      return (
+        <svg {...p}>
+          <path d="M21 12c0 4.4-4 8-9 8-1.4 0-2.7-.3-3.9-.8L3 21l1.6-4.5C3.6 15.2 3 13.7 3 12c0-4.4 4-8 9-8s9 3.6 9 8Z" />
+        </svg>
+      );
+    case "docs":
+      return (
+        <svg {...p}>
+          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z" />
+          <path d="M14 3v5h5" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg {...p}>
+          <rect x="3" y="5" width="18" height="16" rx="2" />
+          <path d="M3 10h18M8 3v4M16 3v4" />
+        </svg>
+      );
+    case "voucher":
+      return (
+        <svg {...p}>
+          <rect x="2" y="6" width="20" height="12" rx="2" />
+          <path d="M2 10h20M6 14h4" />
+        </svg>
+      );
+    case "check":
+      return (
+        <svg {...p}>
+          <path d="M20 6 9 17l-5-5" />
+        </svg>
+      );
+    default:
+      return (
+        <svg {...p}>
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 8v4l3 2" />
+        </svg>
+      );
+  }
 }
 
 function Chip({ pill, dot, label }: { pill: string; dot: string; label: string }) {

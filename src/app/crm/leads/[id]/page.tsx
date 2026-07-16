@@ -6,8 +6,8 @@ import { ForbiddenError, NotFoundError } from "@/server/errors";
 import { taskRepository } from "@/server/repositories/TaskRepository";
 import { assertCanAccessLead } from "@/server/services/LeadAccess";
 import { leadService } from "@/server/services/LeadService";
+import { leadInsightsService } from "@/server/services/LeadInsightsService";
 import { getWhatsAppConfigStatus } from "@/server/services/messaging/whatsappService";
-import { loadMultichatConversationForLead } from "@/server/services/MultichatService";
 import { userService } from "@/server/services/UserService";
 
 export const dynamic = "force-dynamic";
@@ -22,12 +22,12 @@ export default async function LeadDetailPage({
   try {
     await assertCanAccessLead(currentUser, id);
     const whatsappLive = getWhatsAppConfigStatus().isLive;
-    const [data, assignees, tasks, multichat] = await Promise.all([
+    const [data, assignees, tasks] = await Promise.all([
       leadService.getFullDetail(id),
       userService.list({ includeInactive: false }),
       taskRepository.list({ leadId: id, includeDone: true }),
-      loadMultichatConversationForLead(id, whatsappLive),
     ]);
+    const insights = await leadInsightsService.enrichOne(data.lead);
     return (
       <LeadDetail
         data={data}
@@ -35,7 +35,7 @@ export default async function LeadDetailPage({
         assignees={assignees}
         tasks={tasks}
         whatsappLive={whatsappLive}
-        conversation={multichat.conversation}
+        insights={insights}
       />
     );
   } catch (err) {

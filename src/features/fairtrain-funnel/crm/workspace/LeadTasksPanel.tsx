@@ -41,8 +41,22 @@ export function LeadTasksPanel({ leadId, initial, users, currentUserId }: Props)
   const [assigneeId, setAssigneeId] = useState(currentUserId);
   const [dueAt, setDueAt] = useState("");
 
+  const now = Date.now();
+  const endOfToday = (() => {
+    const d = new Date();
+    d.setHours(23, 59, 59, 999);
+    return d.getTime();
+  })();
+
   const open = initial.filter((t) => t.status !== TaskStatus.DONE);
   const done = initial.filter((t) => t.status === TaskStatus.DONE);
+  const overdue = open.filter((t) => t.dueAt && t.dueAt.getTime() < now);
+  const today = open.filter(
+    (t) => t.dueAt && t.dueAt.getTime() >= now && t.dueAt.getTime() <= endOfToday,
+  );
+  const upcoming = open.filter(
+    (t) => !t.dueAt || t.dueAt.getTime() > endOfToday,
+  );
 
   function submit() {
     if (title.trim().length < 2) {
@@ -132,11 +146,32 @@ export function LeadTasksPanel({ leadId, initial, users, currentUserId }: Props)
       {open.length === 0 ? (
         <p className="py-4 text-center text-sm text-ink-muted">Keine offenen Aufgaben.</p>
       ) : (
-        <ul className="space-y-2">
-          {open.map((t) => (
-            <TaskRow key={t.id} task={t} pending={pending} onDone={() => setStatus(t.id, TaskStatus.DONE)} dt={DT} />
-          ))}
-        </ul>
+        <div className="space-y-4">
+          <TaskGroup
+            title="Überfällig"
+            tone="rose"
+            tasks={overdue}
+            pending={pending}
+            onDone={(id) => setStatus(id, TaskStatus.DONE)}
+            dt={DT}
+          />
+          <TaskGroup
+            title="Heute fällig"
+            tone="amber"
+            tasks={today}
+            pending={pending}
+            onDone={(id) => setStatus(id, TaskStatus.DONE)}
+            dt={DT}
+          />
+          <TaskGroup
+            title="Offen"
+            tone="slate"
+            tasks={upcoming}
+            pending={pending}
+            onDone={(id) => setStatus(id, TaskStatus.DONE)}
+            dt={DT}
+          />
+        </div>
       )}
 
       {done.length > 0 ? (
@@ -151,6 +186,42 @@ export function LeadTasksPanel({ leadId, initial, users, currentUserId }: Props)
           </ul>
         </details>
       ) : null}
+    </div>
+  );
+}
+
+const GROUP_TONE: Record<string, string> = {
+  rose: "text-rose-600",
+  amber: "text-amber-600",
+  slate: "text-ink-muted",
+};
+
+function TaskGroup({
+  title,
+  tone,
+  tasks,
+  pending,
+  onDone,
+  dt,
+}: {
+  title: string;
+  tone: string;
+  tasks: ReadonlyArray<TaskSummary>;
+  pending: boolean;
+  onDone: (id: string) => void;
+  dt: Intl.DateTimeFormat;
+}) {
+  if (tasks.length === 0) return null;
+  return (
+    <div>
+      <p className={`mb-1.5 text-[11px] font-bold uppercase tracking-[0.08em] ${GROUP_TONE[tone] ?? "text-ink-muted"}`}>
+        {title} · {tasks.length}
+      </p>
+      <ul className="space-y-2">
+        {tasks.map((t) => (
+          <TaskRow key={t.id} task={t} pending={pending} onDone={() => onDone(t.id)} dt={dt} />
+        ))}
+      </ul>
     </div>
   );
 }

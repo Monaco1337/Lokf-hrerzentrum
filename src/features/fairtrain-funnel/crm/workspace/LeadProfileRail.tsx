@@ -1,10 +1,12 @@
 /**
  * LeadProfileRail — compact left column for the Lead Command Center.
+ *
+ * Deliberately minimal (per spec): only the always-relevant contact + meta
+ * facts a Vertriebler needs at a glance. Status/Förderung live in the header
+ * and dedicated tabs, not here.
  */
 import type { LeadDetail } from "../../types";
-import { ContactState, LeadStatus } from "../../types";
-import { ContactStateBadge } from "../ContactStateBadge";
-import { PRIORITY_TONE, STATUS_TONE, humanizeSource } from "../leadLabels";
+import { humanizeSource } from "../leadLabels";
 
 const DATE = new Intl.DateTimeFormat("de-DE", {
   day: "2-digit",
@@ -17,26 +19,6 @@ const DATE_TIME = new Intl.DateTimeFormat("de-DE", {
   hour: "2-digit",
   minute: "2-digit",
 });
-
-function fundingStatus(status: LeadStatus): string {
-  switch (status) {
-    case LeadStatus.GUTSCHEIN_APPROVED:
-      return "Bewilligt";
-    case LeadStatus.GUTSCHEIN_PENDING:
-      return "Beantragt";
-    case LeadStatus.AA_APPOINTMENT_PENDING:
-    case LeadStatus.AA_APPOINTMENT_DONE:
-      return "Agenturtermin";
-    case LeadStatus.DOC_READY:
-      return "Antrag vorbereitet";
-    case LeadStatus.QUALIFIED:
-    case LeadStatus.HOT:
-    case LeadStatus.BRIEFING_SENT:
-      return "Geeignet";
-    default:
-      return "Nicht besprochen";
-  }
-}
 
 const ICON = "h-4 w-4 shrink-0";
 const iconProps = {
@@ -57,9 +39,6 @@ export function LeadProfileRail({
   ownerName: string | null;
   lastContactAt: Date | null;
 }) {
-  const status = STATUS_TONE[lead.status];
-  const priority = PRIORITY_TONE[lead.priority];
-
   return (
     <aside className="rounded-2xl border border-ink/[0.07] bg-white/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-white/70">
       <div className="border-b border-ink/[0.05] p-4">
@@ -95,41 +74,6 @@ export function LeadProfileRail({
           </p>
         </div>
       </div>
-
-      <div className="border-b border-ink/[0.05] p-4">
-        <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted">
-          Förderung
-        </p>
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${status.pill}`}
-          >
-            <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-            {status.label}
-          </span>
-          <span
-            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1 ${priority.pill}`}
-          >
-            {priority.label}
-          </span>
-          <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700 ring-1 ring-indigo-100">
-            {fundingStatus(lead.status)}
-          </span>
-        </div>
-      </div>
-
-      {lead.contactState !== ContactState.NONE ||
-      lead.automationPaused ||
-      lead.lastManualContactAt ? (
-        <div className="border-b border-ink/[0.05] p-4">
-          <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted">
-            Kontaktschutz
-          </p>
-          <div className="mt-2 flex flex-col gap-1.5">
-            <ContactStateBadge lead={lead} />
-          </div>
-        </div>
-      ) : null}
 
       <dl className="divide-y divide-ink/[0.05] p-4">
         <MetaRow label="Bearbeiter" value={ownerName ?? "Nicht zugewiesen"} />

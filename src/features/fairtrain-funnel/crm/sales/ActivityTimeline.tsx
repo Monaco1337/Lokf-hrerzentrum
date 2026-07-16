@@ -27,14 +27,48 @@ export interface TimelineEvent {
   tone: "neutral" | "info" | "positive" | "warning" | "danger" | "magic";
 }
 
-const TONE_DOT: Record<TimelineEvent["tone"], string> = {
-  neutral: "bg-slate-300",
-  info: "bg-sky-400",
-  positive: "bg-emerald-500",
-  warning: "bg-amber-500",
-  danger: "bg-rose-500",
-  magic: "bg-accent-600",
+const TONE_BADGE: Record<TimelineEvent["tone"], string> = {
+  neutral: "bg-slate-100 text-slate-500 ring-slate-200",
+  info: "bg-sky-50 text-sky-600 ring-sky-200",
+  positive: "bg-emerald-50 text-emerald-600 ring-emerald-200",
+  warning: "bg-amber-50 text-amber-600 ring-amber-200",
+  danger: "bg-rose-50 text-rose-600 ring-rose-200",
+  magic: "bg-violet-50 text-violet-600 ring-violet-200",
 };
+
+const timelineIcon = {
+  fill: "none" as const,
+  stroke: "currentColor",
+  strokeWidth: 1.9,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  viewBox: "0 0 24 24",
+  className: "h-3.5 w-3.5",
+};
+
+function KindIcon({ kind }: { kind: TimelineEvent["kind"] }) {
+  if (kind === "call") {
+    return (
+      <svg {...timelineIcon}>
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.96.36 1.9.71 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.35 1.85.59 2.81.71A2 2 0 0 1 22 16.92Z" />
+      </svg>
+    );
+  }
+  if (kind === "status") {
+    return (
+      <svg {...timelineIcon}>
+        <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1Z" />
+        <path d="M4 22v-7" />
+      </svg>
+    );
+  }
+  return (
+    <svg {...timelineIcon}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 8v4l2.5 1.5" />
+    </svg>
+  );
+}
 
 const ACTION_LABEL: Record<AuditAction, { label: string; tone: TimelineEvent["tone"] }> = {
   LEAD_CREATED: { label: "Lead angelegt", tone: "info" },
@@ -187,14 +221,16 @@ export function ActivityTimeline({
     <ol className="relative space-y-0">
       <span
         aria-hidden
-        className="pointer-events-none absolute bottom-2 left-[7px] top-2 w-px bg-ink/10"
+        className="pointer-events-none absolute bottom-3 left-[11px] top-3 w-px bg-ink/10"
       />
       {events.map((e) => (
-        <li key={e.id} className="relative flex gap-3 py-2.5 pl-6 pr-1">
+        <li key={e.id} className="relative flex gap-3 py-2.5 pl-8 pr-1">
           <span
             aria-hidden
-            className={`absolute left-0 top-3.5 h-3.5 w-3.5 rounded-full ring-2 ring-white ${TONE_DOT[e.tone]}`}
-          />
+            className={`absolute left-0 top-2.5 flex h-6 w-6 items-center justify-center rounded-full ring-1 ring-inset shadow-[0_0_0_3px_white] ${TONE_BADGE[e.tone]}`}
+          >
+            <KindIcon kind={e.kind} />
+          </span>
           <div className="flex-1">
             <div className="flex flex-wrap items-baseline gap-2 text-[12.5px]">
               <span className="font-semibold text-navy-950">{e.label}</span>

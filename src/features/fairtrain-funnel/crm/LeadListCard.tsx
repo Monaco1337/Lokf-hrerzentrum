@@ -14,31 +14,19 @@ import Link from "next/link";
 
 import {
   type EnrichedLeadSummary,
-  LEAD_QUALITY_LABEL,
   type LeadUrgency,
   type NextBestAction,
 } from "../types";
-import { ContactStateBadge } from "./ContactStateBadge";
 import { InlineDeleteControl } from "./InlineDeleteControl";
 import { LeadRowActions } from "./LeadRowActions";
-import { OptOutBadge } from "./OptOutBadge";
 import { STATUS_TONE } from "./leadLabels";
 import { OpenIcon, PhoneIcon, WhatsappIcon } from "./LeadListIcons";
-import { PriorityBadge } from "./PriorityBadge";
-import { WhatsAppStatusBadge } from "./WhatsAppStatusBadge";
 
 const URGENCY_RAIL: Record<LeadUrgency, string> = {
   overdue: "from-red-400 to-red-500",
   today: "from-amber-300 to-amber-500",
   soon: "from-brand-400 to-brand-600",
   normal: "from-slate-200 to-slate-300",
-};
-
-const URGENCY_LABEL: Record<LeadUrgency, string> = {
-  overdue: "Überfällig",
-  today: "Heute",
-  soon: "Bald",
-  normal: "Im Plan",
 };
 
 const ACTION_TONE: Record<
@@ -125,10 +113,10 @@ export function LeadListCard({
   const status = STATUS_TONE[lead.status];
   const action = ACTION_TONE[insights.nextBestAction.tone];
   const score = scoreStyle(insights.score);
-  const progressPct = Math.round(insights.progress * 100);
   const detailHref = `/crm/leads/${lead.id}` as Route;
   const initials =
     `${lead.firstName[0] ?? ""}${lead.lastName[0] ?? ""}`.toUpperCase() || "?";
+  const ownerName = lead.assignedToUser?.name ?? null;
 
   return (
     <article className="group relative rounded-2xl border border-ink/[0.07] bg-white/80 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur-xl backdrop-saturate-150 transition-all duration-200 supports-[backdrop-filter]:bg-white/70 hover:-translate-y-0.5 hover:border-ink/15 hover:bg-white hover:shadow-[0_12px_28px_-12px_rgba(15,23,42,0.18),0_4px_10px_-4px_rgba(15,23,42,0.08)]">
@@ -161,6 +149,7 @@ export function LeadListCard({
                 {lead.firstName} {lead.lastName}
               </p>
               <span
+                title="Lead Score"
                 className={[
                   "inline-flex h-7 min-w-[2.25rem] items-center justify-center rounded-[10px] px-2 text-[13px] font-bold tabular-nums ring-1 ring-inset shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]",
                   score.bg,
@@ -172,7 +161,7 @@ export function LeadListCard({
               </span>
             </div>
             <p className="mt-0.5 truncate text-[12.5px] text-ink-muted">
-              {lead.email}
+              {lead.phone}
               {lead.city ? ` · ${lead.city}` : ""}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -185,54 +174,31 @@ export function LeadListCard({
                 <span aria-hidden className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
                 {status.label}
               </span>
-              <PriorityBadge priority={lead.priority} />
-              <span className="inline-flex items-center rounded-full bg-surface-subtle/80 px-2 py-0.5 text-[10.5px] font-semibold text-ink-soft ring-1 ring-ink/10">
-                {URGENCY_LABEL[insights.urgency]}
-              </span>
-              <WhatsAppStatusBadge view={lead} />
-              {lead.optOut ? <OptOutBadge /> : null}
-              <ContactStateBadge lead={lead} showManualHint={false} />
             </div>
           </div>
         </div>
 
-        {/* Next action + progress */}
+        {/* Next action · last activity · owner */}
         <div className="hidden min-w-0 shrink-0 sm:block sm:w-[240px]">
           <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-ink-muted">
             Nächste Aktion
           </p>
-          <p className={`mt-1 truncate text-[13px] font-semibold ${action.text}`}>
+          <p className={`mt-1 flex items-center gap-1.5 truncate text-[13px] font-semibold ${action.text}`}>
+            <span aria-hidden className={`h-1.5 w-1.5 shrink-0 rounded-full ${action.bar}`} />
             {insights.nextBestAction.label}
           </p>
-          <div className="mt-2.5 flex items-center gap-3">
-            <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-surface-muted">
-              <div
-                className={`h-full rounded-full transition-all ${action.bar}`}
-                style={{ width: `${Math.max(progressPct, 4)}%` }}
-              />
-            </div>
-            <span className="shrink-0 text-[11px] font-semibold tabular-nums text-ink-muted">
-              {progressPct}%
+          <p className="mt-2 text-[11.5px] text-ink-muted">
+            Letzte Aktivität:{" "}
+            <span className="font-medium text-ink-soft">
+              {relTime(insights.lastContactAt)}
             </span>
-          </div>
-          <p className="mt-1.5 text-[11.5px] text-ink-muted">
-            Kontakt: {relTime(insights.lastContactAt)}
           </p>
-          <p className="mt-0.5 text-[11px] text-ink-muted">
-            WA-Score{" "}
-            <span className="font-semibold tabular-nums text-ink-soft">
-              {lead.leadScore}
-            </span>{" "}
-            · {LEAD_QUALITY_LABEL[lead.leadQualityStatus]}
+          <p className="mt-0.5 truncate text-[11.5px] text-ink-muted">
+            Bearbeiter:{" "}
+            <span className="font-medium text-ink-soft">
+              {ownerName ?? "Nicht zugewiesen"}
+            </span>
           </p>
-          {lead.lastInboundMessage ? (
-            <p
-              className="mt-0.5 truncate text-[11px] italic text-emerald-700"
-              title={lead.lastInboundMessage}
-            >
-              {`„${lead.lastInboundMessage}“`}
-            </p>
-          ) : null}
         </div>
 
         {/* Action zone — re-enable pointer events; sits above the link layer */}

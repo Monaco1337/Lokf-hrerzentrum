@@ -138,15 +138,18 @@ export function PortalDocumentReview({
             />
           </div>
         </div>
-        <button
-          type="button"
-          className="btn-secondary shrink-0"
-          disabled={pending || missing.length === 0}
-          onClick={requestMissing}
-        >
-          Fehlende anfordern
-        </button>
       </div>
+
+      <button
+        type="button"
+        className="w-full rounded-2xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 disabled:opacity-40"
+        disabled={pending || missing.length === 0}
+        onClick={requestMissing}
+      >
+        {missing.length === 0
+          ? "Alle Pflichtunterlagen vorhanden"
+          : `Fehlende Unterlagen anfordern (${missing.length})`}
+      </button>
 
       <ul className="space-y-2">
         {documents.map((d) => {
@@ -176,6 +179,20 @@ export function PortalDocumentReview({
                         className="h-full w-full object-cover"
                       />
                     </button>
+                  ) : null}
+                  {!hasFile || !isImageDoc(d) ? (
+                    <span
+                      aria-hidden
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[12px] font-bold ${
+                        d.status === "UPLOADED" || d.status === "APPROVED"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-rose-100 text-rose-600"
+                      }`}
+                    >
+                      {d.status === "UPLOADED" || d.status === "APPROVED"
+                        ? "✔"
+                        : "✕"}
+                    </span>
                   ) : null}
                   <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink">

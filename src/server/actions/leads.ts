@@ -16,6 +16,7 @@ import {
   LeadPrioritySchema,
   PreferredLocationSchema,
 } from "@/features/fairtrain-funnel/types";
+import { tagsWithFundingStatus } from "@/features/fairtrain-funnel/fundingStatus";
 
 import { NotFoundError, ValidationError } from "../errors";
 import { leadRepository } from "../repositories/LeadRepository";
@@ -209,6 +210,51 @@ export async function setLeadPriority(
       entityType: "Lead",
       entityId: parsed.data.leadId,
       details: { priority: parsed.data.priority },
+    });
+
+    revalidateCrm(parsed.data.leadId);
+    return { leadId: parsed.data.leadId };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Quick action: Förderstatus (Bildungsgutschein)
+// ---------------------------------------------------------------------------
+
+const FundingSchema = z.object({
+  leadId: z.string().min(1),
+  status: z.enum([
+    "nicht_besprochen",
+    "beantragt",
+    "eingereicht",
+    "genehmigt",
+    "erhalten",
+    "abgelehnt",
+  ]),
+});
+
+export async function setFundingStatus(
+  raw: unknown,
+): Promise<Result<{ leadId: string }>> {
+  return runAction(async () => {
+    const actor = await requirePermission("canEditLeadStatus");
+    const parsed = FundingSchema.safeParse(raw);
+    if (!parsed.success) {
+      throw new ValidationError("Ungültiger Förderstatus", {
+        issues: parsed.error.issues,
+      });
+    }
+    const lead = await leadRepository.findById(parsed.data.leadId);
+    if (!lead) throw new NotFoundError("Lead", parsed.data.leadId);
+
+    const nextTags = tagsWithFundingStatus(lead.tags, parsed.data.status);
+    await leadRepository.update(parsed.data.leadId, { tags: nextTags });
+    await auditLogService.append({
+      actor: actor.id,
+      action: AuditAction.LEAD_UPDATED,
+      entityType: "Lead",
+      entityId: parsed.data.leadId,
+      details: { fundingStatus: parsed.data.status },
     });
 
     revalidateCrm(parsed.data.leadId);

@@ -1,8 +1,10 @@
+"use client";
 /**
  * BewerberReise — compact horizontal progress stepper for the Lead Command Center.
  *
  * Shows the 9-stage ops funnel at a glance. Done stages never show "ausstehend"
- * — they read "Erledigt" when no history timestamp exists.
+ * — they read "Erledigt" when no history timestamp exists. Every stage is
+ * clickable and opens the matching workspace tab (via WorkspaceNav).
  */
 import {
   type LeadDetail,
@@ -10,43 +12,50 @@ import {
   type StatusHistoryEntry,
   type UserRef,
 } from "../../types";
+import { useWorkspaceNav } from "../workspace/workspaceNav";
 
 interface Stage {
   rank: number;
   key: string;
   label: string;
   statuses: ReadonlyArray<LeadStatus>;
+  /** Workspace tab this stage opens when clicked. */
+  tab: string;
 }
 
 const STAGES: ReadonlyArray<Stage> = [
-  { rank: 1, key: "lead", label: "Lead erhalten", statuses: [LeadStatus.NEW] },
+  { rank: 1, key: "lead", label: "Lead erhalten", statuses: [LeadStatus.NEW], tab: "uebersicht" },
   {
     rank: 2,
     key: "contact",
     label: "Kontakt",
     statuses: [LeadStatus.CONTACT_PENDING, LeadStatus.CONTACTED, LeadStatus.CALL_SCHEDULED],
+    tab: "kommunikation",
   },
   {
     rank: 3,
     key: "qualified",
     label: "Qualifiziert",
     statuses: [LeadStatus.QUALIFIED, LeadStatus.HOT, LeadStatus.BRIEFING_SENT],
+    tab: "uebersicht",
   },
-  { rank: 4, key: "docs", label: "Unterlagen", statuses: [LeadStatus.DOC_READY] },
+  { rank: 4, key: "docs", label: "Unterlagen", statuses: [LeadStatus.DOC_READY], tab: "unterlagen" },
   {
     rank: 5,
     key: "appointment",
     label: "Agenturtermin",
     statuses: [LeadStatus.AA_APPOINTMENT_PENDING, LeadStatus.AA_APPOINTMENT_DONE],
+    tab: "termine",
   },
-  { rank: 6, key: "voucherPending", label: "Gutschein beantragt", statuses: [LeadStatus.GUTSCHEIN_PENDING] },
-  { rank: 7, key: "voucherApproved", label: "Gutschein erhalten", statuses: [LeadStatus.GUTSCHEIN_APPROVED] },
-  { rank: 8, key: "enrolled", label: "Anmeldung", statuses: [LeadStatus.ENROLLED] },
+  { rank: 6, key: "voucherPending", label: "Gutschein beantragt", statuses: [LeadStatus.GUTSCHEIN_PENDING], tab: "bildungsgutschein" },
+  { rank: 7, key: "voucherApproved", label: "Gutschein erhalten", statuses: [LeadStatus.GUTSCHEIN_APPROVED], tab: "bildungsgutschein" },
+  { rank: 8, key: "enrolled", label: "Anmeldung", statuses: [LeadStatus.ENROLLED], tab: "uebersicht" },
   {
     rank: 9,
     key: "started",
     label: "Ausbildung gestartet",
     statuses: [LeadStatus.STARTED, LeadStatus.CLOSED],
+    tab: "uebersicht",
   },
 ];
 
@@ -107,6 +116,7 @@ export function BewerberReise({
   lead: LeadDetail;
   history: ReadonlyArray<StatusHistoryEntry>;
 }) {
+  const { goTo } = useWorkspaceNav();
   const statusRank = STATUS_RANK[lead.status] ?? 1;
   const phaseRank = PHASE_RANK[lead.funnelPhase] ?? 0;
   // Terminal negatives (lost/rejected/blocked) stay at 0; otherwise take the
@@ -161,7 +171,13 @@ export function BewerberReise({
           const isLast = idx === STAGES.length - 1;
 
           return (
-            <li key={stage.key} className="flex min-w-[108px] shrink-0 flex-col items-center sm:min-w-[120px]">
+            <li key={stage.key} className="min-w-[108px] shrink-0 sm:min-w-[120px]">
+            <button
+              type="button"
+              onClick={() => goTo(stage.tab)}
+              title={`${stage.label} öffnen`}
+              className="flex w-full flex-col items-center rounded-xl px-1 py-1.5 transition hover:bg-surface-subtle"
+            >
               <div className="flex w-full items-center">
                 {idx > 0 ? (
                   <span
@@ -227,6 +243,7 @@ export function BewerberReise({
               <p className="mt-0.5 text-center text-[10px] tabular-nums text-ink-muted">
                 {caption}
               </p>
+            </button>
             </li>
           );
         })}
