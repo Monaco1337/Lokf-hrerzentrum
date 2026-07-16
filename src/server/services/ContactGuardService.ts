@@ -136,7 +136,14 @@ export class ContactGuardService {
    * (NEW / QUALIFIED / HOT / CONTACT_PENDING, no manual handling) may be enqueued.
    */
   isReactivationBlocked(lead: GuardableLead): boolean {
-    if (this.evaluate(lead).blocked) return true;
+    // A freshly imported Alt-Lead is `automationPaused` by default (it hasn't
+    // been released yet); the release itself un-pauses it in enqueueTag0. So
+    // `automationPaused` alone must NEVER block a reactivation release — only
+    // genuine manual-handling signals do (reactivationExcluded, a blocking
+    // contactState, or a recorded manual contact).
+    if (this.evaluate(lead, { ignoreAutomationPaused: true }).blocked) {
+      return true;
+    }
     if (lead.communicationStarted) return true;
     if (lead.contactState === ContactState.DOCUMENTS_RECEIVED) return true;
     if (REACTIVATION_EXCLUDED_STATUSES.has(lead.status)) return true;
