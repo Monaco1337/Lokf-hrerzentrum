@@ -47,8 +47,8 @@ function isGroup(entry: RawLeaf | RawGroup): entry is RawGroup {
 }
 
 /**
- * Grouped IA. Hrefs map 1:1 onto the existing routes — only the grouping,
- * ordering and a couple of labels changed (e.g. Anrufcenter → Kontaktcenter).
+ * Grouped IA. Hrefs map 1:1 onto the existing routes. Management and System are
+ * collapsible groups (chevron) like Bewerber/Dokumente instead of flat sections.
  */
 const SECTIONS: ReadonlyArray<RawSection> = [
   {
@@ -61,7 +61,6 @@ const SECTIONS: ReadonlyArray<RawSection> = [
         children: [
           { href: "/crm/leads", label: "Leads", icon: "leads", permission: "canManageLeads" },
           { href: "/crm/pipeline", label: "Pipeline", icon: "pipeline", permission: "canManageLeads" },
-          { href: "/crm/sales/dialer", label: "Kontaktcenter", icon: "phone", permission: "canTrackCalls" },
           { href: "/crm/multichat", label: "Multichat", icon: "message", permission: "canManageLeads" },
           {
             href: "/crm/callback-requests",
@@ -86,20 +85,29 @@ const SECTIONS: ReadonlyArray<RawSection> = [
     ],
   },
   {
-    title: "Management",
+    // No section header — Management and System are collapsible groups (with a
+    // chevron) exactly like Bewerber/Dokumente, not flat labelled sections.
+    title: "",
     entries: [
-      { href: "/crm/users", label: "Mitarbeiter", icon: "users", permission: "canManageUsers" },
-      { href: "/crm/campaigns/reaktivierung", label: "Reaktivierung", icon: "megaphone", permission: "canManageLeads" },
-      { href: "/crm/team/performance", label: "Vertrieb", icon: "chart-up", permission: "canViewAnalytics" },
-      { href: "/crm/reporting", label: "Reports", icon: "report", permission: "canViewAnalytics" },
-    ],
-  },
-  {
-    title: "System",
-    entries: [
-      { href: "/crm/automation", label: "Automationen", icon: "spark", permission: "canManageAutomations" },
-      { href: "/crm/settings/whatsapp-numbers", label: "WhatsApp-Nummern", icon: "message", permission: "canManageSettings" },
-      { href: "/crm/settings", label: "Einstellungen", icon: "settings", permission: "canManageSettings" },
+      {
+        label: "Management",
+        icon: "chart-up",
+        children: [
+          { href: "/crm/users", label: "Mitarbeiter", icon: "users", permission: "canManageUsers" },
+          { href: "/crm/campaigns/reaktivierung", label: "Reaktivierung", icon: "megaphone", permission: "canManageLeads" },
+          { href: "/crm/team/performance", label: "Vertrieb", icon: "chart-up", permission: "canViewAnalytics" },
+          { href: "/crm/reporting", label: "Reports", icon: "report", permission: "canViewAnalytics" },
+        ],
+      },
+      {
+        label: "System",
+        icon: "settings",
+        children: [
+          { href: "/crm/automation", label: "Automationen", icon: "spark", permission: "canManageAutomations" },
+          { href: "/crm/settings/whatsapp-numbers", label: "WhatsApp-Nummern", icon: "message", permission: "canManageSettings" },
+          { href: "/crm/settings", label: "Einstellungen", icon: "settings", permission: "canManageSettings" },
+        ],
+      },
     ],
   },
 ];

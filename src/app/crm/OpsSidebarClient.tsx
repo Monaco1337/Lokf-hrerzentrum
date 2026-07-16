@@ -160,7 +160,7 @@ function CollapsedRail({
           else leaves.push(entry);
         }
         return (
-          <li key={section.title}>
+          <li key={section.title || `section-${si}`}>
             {si > 0 && <div className="my-1.5 h-px bg-[#EEF0F3]" />}
             <ul className="space-y-0.5">
               {leaves.map((item) => {
@@ -233,11 +233,13 @@ export function OpsSidebarClient({
           <CollapsedRail sections={sections} pathname={pathname} />
         ) : (
           <div className="space-y-4">
-            {sections.map((section) => (
-              <div key={section.title}>
-                <p className="px-2.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF]">
-                  {section.title}
-                </p>
+            {sections.map((section, si) => (
+              <div key={section.title || `section-${si}`}>
+                {section.title ? (
+                  <p className="px-2.5 pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF]">
+                    {section.title}
+                  </p>
+                ) : null}
                 <ul className="space-y-0.5">
                   {section.entries.map((entry) =>
                     entry.kind === "group" ? (

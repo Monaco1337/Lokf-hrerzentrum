@@ -293,7 +293,7 @@ export function LeitstandZones({
           <PerfTile
             label="Kontakte heute"
             value={performance.contactsToday}
-            href={"/crm/sales/dialer" as Route}
+            href={"/crm/multichat" as Route}
           />
           <PerfTile
             label="Termine heute"

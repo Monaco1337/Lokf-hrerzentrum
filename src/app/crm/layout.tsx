@@ -86,7 +86,7 @@ function MobileSectionNav() {
     { href: "/crm", label: "Dashboard" },
     { href: "/crm/leads", label: "Leads" },
     { href: "/crm/pipeline", label: "Pipeline" },
-    { href: "/crm/sales/dialer", label: "Kontaktcenter" },
+    { href: "/crm/multichat", label: "Multichat" },
     { href: "/crm/communication", label: "Kommunikation" },
     { href: "/crm/unterlagen", label: "Bewerberakte" },
     { href: "/crm/bildungsgutschein", label: "Bildungsgutscheine" },
