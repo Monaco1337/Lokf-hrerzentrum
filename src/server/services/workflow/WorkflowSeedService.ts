@@ -21,10 +21,13 @@ import {
   type WorkflowDefinitionRecord,
 } from "../../repositories/WorkflowDefinitionRepository";
 import { workflowRunRepository } from "../../repositories/WorkflowRunRepository";
+import { parseGraph } from "@/features/fairtrain-funnel/automation/workflow/graph";
+
 import {
   buildApplicationGraph,
   buildInboundRouterGraph,
   buildReactivationGraph,
+  extractRouterPathTemplates,
   WORKFLOW_NAME,
 } from "./defaultWorkflows";
 
@@ -99,6 +102,58 @@ export class WorkflowSeedService {
     }
 
     return { created };
+  }
+
+  /**
+   * Rebuild the KI-Antwort-Router graphs into the clean PARALLEL fan-out layout
+   * (central router → nine categories branching straight down). Non-destructive
+   * for the operator's wiring: the per-category follow-up templates (and the
+   * reactivation first-contact/reminder templates) are read from the current
+   * graph and re-applied. New runs use the new snapshot; leads already running
+   * keep their old version until they finish.
+   */
+  async rebuildRouterLayouts(): Promise<{ updated: string[] }> {
+    const updated: string[] = [];
+
+    const inbound =
+      await workflowDefinitionRepository.firstActiveByProcess("inbound_router");
+    if (inbound) {
+      const paths = extractRouterPathTemplates(parseGraph(inbound.graph));
+      await workflowDefinitionRepository.update(inbound.id, {
+        name: inbound.name,
+        description: inbound.description,
+        processKey: inbound.processKey,
+        trigger: inbound.trigger,
+        status: inbound.status,
+        graph: buildInboundRouterGraph(paths),
+      });
+      updated.push(inbound.name);
+    }
+
+    const react =
+      await workflowDefinitionRepository.firstActiveByProcess("reactivation");
+    if (react) {
+      const g = parseGraph(react.graph);
+      const paths = extractRouterPathTemplates(g);
+      const findTpl = (id: string) =>
+        g.nodes.find((n) => n.id === id)?.templateId;
+      await workflowDefinitionRepository.update(react.id, {
+        name: react.name,
+        description: react.description,
+        processKey: react.processKey,
+        trigger: react.trigger,
+        status: react.status,
+        graph: buildReactivationGraph({
+          tag0: findTpl("send_tag0"),
+          followup1: findTpl("send_followup1"),
+          followup2: findTpl("send_followup2"),
+          paths,
+        }),
+      });
+      updated.push(react.name);
+    }
+
+    return { updated };
   }
 
   /**

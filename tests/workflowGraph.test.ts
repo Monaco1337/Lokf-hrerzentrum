@@ -12,6 +12,7 @@ import {
 import {
   buildInboundRouterGraph,
   buildReactivationGraph,
+  extractRouterPathTemplates,
 } from "@/server/services/workflow/defaultWorkflows";
 
 describe("workflow graph — pure traversal helpers", () => {
@@ -83,11 +84,47 @@ describe("default workflows", () => {
     for (const p of ROUTER_PATHS) expect(paths).toContain(p);
   });
 
-  it("inbound router graph: MESSAGE_INBOUND trigger → router → all six paths", () => {
+  it("inbound router graph: MESSAGE_INBOUND trigger → router → all nine paths", () => {
     const g = buildInboundRouterGraph();
     expect(triggerNode(g)?.trigger).toBe("MESSAGE_INBOUND");
     const router = g.nodes.find((n) => n.kind === "aiRouter")!;
     const paths = g.edges.filter((e) => e.from === router.id).map((e) => e.path);
     for (const p of ROUTER_PATHS) expect(paths).toContain(p);
+  });
+
+  it("inbound router is a PURE parallel fan-out: one edge per path, no extras", () => {
+    const g = buildInboundRouterGraph();
+    const router = g.nodes.find((n) => n.kind === "aiRouter")!;
+    const outgoing = g.edges.filter((e) => e.from === router.id);
+    // Exactly one outgoing edge per category — the router never chains.
+    expect(outgoing.length).toBe(ROUTER_PATHS.length);
+    const distinct = new Set(outgoing.map((e) => e.path));
+    expect(distinct.size).toBe(ROUTER_PATHS.length);
+    // The trigger flows only into the router (single central entry).
+    const trig = triggerNode(g)!;
+    const fromTrigger = g.edges.filter((e) => e.from === trig.id);
+    expect(fromTrigger.length).toBe(1);
+    expect(fromTrigger[0]!.to).toBe(router.id);
+  });
+
+  it("router selects exactly one path and skips the others", () => {
+    const g = buildInboundRouterGraph();
+    const router = g.nodes.find((n) => n.kind === "aiRouter")!;
+    const jobTarget = routerTargetId(g, router.id, "job_seeking");
+    const stopTarget = routerTargetId(g, router.id, "stop");
+    expect(jobTarget).toBeTruthy();
+    expect(stopTarget).toBeTruthy();
+    // Distinct categories resolve to distinct branch entries.
+    expect(jobTarget).not.toBe(stopTarget);
+  });
+
+  it("layout rebuild preserves the per-path templates", () => {
+    const g = buildInboundRouterGraph({ callback: "TPL_CB", employed: "TPL_EMP" });
+    const extracted = extractRouterPathTemplates(g);
+    expect(extracted.callback).toBe("TPL_CB");
+    expect(extracted.employed).toBe("TPL_EMP");
+    // Round-trip: rebuilding from the extracted map keeps them wired.
+    const rebuilt = buildInboundRouterGraph(extracted);
+    expect(extractRouterPathTemplates(rebuilt)).toEqual(extracted);
   });
 });

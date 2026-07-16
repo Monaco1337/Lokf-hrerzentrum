@@ -25,6 +25,7 @@ import {
   deleteWorkflow,
   migrateReactivationToEngine,
   previewWorkflowBackfill,
+  rebuildRouterLayout,
   runWorkflowBackfill,
   seedDefaultWorkflows,
   setWorkflowStatus,
@@ -74,6 +75,29 @@ export function WorkflowManager({ workflows, templates, users, engineEnabled }: 
       setFlash(
         res.ok
           ? { ok: true, msg: res.data.created.length ? `Angelegt: ${res.data.created.join(", ")}` : "Standard-Prozesse existieren bereits." }
+          : { ok: false, msg: res.message },
+      );
+      router.refresh();
+    });
+  }
+
+  function rebuildLayout() {
+    if (
+      !window.confirm(
+        "KI-Antwort-Router auf das saubere Parallel-Layout zurücksetzen (zentraler Router → alle Kategorien verzweigen parallel nach unten)? Die zugewiesenen Vorlagen pro Kategorie bleiben erhalten. Laufende Leads behalten ihre aktuelle Version.",
+      )
+    )
+      return;
+    start(async () => {
+      const res = await rebuildRouterLayout();
+      setFlash(
+        res.ok
+          ? {
+              ok: true,
+              msg: res.data.updated.length
+                ? `Neu aufgebaut: ${res.data.updated.join(", ")}`
+                : "Kein aktiver Antwort-Router gefunden – zuerst „Standard-Prozesse anlegen“.",
+            }
           : { ok: false, msg: res.message },
       );
       router.refresh();
@@ -157,6 +181,9 @@ export function WorkflowManager({ workflows, templates, users, engineEnabled }: 
         <div className="flex flex-wrap items-center gap-2">
           <button type="button" disabled={pending} onClick={seed} className="rounded-xl bg-surface-subtle px-4 py-2 text-[13px] font-semibold text-ink ring-1 ring-ink/10 hover:bg-accent-50 disabled:opacity-50">
             Standard-Prozesse anlegen
+          </button>
+          <button type="button" disabled={pending} onClick={rebuildLayout} className="rounded-xl bg-surface-subtle px-4 py-2 text-[13px] font-semibold text-ink ring-1 ring-ink/10 hover:bg-accent-50 disabled:opacity-50">
+            Antwort-Router neu aufbauen
           </button>
           <button type="button" disabled={pending} onClick={migrate} className="rounded-xl bg-surface-subtle px-4 py-2 text-[13px] font-semibold text-ink ring-1 ring-ink/10 hover:bg-accent-50 disabled:opacity-50">
             Reaktivierung übernehmen

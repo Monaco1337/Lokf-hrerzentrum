@@ -199,6 +199,17 @@ export async function seedDefaultWorkflows(): Promise<Result<{ created: string[]
   });
 }
 
+export async function rebuildRouterLayout(): Promise<
+  Result<{ updated: string[] }>
+> {
+  return runAction(async () => {
+    await requirePermission("canManageAutomations");
+    const res = await workflowSeedService.rebuildRouterLayouts();
+    revalidatePath("/crm/automation");
+    return res;
+  });
+}
+
 export async function migrateReactivationToEngine(): Promise<
   Result<{ scanned: number; enrolled: number; continued: number; skipped: number }>
 > {
