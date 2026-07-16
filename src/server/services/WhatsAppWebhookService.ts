@@ -292,19 +292,20 @@ export class WhatsAppWebhookService {
       actor: "whatsapp-webhook",
     });
 
-    // Reactivation campaign: an inbound reply / quick-reply button stops the
-    // sequence (cancel follow-ups) and, for buttons, classifies the lead.
-    // When the unified engine is live it OWNS reactivation, so we skip the
-    // legacy stop/classify here (the engine's router handles the reply and the
-    // active run abandons its pending reminder automatically).
-    if (!isWorkflowEngineEnabled()) {
-      await campaignInboundService.handleInbound(lead.id, {
-        buttonId: event.buttonId,
-        buttonTitle: event.buttonTitle,
-        body: event.body,
-        at: event.at,
-      });
-    }
+    // Reactivation campaign: an inbound reply / quick-reply button ALWAYS stops
+    // the outbound sequence (cancel queued follow-ups, mark reacted) and, for
+    // buttons, classifies the lead. This runs regardless of the Workflow-Engine
+    // flag because reactivation OUTBOUND is driven by the legacy job queue — so a
+    // reply must cancel those pending reminders here, otherwise a lead who
+    // answered could still receive an automated follow-up. It only *stops* the
+    // campaign (never sends), so it can never produce a duplicate message; the
+    // engine's KI router below is what sends the single fitting reply.
+    await campaignInboundService.handleInbound(lead.id, {
+      buttonId: event.buttonId,
+      buttonTitle: event.buttonTitle,
+      body: event.body,
+      at: event.at,
+    });
 
     // Auto-assign: a message on a rep's number belongs to that rep. We only
     // claim UNASSIGNED leads, so we never steal an active handover.

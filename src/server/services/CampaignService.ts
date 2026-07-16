@@ -14,7 +14,6 @@ import {
 } from "@/features/fairtrain-funnel/campaign/types";
 import { MessageStatus } from "@/features/fairtrain-funnel/messaging/types";
 import type { LeadSummary } from "@/features/fairtrain-funnel/types";
-import { isWorkflowEngineEnabled } from "@/server/env";
 
 import {
   campaignRepository,
@@ -93,26 +92,11 @@ export class CampaignService {
         continue;
       }
 
-      // Unified engine ON: drive reactivation through the workflow (first
-      // contact + reminders + KI routing = ONE process) instead of the legacy
-      // job queue, so a lead can never be sent to by both systems.
-      if (isWorkflowEngineEnabled()) {
-        const { workflowEngine } = await import("./workflow/WorkflowEngine");
-        const runId = await workflowEngine.enrollByProcess("reactivation", leadId);
-        if (runId) {
-          await leadRepository.update(leadId, {
-            automationPaused: false,
-            campaignStatus: "versandbereit",
-            communicationStarted: true,
-            nextCampaignActionAt: now,
-          });
-          enqueued += 1;
-        } else {
-          skipped += 1;
-        }
-        continue;
-      }
-
+      // The OUTBOUND reactivation (first contact + timed reminders) always runs
+      // through the reliable, fully-visible legacy job queue — independent of the
+      // Workflow-Engine flag. The engine owns only the INBOUND side (KI reply
+      // router), so the two never send to the same lead and every send failure is
+      // surfaced (job status + reasons), never swallowed.
       let did = false;
       if (lead.phone) {
         await campaignRepository.enqueueJob({

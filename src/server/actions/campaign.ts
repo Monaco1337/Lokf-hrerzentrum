@@ -36,6 +36,11 @@ export interface ReleaseResult {
   selected: number;
   enqueued: number;
   skipped: number;
+  /** Actually dispatched right away by the auto-send after release. */
+  sent: number;
+  failed: number;
+  /** True if the immediate send was cut short (large batch) — cron finishes it. */
+  sendDeferred: boolean;
 }
 
 export async function releaseCampaign(
@@ -73,12 +78,30 @@ export async function releaseCampaign(
       );
     }
 
+    // One-click UX: dispatch the just-queued Tag-0 messages immediately so the
+    // operator only clicks once ("100 Leads anschreiben" → they go out now).
+    // Wrapped so a timeout on a very large batch can never fail the release —
+    // the enqueue already succeeded and the hourly cron drains the remainder.
+    let sent = 0;
+    let failed = 0;
+    let sendDeferred = false;
+    try {
+      const summary = await campaignService.runDueJobs();
+      sent = summary.sent;
+      failed = summary.failed;
+    } catch {
+      sendDeferred = true;
+    }
+
     revalidate();
     return {
       tier,
       selected: leads.length,
       enqueued: result.enqueued,
       skipped: result.skipped,
+      sent,
+      failed,
+      sendDeferred,
     };
   });
 }

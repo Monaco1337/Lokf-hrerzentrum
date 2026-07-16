@@ -86,10 +86,10 @@ function MobileSectionNav() {
     { href: "/crm", label: "Dashboard" },
     { href: "/crm/leads", label: "Leads" },
     { href: "/crm/pipeline", label: "Pipeline" },
-    { href: "/crm/multichat", label: "Multichat" },
-    { href: "/crm/communication", label: "Kommunikation" },
+    { href: "/crm/campaigns/reaktivierung", label: "Reaktivierung" },
+    { href: "/crm/multichat", label: "Multi-Chat" },
+    { href: "/crm/import", label: "Lead-Import" },
     { href: "/crm/unterlagen", label: "Bewerberakte" },
-    { href: "/crm/bildungsgutschein", label: "Bildungsgutscheine" },
     { href: "/crm/agenturtermine", label: "Termine" },
   ];
   return (

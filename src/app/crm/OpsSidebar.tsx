@@ -4,11 +4,12 @@
  * Server component: resolves the current user once, filters every entry by
  * permission, and delegates rendering + active-state to the client child.
  *
- * The information architecture is grouped into three sections (OPERATIV /
- * MANAGEMENT / SYSTEM). Operative day-to-day work collapses into two expandable
- * groups (Bewerber, Dokumente) so the rail reads like enterprise software
- * rather than a flat tool list. No routes are added or removed here — every
- * existing screen stays reachable.
+ * Information architecture (top to bottom): Dashboard · Bewerber · Reaktivierung
+ * · Dokumente · Termine, then the Management and System groups. Everything that
+ * concerns Alt-Leads (Kommunikation/Reaktivierungs-Cockpit, Multi-Chat,
+ * Lead-Import) lives under the collapsible "Reaktivierung" group so the funnel
+ * work (Bewerber) and the reactivation work are cleanly separated. Every entry
+ * collapses into a chevron group and maps 1:1 onto an existing route.
  */
 import {
   can,
@@ -61,14 +62,22 @@ const SECTIONS: ReadonlyArray<RawSection> = [
         children: [
           { href: "/crm/leads", label: "Leads", icon: "leads", permission: "canManageLeads" },
           { href: "/crm/pipeline", label: "Pipeline", icon: "pipeline", permission: "canManageLeads" },
-          { href: "/crm/multichat", label: "Multichat", icon: "message", permission: "canManageLeads" },
           {
             href: "/crm/callback-requests",
             label: "Rückrufe angefordert",
             icon: "phone",
             permission: "canManageLeads",
           },
-          { href: "/crm/communication", label: "Kommunikation", icon: "message" },
+        ],
+      },
+      {
+        // Everything around Alt-Leads lives here: the reactivation cockpit
+        // (release + live overview), the Multi-Chat work surface and the import.
+        label: "Reaktivierung",
+        icon: "megaphone",
+        children: [
+          { href: "/crm/campaigns/reaktivierung", label: "Kommunikation", icon: "message", permission: "canManageLeads" },
+          { href: "/crm/multichat", label: "Multi-Chat", icon: "message", permission: "canManageLeads" },
           { href: "/crm/import", label: "Lead-Import", icon: "import", permission: "canManageLeads" },
         ],
       },
@@ -94,7 +103,6 @@ const SECTIONS: ReadonlyArray<RawSection> = [
         icon: "chart-up",
         children: [
           { href: "/crm/users", label: "Mitarbeiter", icon: "users", permission: "canManageUsers" },
-          { href: "/crm/campaigns/reaktivierung", label: "Reaktivierung", icon: "megaphone", permission: "canManageLeads" },
           { href: "/crm/team/performance", label: "Vertrieb", icon: "chart-up", permission: "canViewAnalytics" },
           { href: "/crm/reporting", label: "Reports", icon: "report", permission: "canViewAnalytics" },
         ],

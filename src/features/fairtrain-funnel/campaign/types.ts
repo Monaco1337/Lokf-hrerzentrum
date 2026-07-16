@@ -287,6 +287,35 @@ export interface CampaignKpis {
   fehlerhafte: number;
 }
 
+/**
+ * Live reactivation overview — the 10 headline metrics for the redesigned
+ * Reaktivierung workspace. The cohort is every lead that entered via the
+ * reactivation import (still `alt_lead` OR already converted, tag "reaktiviert"),
+ * so the numbers stay consistent with the Multichat live bar.
+ */
+export interface ReactivationOverview {
+  /** Insgesamt importierte Alt-Leads (offen + bearbeitet + konvertiert). */
+  imported: number;
+  /** Noch offen: importiert, aber noch nicht angeschrieben. */
+  open: number;
+  /** Heute erstkontaktiert. */
+  contactedToday: number;
+  /** Angeschrieben, wartet noch auf eine Antwort. */
+  waitingReply: number;
+  /** In der 24-Stunden-Erinnerung (Follow-up 1). */
+  reminder24h: number;
+  /** In der 48-Stunden-Erinnerung (Follow-up 2). */
+  reminder48h: number;
+  /** Eignungscheck gestartet (Übergang in den Funnel). */
+  eligibilityStarted: number;
+  /** Bereits als normaler Funnel-Lead übernommen. */
+  inFunnel: number;
+  /** Reaktivierung abgeschlossen (inaktiv / Funnel abgeschlossen). */
+  completed: number;
+  /** Versand fehlgeschlagen (ungültige/nicht erreichbare Nummer o. Ä.). */
+  failed: number;
+}
+
 export interface CampaignTemplateInfo {
   slug: string;
   name: string;

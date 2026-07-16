@@ -1,8 +1,13 @@
 "use client";
 
 /**
- * ReactivationCampaign — overview, manual release (with staffing tiers) and the
- * manual "Fällige senden" trigger for the Alt-Lead reactivation campaign.
+ * ReactivationCampaign — the Reaktivierung workspace.
+ *
+ * Premium glass design matching the Multichat: a live overview bar (the 10
+ * headline metrics), a few-clicks release panel ("100 offene Leads → anschreiben"
+ * — one click also dispatches them right away), template health and the
+ * follow-up runner. Outbound is driven by the reliable campaign queue; the KI
+ * reply router (Workflow-Engine) takes over the inbound side automatically.
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -11,6 +16,7 @@ import { useState, useTransition } from "react";
 import type {
   CampaignKpis,
   CampaignTemplateInfo,
+  ReactivationOverview,
   ReleaseTier,
 } from "@/features/fairtrain-funnel/campaign/types";
 import { RELEASE_TIER_LABEL } from "@/features/fairtrain-funnel/campaign/types";
@@ -20,26 +26,47 @@ import {
   sendDueCampaignJobs,
 } from "@/server/actions/campaign";
 
-function Tile({ label, value, tone }: { label: string; value: number; tone?: string }) {
+type Tone = "ink" | "green" | "blue" | "amber" | "violet" | "red";
+
+const TONE_VALUE: Record<Tone, string> = {
+  ink: "text-slate-900",
+  green: "text-emerald-600",
+  blue: "text-sky-600",
+  amber: "text-amber-600",
+  violet: "text-violet-600",
+  red: "text-rose-600",
+};
+
+function StatCard({
+  label,
+  value,
+  tone = "ink",
+  hint,
+}: {
+  label: string;
+  value: number;
+  tone?: Tone;
+  hint?: string;
+}) {
   return (
-    <div className="rounded-xl border border-[#E5E7EB] bg-white px-4 py-3">
-      <div className={`text-2xl font-semibold ${tone ?? "text-[#111827]"}`}>{value}</div>
-      <div className="mt-0.5 text-[12px] uppercase tracking-wide text-[#6B7280]">{label}</div>
+    <div className="rounded-2xl border border-black/[0.06] bg-white/70 px-3.5 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_8px_24px_-16px_rgba(15,23,42,0.25)] backdrop-blur">
+      <div className={`text-[22px] font-semibold leading-none ${TONE_VALUE[tone]}`}>
+        {value.toLocaleString("de-DE")}
+      </div>
+      <div className="mt-1.5 text-[11px] font-medium leading-tight text-slate-500">
+        {label}
+      </div>
+      {hint ? (
+        <div className="mt-0.5 text-[10px] leading-tight text-slate-400">{hint}</div>
+      ) : null}
     </div>
   );
 }
 
-const TIER_ORDER: ReleaseTier[] = [
-  "test5",
-  "10",
-  "50",
-  "100",
-  "300",
-  "500",
-  "all",
-];
+const TIER_CHIPS: ReleaseTier[] = ["10", "50", "100", "300", "500", "all"];
 
 export function ReactivationCampaign({
+  overview,
   kpis,
   readyCount,
   dueCount,
@@ -48,6 +75,7 @@ export function ReactivationCampaign({
   templates,
   whatsappLive,
 }: {
+  overview: ReactivationOverview;
   kpis: CampaignKpis;
   readyCount: number;
   dueCount: number;
@@ -57,7 +85,7 @@ export function ReactivationCampaign({
   whatsappLive: boolean;
 }) {
   const router = useRouter();
-  const [tier, setTier] = useState<ReleaseTier>("300");
+  const [tier, setTier] = useState<ReleaseTier>("100");
   const [whatsappOnly, setWhatsappOnly] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -65,8 +93,6 @@ export function ReactivationCampaign({
 
   const waTemplates = templates.filter((t) => t.channel === "WHATSAPP");
   const waSendable = waTemplates.some((t) => t.sendable);
-  // Approved by Meta but missing a sender number → the #1 reason a "freigegeben"
-  // template still fails every send.
   const waMissingSender = waTemplates.some(
     (t) => t.metaApprovalStatus === "approved" && !t.senderConfigured,
   );
@@ -78,7 +104,7 @@ export function ReactivationCampaign({
     const channelLabel = whatsappOnly ? "nur WhatsApp" : "WhatsApp + E-Mail";
     if (
       !window.confirm(
-        `Kampagne freigeben – ${label}?\n\nNur tatsächlich unbehandelte Alt-Leads erhalten den Erstkontakt (${channelLabel}). Bereits manuell kontaktierte, im Funnel befindliche, wartende oder abgeschlossene Leads werden automatisch ausgeschlossen (Kontaktschutz). Fortfahren?`,
+        `${label} anschreiben?\n\nNur wirklich unbehandelte Alt-Leads erhalten den Erstkontakt (${channelLabel}). Bereits kontaktierte, wartende, im Funnel befindliche oder abgeschlossene Leads werden automatisch ausgeschlossen (Kontaktschutz). Die Nachrichten gehen sofort raus.`,
       )
     ) {
       return;
@@ -89,8 +115,12 @@ export function ReactivationCampaign({
         setError(res.message);
         return;
       }
+      const d = res.data;
+      const sentPart = d.sendDeferred
+        ? "Versand läuft im Hintergrund weiter (großer Stapel)."
+        : `${d.sent} sofort gesendet${d.failed > 0 ? `, ${d.failed} fehlgeschlagen` : ""}.`;
       setNotice(
-        `Freigegeben: ${res.data.enqueued} Leads in die Warteschlange (${res.data.skipped} übersprungen).`,
+        `${d.enqueued} Alt-Leads freigegeben (${d.skipped} übersprungen). ${sentPart}`,
       );
       router.refresh();
     });
@@ -123,231 +153,247 @@ export function ReactivationCampaign({
         return;
       }
       setNotice(
-        `${res.data.requeued} fehlgeschlagene Job(s) erneut in die Warteschlange gestellt. Jetzt „Fällige jetzt senden“ ausführen.`,
+        `${res.data.requeued} fehlgeschlagene Job(s) erneut eingereiht. Sie werden beim nächsten Versand automatisch mitgesendet.`,
       );
       router.refresh();
     });
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex items-center justify-between">
+    <div className="space-y-5">
+      <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#111827]">
-            Reaktivierung Alt-Leads
+          <h1 className="text-[20px] font-semibold tracking-tight text-slate-900">
+            Reaktivierung
           </h1>
-          <p className="mt-1 text-sm text-[#6B7280]">
-            Reaktivierungskampagne für importierte Beschäftigte (Tag 0 / 3 / 7).
+          <p className="mt-0.5 text-[13px] text-slate-500">
+            Alt-Leads reaktivieren – Erstkontakt, automatische Erinnerungen und
+            KI-Antwort-Router in einem Ablauf.
           </p>
         </div>
-        <Link
-          href="/crm/import"
-          className="rounded-lg border border-[#D1D5DB] px-3 py-1.5 text-sm font-medium text-[#374151] transition hover:bg-[#F9FAFB]"
-        >
-          Leads importieren
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/crm/multichat"
+            className="rounded-xl border border-black/[0.08] bg-white/70 px-3.5 py-2 text-[13px] font-medium text-slate-700 backdrop-blur transition hover:bg-white"
+          >
+            Multi-Chat öffnen
+          </Link>
+          <Link
+            href="/crm/import"
+            className="rounded-xl border border-black/[0.08] bg-white/70 px-3.5 py-2 text-[13px] font-medium text-slate-700 backdrop-blur transition hover:bg-white"
+          >
+            Leads importieren
+          </Link>
+        </div>
       </header>
 
       {error ? (
-        <p className="rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-4 py-2.5 text-sm text-[#B91C1C]">
+        <p className="rounded-xl border border-rose-200 bg-rose-50/80 px-4 py-2.5 text-[13px] text-rose-700 backdrop-blur">
           {error}
         </p>
       ) : null}
       {notice ? (
-        <p className="rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-4 py-2.5 text-sm text-[#15803D]">
+        <p className="rounded-xl border border-emerald-200 bg-emerald-50/80 px-4 py-2.5 text-[13px] text-emerald-800 backdrop-blur">
           {notice}
         </p>
       ) : null}
 
-      {/* KPIs */}
-      <section className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        <Tile label="Importiert" value={kpis.imported} />
-        <Tile label="Versandbereit" value={kpis.versandbereit} tone="text-[#2563EB]" />
-        <Tile label="Erstkontakt gesendet" value={kpis.erstkontaktGesendet} />
-        <Tile label="Follow-up 1 / 2" value={kpis.followup1Gesendet} />
-        <Tile label="WhatsApp gesendet" value={kpis.whatsappGesendet} />
-        <Tile label="WA zugestellt" value={kpis.whatsappZugestellt} />
-        <Tile label="WA gelesen" value={kpis.whatsappGelesen} />
-        <Tile label="E-Mail gesendet" value={kpis.emailGesendet} />
-        <Tile label="Antworten" value={kpis.antworten} tone="text-[#15803D]" />
-        <Tile label="Ja, Interesse" value={kpis.jaInteresse} tone="text-[#15803D]" />
-        <Tile label="Mehr Infos" value={kpis.mehrInfos} />
-        <Tile label="Kein Interesse" value={kpis.keinInteresse} tone="text-[#B45309]" />
-        <Tile label="Inaktiv" value={kpis.inaktiv} />
-        <Tile label="Fehlerhafte Kontakte" value={kpis.fehlerhafte} tone="text-[#B91C1C]" />
+      {/* Live overview — the 10 headline metrics */}
+      <section>
+        <div className="mb-2 flex items-center gap-2">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+            Live-Übersicht
+          </h2>
+        </div>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
+          <StatCard label="Importiert" value={overview.imported} />
+          <StatCard label="Offen" value={overview.open} tone="blue" />
+          <StatCard label="Heute angeschrieben" value={overview.contactedToday} tone="green" />
+          <StatCard label="Warten auf Antwort" value={overview.waitingReply} tone="amber" />
+          <StatCard label="Erinnerung 24 h" value={overview.reminder24h} tone="amber" />
+          <StatCard label="Erinnerung 48 h" value={overview.reminder48h} tone="amber" />
+          <StatCard label="Eignungscheck gestartet" value={overview.eligibilityStarted} tone="violet" />
+          <StatCard label="Bereits im Funnel" value={overview.inFunnel} tone="green" />
+          <StatCard label="Abgeschlossen" value={overview.completed} />
+          <StatCard label="Fehlgeschlagen" value={overview.failed} tone="red" />
+        </div>
       </section>
 
-      {/* Templates */}
-      <section className="overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
-        <div className="border-b border-[#EEF0F3] px-5 py-3">
-          <h2 className="text-sm font-semibold text-[#111827]">Vorlagen</h2>
-        </div>
-        <table className="w-full text-left text-sm">
-          <tbody className="divide-y divide-[#F3F4F6]">
-            {templates.map((t) => (
-              <tr key={t.slug}>
-                <td className="px-5 py-2.5 text-[#111827]">{t.name}</td>
-                <td className="px-5 py-2.5 text-[#6B7280]">
-                  {t.channel === "WHATSAPP" ? "WhatsApp" : "E-Mail"}
-                </td>
-                <td className="px-5 py-2.5">
-                  {t.channel === "EMAIL" ? (
-                    <span className="text-[#15803D]">Versandbereit</span>
-                  ) : t.sendable ? (
-                    <span className="text-[#15803D]">Meta: freigegeben</span>
-                  ) : t.metaApprovalStatus === "approved" &&
-                    !t.senderConfigured ? (
-                    <span className="text-[#B45309]">
-                      Absender fehlt – „Senden über“ wählen
-                    </span>
-                  ) : (
-                    <span className="text-[#B45309]">
-                      Meta: {t.metaApprovalStatus ?? "nicht eingereicht"}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      {/* Release panel */}
-      <section className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-[#111827]">Kampagne freigeben</h2>
-        <p className="mt-1 text-sm text-[#6B7280]">
-          <strong>{readyCount}</strong> Alt-Leads sind versandbereit. Kanal:{" "}
-          {whatsappOnly ? "nur WhatsApp" : "WhatsApp + E-Mail"}. Importierte
-          Alt-Leads werden erst nach dieser Bestätigung kontaktiert.
-        </p>
-        <div className="mt-2 rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 text-[13px] text-[#4B5563]">
-          <span className="font-medium text-[#374151]">Kontaktschutz aktiv:</span>{" "}
-          Vor dem Versand werden bereits bearbeitete Leads automatisch
-          ausgeschlossen – manuell kontaktierte, auf den Eignungscheck wartende,
-          Leads im Funnel, mit hochgeladenen Unterlagen, mit Termin sowie
-          abgeschlossene oder abgelehnte. Nur unbehandelte Leads werden
-          angeschrieben.
-        </div>
-        {!whatsappLive ? (
-          <p className="mt-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-[13px] text-[#9A3412]">
-            WhatsApp ist aktuell nicht live (Simulation). E-Mail wird real
-            versendet, WhatsApp-Schritte werden simuliert.
-          </p>
-        ) : waMissingSender ? (
-          <p className="mt-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-[13px] text-[#9A3412]">
-            Eine freigegebene WhatsApp-Vorlage hat noch keine Absendernummer.
-            Bitte die Vorlage öffnen und unter „Senden über“ eine aktive Nummer
-            wählen – sonst schlägt jeder WhatsApp-Versand fehl.
-          </p>
-        ) : !waSendable ? (
-          <p className="mt-2 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-3 py-2 text-[13px] text-[#9A3412]">
-            Kein WhatsApp-Template ist von Meta freigegeben – WhatsApp-Schritte
-            werden übersprungen/als fehlgeschlagen markiert, E-Mail läuft weiter.
-          </p>
-        ) : null}
-
-        <div className="mt-4 flex flex-wrap items-end gap-3">
-          <label className="text-sm">
-            <span className="mb-1 block text-[12px] font-medium uppercase tracking-wide text-[#6B7280]">
-              Versandstaffelung
-            </span>
-            <select
-              value={tier}
-              onChange={(e) => setTier(e.target.value as ReleaseTier)}
-              className="rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#111827]"
-            >
-              {TIER_ORDER.filter((t) => t !== "test5").map((t) => (
-                <option key={t} value={t}>
-                  {RELEASE_TIER_LABEL[t]}
-                </option>
-              ))}
-            </select>
+      {/* Release panel — few clicks */}
+      <section className="rounded-2xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_20px_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-[15px] font-semibold text-slate-900">
+              Nächste offene Leads anschreiben
+            </h2>
+            <p className="mt-1 text-[13px] text-slate-500">
+              <strong className="text-slate-700">{readyCount.toLocaleString("de-DE")}</strong>{" "}
+              Alt-Leads sind versandbereit. Das System nimmt automatisch die
+              nächsten offenen Leads – bereits kontaktierte werden nie erneut
+              angeschrieben.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-[13px] text-slate-600">
+            <input
+              type="checkbox"
+              checked={!whatsappOnly}
+              onChange={(e) => setWhatsappOnly(!e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+            />
+            Auch per E-Mail
           </label>
-          <label className="text-sm">
-            <span className="mb-1 block text-[12px] font-medium uppercase tracking-wide text-[#6B7280]">
-              Kanal
-            </span>
-            <select
-              value={whatsappOnly ? "whatsapp" : "all"}
-              onChange={(e) => setWhatsappOnly(e.target.value === "whatsapp")}
-              className="rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#111827]"
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {TIER_CHIPS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => setTier(t)}
+              className={[
+                "rounded-full px-4 py-1.5 text-[13px] font-medium transition",
+                tier === t
+                  ? "bg-emerald-600 text-white shadow-sm"
+                  : "border border-black/[0.08] bg-white/70 text-slate-600 hover:bg-white",
+              ].join(" ")}
             >
-              <option value="whatsapp">Nur WhatsApp</option>
-              <option value="all">WhatsApp + E-Mail</option>
-            </select>
-          </label>
+              {t === "all" ? "Alle" : t}
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2.5">
           <button
             type="button"
             onClick={() => doRelease(tier)}
             disabled={pending || readyCount === 0}
-            className="rounded-lg bg-[#111827] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#1F2937] disabled:opacity-50"
+            className="rounded-xl bg-emerald-600 px-5 py-2.5 text-[13.5px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-50"
           >
-            {pending ? "Wird freigegeben…" : "Freigeben und Kampagne starten"}
+            {pending
+              ? "Wird gesendet…"
+              : `Jetzt ${tier === "all" ? "alle offenen" : tier} Leads anschreiben`}
           </button>
           <button
             type="button"
             onClick={() => doRelease("test5")}
             disabled={pending || readyCount === 0}
-            className="rounded-lg border border-[#D1D5DB] px-4 py-2 text-sm font-medium text-[#374151] transition hover:bg-[#F9FAFB] disabled:opacity-50"
+            className="rounded-xl border border-black/[0.08] bg-white/70 px-4 py-2.5 text-[13px] font-medium text-slate-700 backdrop-blur transition hover:bg-white disabled:opacity-50"
           >
-            Testversand an 5 Leads
+            Testversand (5)
           </button>
         </div>
+
+        {!whatsappLive ? (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-2 text-[12.5px] text-amber-800">
+            WhatsApp ist aktuell nicht live (Simulation). E-Mail wird real
+            versendet, WhatsApp-Schritte werden simuliert.
+          </p>
+        ) : waMissingSender ? (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-2 text-[12.5px] text-amber-800">
+            Eine freigegebene WhatsApp-Vorlage hat keine Absendernummer. Bitte in
+            der Vorlage unter „Senden über“ eine aktive Nummer wählen – sonst
+            schlägt jeder WhatsApp-Versand fehl.
+          </p>
+        ) : !waSendable ? (
+          <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50/80 px-3.5 py-2 text-[12.5px] text-amber-800">
+            Kein WhatsApp-Template ist von Meta freigegeben – WhatsApp-Schritte
+            werden übersprungen, E-Mail läuft weiter.
+          </p>
+        ) : null}
       </section>
 
-      {/* Runner */}
-      <section className="rounded-2xl border border-[#E5E7EB] bg-white p-5 shadow-sm">
-        <h2 className="text-sm font-semibold text-[#111827]">
-          Fällige Follow-ups senden
-        </h2>
-        <p className="mt-1 text-sm text-[#6B7280]">
-          <strong>{dueCount}</strong> fällige Jobs in der Warteschlange. Läuft
-          automatisch per Cron – hier manuell auslösbar.
-          {failedCount > 0 ? (
-            <>
-              {" "}
-              <span className="text-[#B45309]">
-                {failedCount} fehlgeschlagene Job(s) – nach dem Freigeben der
-                Vorlage erneut senden.
-              </span>
-            </>
-          ) : null}
-        </p>
-        {failedReasons.length > 0 ? (
-          <div className="mt-3 rounded-lg border border-[#FED7AA] bg-[#FFF7ED] p-3">
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#9A3412]">
-              Warum fehlgeschlagen?
-            </p>
-            <ul className="mt-1 space-y-1">
-              {failedReasons.map((r) => (
-                <li key={r.reason} className="text-sm text-[#7C2D12]">
-                  <strong>{r.count}×</strong> {r.reason}
-                </li>
-              ))}
-            </ul>
+      {/* Templates + runner */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="overflow-hidden rounded-2xl border border-black/[0.06] bg-white/70 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur">
+          <div className="border-b border-black/[0.05] px-5 py-3">
+            <h2 className="text-[13px] font-semibold text-slate-900">Vorlagen</h2>
           </div>
-        ) : null}
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={doSendDue}
-            disabled={pending}
-            className="rounded-lg border border-[#D1D5DB] px-4 py-2 text-sm font-medium text-[#374151] transition hover:bg-[#F9FAFB] disabled:opacity-50"
-          >
-            {pending ? "Verarbeite…" : "Fällige jetzt senden"}
-          </button>
-          {failedCount > 0 ? (
+          <table className="w-full text-left text-[13px]">
+            <tbody className="divide-y divide-black/[0.04]">
+              {templates.map((t) => (
+                <tr key={t.slug}>
+                  <td className="px-5 py-2.5 text-slate-800">{t.name}</td>
+                  <td className="px-5 py-2.5 text-slate-500">
+                    {t.channel === "WHATSAPP" ? "WhatsApp" : "E-Mail"}
+                  </td>
+                  <td className="px-5 py-2.5">
+                    {t.channel === "EMAIL" ? (
+                      <span className="text-emerald-600">Versandbereit</span>
+                    ) : t.sendable ? (
+                      <span className="text-emerald-600">Freigegeben</span>
+                    ) : t.metaApprovalStatus === "approved" &&
+                      !t.senderConfigured ? (
+                      <span className="text-amber-600">Absender fehlt</span>
+                    ) : (
+                      <span className="text-amber-600">
+                        {t.metaApprovalStatus ?? "nicht eingereicht"}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        <section className="rounded-2xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04)] backdrop-blur">
+          <h2 className="text-[13px] font-semibold text-slate-900">
+            Fällige Erinnerungen
+          </h2>
+          <p className="mt-1 text-[13px] text-slate-500">
+            <strong className="text-slate-700">{dueCount}</strong> fällige Jobs.
+            Erinnerungen laufen automatisch per Cron – hier manuell auslösbar.
+          </p>
+          {failedReasons.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                Warum fehlgeschlagen?
+              </p>
+              <ul className="mt-1 space-y-1">
+                {failedReasons.map((r) => (
+                  <li key={r.reason} className="text-[13px] text-amber-800">
+                    <strong>{r.count}×</strong> {r.reason}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={doRequeueFailed}
+              onClick={doSendDue}
               disabled={pending}
-              className="rounded-lg border border-[#FED7AA] bg-[#FFF7ED] px-4 py-2 text-sm font-medium text-[#9A3412] transition hover:bg-[#FFEDD5] disabled:opacity-50"
+              className="rounded-xl border border-black/[0.08] bg-white/70 px-4 py-2 text-[13px] font-medium text-slate-700 transition hover:bg-white disabled:opacity-50"
             >
-              {pending
-                ? "Verarbeite…"
-                : `Fehlgeschlagene erneut senden (${failedCount})`}
+              {pending ? "Verarbeite…" : "Fällige jetzt senden"}
             </button>
-          ) : null}
+            {failedCount > 0 ? (
+              <button
+                type="button"
+                onClick={doRequeueFailed}
+                disabled={pending}
+                className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-2 text-[13px] font-medium text-amber-800 transition hover:bg-amber-100 disabled:opacity-50"
+              >
+                {pending ? "Verarbeite…" : `Fehlgeschlagene erneut (${failedCount})`}
+              </button>
+            ) : null}
+          </div>
+        </section>
+      </div>
+
+      {/* Detail KPIs (secondary) */}
+      <section className="rounded-2xl border border-black/[0.06] bg-white/60 p-4 backdrop-blur">
+        <h2 className="mb-3 text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+          Reaktionen &amp; Zustellung
+        </h2>
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+          <StatCard label="WhatsApp gesendet" value={kpis.whatsappGesendet} />
+          <StatCard label="WA zugestellt" value={kpis.whatsappZugestellt} />
+          <StatCard label="WA gelesen" value={kpis.whatsappGelesen} />
+          <StatCard label="Antworten" value={kpis.antworten} tone="green" />
+          <StatCard label="Ja, Interesse" value={kpis.jaInteresse} tone="green" />
+          <StatCard label="Kein Interesse" value={kpis.keinInteresse} tone="amber" />
         </div>
       </section>
     </div>
