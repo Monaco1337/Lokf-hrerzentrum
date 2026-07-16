@@ -29,10 +29,7 @@ import {
   type WhatsappTrackingStatus,
 } from "@/features/fairtrain-funnel/types";
 
-import {
-  FAILED_WHATSAPP_STATUSES,
-  type ReactivationLeadState,
-} from "@/features/fairtrain-funnel/campaign/reactivationLeadList";
+import type { ReactivationCohortRow } from "@/features/fairtrain-funnel/campaign/reactivationLeadList";
 
 import { prisma } from "../db/prisma";
 import { aggregateLeadKpis } from "./LeadKpisQuery";
@@ -47,87 +44,6 @@ import {
   parseWhatsappStatus,
 } from "./types";
 import { rowToUserRef } from "./UserRepository";
-
-const FAILED_WA = [...FAILED_WHATSAPP_STATUSES];
-
-/**
- * Build the Prisma where for the imported-leads table. `state` clauses mirror
- * `deriveReactivationLeadState` (mutually exclusive); an optional `search`
- * matches name / phone / e-mail. Kept module-level so list + counts share it.
- */
-function buildReactivationLeadWhere(params: {
-  campaign: string;
-  state?: ReactivationLeadState | undefined;
-  search?: string | undefined;
-}): Prisma.LeadWhereInput {
-  // "Nicht erledigt": still an active Alt-Lead in reactivation.
-  const active: Prisma.LeadWhereInput = {
-    campaignCompleted: false,
-    leadType: "alt_lead",
-    reactivationExcluded: false,
-  };
-
-  let stateWhere: Prisma.LeadWhereInput = {};
-  switch (params.state) {
-    case "erledigt":
-      stateWhere = {
-        OR: [
-          { campaignCompleted: true },
-          { leadType: { not: "alt_lead" } },
-          { reactivationExcluded: true },
-        ],
-      };
-      break;
-    case "fehlgeschlagen":
-      stateWhere = { ...active, whatsappStatus: { in: FAILED_WA } };
-      break;
-    case "beantwortet":
-      stateWhere = {
-        ...active,
-        whatsappStatus: { notIn: FAILED_WA },
-        lastWhatsappReplyAt: { not: null },
-      };
-      break;
-    case "angeschrieben":
-      stateWhere = {
-        ...active,
-        whatsappStatus: { notIn: FAILED_WA },
-        lastWhatsappReplyAt: null,
-        communicationStarted: true,
-      };
-      break;
-    case "offen":
-      stateWhere = {
-        ...active,
-        whatsappStatus: { notIn: FAILED_WA },
-        lastWhatsappReplyAt: null,
-        communicationStarted: false,
-      };
-      break;
-    default:
-      stateWhere = {};
-  }
-
-  const search = params.search?.trim();
-  const searchWhere: Prisma.LeadWhereInput[] = search
-    ? [
-        {
-          OR: [
-            { firstName: { contains: search, mode: "insensitive" } },
-            { lastName: { contains: search, mode: "insensitive" } },
-            { phone: { contains: search } },
-            { email: { contains: search, mode: "insensitive" } },
-          ],
-        },
-      ]
-    : [];
-
-  return {
-    deletedAt: null,
-    campaign: params.campaign,
-    AND: [stateWhere, ...searchWhere],
-  };
-}
 
 /** Prisma row enriched with the optional assignee join. */
 type LeadRowWithAssignee = PrismaLead & {
@@ -881,66 +797,51 @@ export class LeadRepository {
   }
 
   /**
-   * A page of imported campaign leads for the "alle Leads"-table, optionally
-   * filtered to one lifecycle state and/or a free-text search. The state
-   * where-clauses mirror `deriveReactivationLeadState` exactly so the table,
-   * tabs and badges always agree. Returns the page rows + the total for that
-   * filter (for pagination).
+   * The full imported campaign cohort as lightweight RAW rows for the
+   * "alle Leads"-board. ONE query, only the columns the board needs, and NO
+   * strict LeadSummary parsing — so a lead with a legacy/invalid enum value can
+   * never crash the page. Filtering, per-state counting and pagination happen in
+   * memory (see the page), which also keeps the DB connection pool unstressed.
    */
-  async listReactivationLeadRows(params: {
-    campaign: string;
-    state?: ReactivationLeadState | undefined;
-    search?: string | undefined;
-    skip: number;
-    take: number;
-  }): Promise<{ rows: LeadSummary[]; total: number }> {
-    const where = buildReactivationLeadWhere(params);
-    const [rows, total] = await Promise.all([
-      prisma.lead.findMany({
-        where,
-        orderBy: { createdAt: "asc" },
-        include: ASSIGNEE_INCLUDE,
-        skip: params.skip,
-        take: params.take,
-      }),
-      prisma.lead.count({ where }),
-    ]);
-    return {
-      rows: (rows as LeadRowWithAssignee[]).map(rowToSummary),
-      total,
-    };
-  }
-
-  /**
-   * Count imported campaign leads per lifecycle state (for the filter chips),
-   * honouring the same optional search. Mutually exclusive → the five states
-   * always sum to `total`.
-   */
-  async reactivationLeadStateCounts(
+  async listReactivationCohort(
     campaign: string,
-    search?: string,
-  ): Promise<Record<ReactivationLeadState, number> & { total: number }> {
-    const countFor = (state?: ReactivationLeadState): Promise<number> =>
-      prisma.lead.count({
-        where: buildReactivationLeadWhere({ campaign, state, search }),
-      });
-    const [total, offen, angeschrieben, beantwortet, erledigt, fehlgeschlagen] =
-      await Promise.all([
-        countFor(undefined),
-        countFor("offen"),
-        countFor("angeschrieben"),
-        countFor("beantwortet"),
-        countFor("erledigt"),
-        countFor("fehlgeschlagen"),
-      ]);
-    return {
-      total,
-      offen,
-      angeschrieben,
-      beantwortet,
-      erledigt,
-      fehlgeschlagen,
-    };
+  ): Promise<ReactivationCohortRow[]> {
+    const rows = await prisma.lead.findMany({
+      where: { deletedAt: null, campaign },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        email: true,
+        city: true,
+        leadType: true,
+        campaignCompleted: true,
+        reactivationExcluded: true,
+        communicationStarted: true,
+        lastWhatsappReplyAt: true,
+        whatsappStatus: true,
+        firstContactSentAt: true,
+        createdAt: true,
+      },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      firstName: r.firstName ?? "",
+      lastName: r.lastName ?? "",
+      phone: r.phone ?? null,
+      email: r.email ?? null,
+      city: r.city ?? null,
+      leadType: r.leadType ?? "alt_lead",
+      campaignCompleted: r.campaignCompleted,
+      reactivationExcluded: r.reactivationExcluded,
+      communicationStarted: r.communicationStarted,
+      lastWhatsappReplyAt: r.lastWhatsappReplyAt,
+      whatsappStatus: r.whatsappStatus ?? "",
+      firstContactSentAt: r.firstContactSentAt,
+      createdAt: r.createdAt,
+    }));
   }
 
   /**

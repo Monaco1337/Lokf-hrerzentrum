@@ -62,8 +62,7 @@ export default async function ReactivationCampaignPage({
     failedCount,
     failedReasons,
     templates,
-    listPage,
-    stateCounts,
+    cohort,
   ] = await Promise.all([
     loadReactivationOverview(),
     aggregateCampaignKpis(REACTIVATION_CAMPAIGN_KEY),
@@ -72,29 +71,53 @@ export default async function ReactivationCampaignPage({
     campaignRepository.countFailedJobs(REACTIVATION_CAMPAIGN_KEY),
     campaignRepository.failedReasonBreakdown(REACTIVATION_CAMPAIGN_KEY),
     campaignTemplateService.resolveTemplates(),
-    leadRepository.listReactivationLeadRows({
-      campaign: REACTIVATION_CAMPAIGN_KEY,
-      state,
-      search: search || undefined,
-      skip,
-      take: PAGE_SIZE,
-    }),
-    leadRepository.reactivationLeadStateCounts(
-      REACTIVATION_CAMPAIGN_KEY,
-      search || undefined,
-    ),
+    leadRepository.listReactivationCohort(REACTIVATION_CAMPAIGN_KEY),
   ]);
 
-  const rows: ReactivationLeadRow[] = listPage.rows.map((l) => ({
-    id: l.id,
-    name: `${l.firstName ?? ""} ${l.lastName ?? ""}`.trim() || "Unbenannt",
-    phone: l.phone || null,
-    city: l.city,
+  // Derive state once, then filter / count / paginate in memory (one DB query).
+  const withState = cohort.map((l) => ({
+    row: l,
     state: deriveReactivationLeadState(l),
-    contactedAt: l.firstContactSentAt,
-    lastActivityAt:
-      l.lastWhatsappReplyAt ?? l.firstContactSentAt ?? l.createdAt,
   }));
+
+  const q = search.toLowerCase();
+  const searched = q
+    ? withState.filter(
+        ({ row }) =>
+          `${row.firstName} ${row.lastName}`.toLowerCase().includes(q) ||
+          (row.phone ?? "").includes(search) ||
+          (row.email ?? "").toLowerCase().includes(q),
+      )
+    : withState;
+
+  // Chip counts honour the search; the table additionally honours the state tab.
+  const counts = {
+    total: searched.length,
+    offen: 0,
+    angeschrieben: 0,
+    beantwortet: 0,
+    erledigt: 0,
+    fehlgeschlagen: 0,
+  };
+  for (const { state: s } of searched) counts[s] += 1;
+
+  const stateFiltered = state
+    ? searched.filter(({ state: s }) => s === state)
+    : searched;
+  const total = stateFiltered.length;
+
+  const rows: ReactivationLeadRow[] = stateFiltered
+    .slice(skip, skip + PAGE_SIZE)
+    .map(({ row, state: s }) => ({
+      id: row.id,
+      name: `${row.firstName} ${row.lastName}`.trim() || "Unbenannt",
+      phone: row.phone,
+      city: row.city,
+      state: s,
+      contactedAt: row.firstContactSentAt,
+      lastActivityAt:
+        row.lastWhatsappReplyAt ?? row.firstContactSentAt ?? row.createdAt,
+    }));
 
   return (
     <div className="space-y-6">
@@ -110,8 +133,8 @@ export default async function ReactivationCampaignPage({
       />
       <ReactivationLeadList
         rows={rows}
-        total={listPage.total}
-        counts={stateCounts}
+        total={total}
+        counts={counts}
         state={state}
         search={search}
         page={page}

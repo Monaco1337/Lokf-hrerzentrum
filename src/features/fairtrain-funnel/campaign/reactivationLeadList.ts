@@ -86,6 +86,23 @@ export interface ReactivationStateInput {
 }
 
 /**
+ * The minimal, RAW cohort row the repository returns for the imported-leads
+ * board. Deliberately NOT run through the strict LeadSummary zod parsing, so a
+ * single lead with a legacy/invalid enum value can never crash the whole table.
+ * All filtering, counting and pagination happen in memory from this one query.
+ */
+export interface ReactivationCohortRow extends ReactivationStateInput {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  firstContactSentAt: Date | null;
+  createdAt: Date;
+}
+
+/**
  * Single source of truth for a lead's reactivation state. Priority (top wins),
  * mirrored exactly by the DB where-builders so counts, tabs and badges agree:
  *   erledigt → fehlgeschlagen → beantwortet → angeschrieben → offen
