@@ -246,15 +246,35 @@ export class CampaignTemplateService {
     const out: CampaignTemplateInfo[] = [];
     for (const def of buildSeeds()) {
       const t = await automationTemplateRepository.findBySlug(def.slug);
-      const approved = t?.metaApprovalStatus === "approved";
-      const senderConfigured = Boolean(t?.senderPhoneNumberId?.trim());
+      let approved = t?.metaApprovalStatus === "approved";
+      let senderConfigured = Boolean(t?.senderPhoneNumberId?.trim());
+      let effective = t;
+
+      // Mirror the send-time resolution: if the slug row itself is not sendable,
+      // reflect an approved WhatsApp template with the same Meta name so the UI
+      // correctly shows "Freigegeben" (and the operator can release).
+      if (def.channel === "WHATSAPP" && !(approved && senderConfigured)) {
+        const metaName = (t?.metaTemplateName ?? def.metaTemplateName)?.trim();
+        if (metaName) {
+          const alt =
+            await automationTemplateRepository.findApprovedWhatsappByMetaName(
+              metaName,
+            );
+          if (alt) {
+            effective = alt;
+            approved = true;
+            senderConfigured = true;
+          }
+        }
+      }
+
       out.push({
         slug: def.slug,
-        name: t?.name ?? def.name,
+        name: effective?.name ?? def.name,
         channel: def.channel,
         step: def.step,
         exists: Boolean(t),
-        metaApprovalStatus: t?.metaApprovalStatus ?? null,
+        metaApprovalStatus: effective?.metaApprovalStatus ?? null,
         // Email is always sendable; WhatsApp needs Meta approval AND a sender.
         sendable:
           def.channel === "EMAIL"

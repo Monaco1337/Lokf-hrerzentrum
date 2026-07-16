@@ -156,6 +156,34 @@ export class AutomationTemplateRepository {
     return row ? mapRow(row, demoIds) : null;
   }
 
+  /**
+   * Find a LIVE-sendable WhatsApp template by its exact (case-insensitive) Meta
+   * template name: Meta-approved AND with a sender number chosen. Used so the
+   * reactivation campaign automatically picks the operator's approved template
+   * regardless of which template row it lives on (name/slug independent).
+   */
+  async findApprovedWhatsappByMetaName(
+    metaName: string,
+  ): Promise<AutomationTemplateEntry | null> {
+    const target = metaName.trim().toLowerCase();
+    if (!target) return null;
+    const [rows, demoIds] = await Promise.all([
+      prisma.automationTemplate.findMany({
+        where: { channel: "WHATSAPP", metaApprovalStatus: "approved" },
+        orderBy: { updatedAt: "desc" },
+      }),
+      this.demoIds(),
+    ]);
+    const match = rows
+      .map((r) => mapRow(r, demoIds))
+      .find(
+        (t) =>
+          (t.metaTemplateName?.trim().toLowerCase() ?? "") === target &&
+          Boolean(t.senderPhoneNumberId?.trim()),
+      );
+    return match ?? null;
+  }
+
   /** Legacy auto-send path: only ACTIVE templates with the matching trigger. */
   async listEnabledForTrigger(
     trigger: AutomationTrigger,

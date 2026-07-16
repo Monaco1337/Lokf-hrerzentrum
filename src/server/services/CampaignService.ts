@@ -202,7 +202,31 @@ export class CampaignService {
       job.channel === "WHATSAPP"
         ? step.whatsappTemplateSlug
         : step.emailTemplateSlug;
-    const template = await automationTemplateRepository.findBySlug(slug);
+    let template = await automationTemplateRepository.findBySlug(slug);
+
+    // Resilient WhatsApp resolution: if the campaign's own slug row is not
+    // live-sendable (not Meta-approved or no sender), automatically fall back to
+    // ANY approved WhatsApp template that carries the same Meta template name and
+    // has a sender configured. So it no longer matters WHICH template row the
+    // operator approved — the campaign uses the freigegebene Vorlage by Meta name.
+    if (
+      job.channel === "WHATSAPP" &&
+      !(
+        template &&
+        template.metaApprovalStatus === "approved" &&
+        Boolean(template.senderPhoneNumberId?.trim())
+      )
+    ) {
+      const metaName = template?.metaTemplateName?.trim();
+      if (metaName) {
+        const approved =
+          await automationTemplateRepository.findApprovedWhatsappByMetaName(
+            metaName,
+          );
+        if (approved) template = approved;
+      }
+    }
+
     if (!template) {
       await campaignRepository.updateJob(job.id, {
         status: "failed",
