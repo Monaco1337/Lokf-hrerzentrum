@@ -1,82 +1,22 @@
 "use client";
 
 /**
- * Presentational pieces for the Multichat inbox: the conversation list row and
- * the message thread + reply composer. Kept separate from MultichatInbox so the
- * container stays focused on state/filtering.
+ * Presentational pieces for the Multichat work surface: the conversation list
+ * row and the message thread + reply composer. Apple-style: light, glassy,
+ * rounded, soft shadows, green accents — no dark surfaces.
  */
-import { useState } from "react";
-import Link from "next/link";
+import { type MultichatConversation } from "@/features/fairtrain-funnel/messaging/types";
 
 import {
-  EMPLOYMENT_BUCKET_LABEL,
-  type EmploymentBucket,
-  type MultichatConversation,
-  WHATSAPP_TRACKING_LABEL,
-} from "@/features/fairtrain-funnel/messaging/types";
-import {
-  CONTACT_STATE_LABEL,
-  CONTACT_STATE_TONE,
-  ContactState,
-  MANUAL_RESOLUTIONS,
-  type ManualResolutionId,
-} from "@/features/fairtrain-funnel/contactState";
+  ContactStatePill,
+  EmploymentBucketPill,
+  FunnelPhasePill,
+  MULTICHAT_TIME,
+  relativeTime,
+  WorkStatusPill,
+} from "./MultichatBadges";
 
-const MULTICHAT_DATE = new Intl.DateTimeFormat("de-DE", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-
-const BUCKET_CLASS: Record<EmploymentBucket, string> = {
-  job_seeking: "bg-[#EFF6FF] text-[#1D4ED8] ring-[#BFDBFE]",
-  employed: "bg-[#ECFDF5] text-[#047857] ring-[#A7F3D0]",
-  other: "bg-[#F5F3FF] text-[#6D28D9] ring-[#DDD6FE]",
-};
-
-/** Small pill for the lead's employment situation bucket. */
-export function EmploymentBucketPill({ bucket }: { bucket: EmploymentBucket }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ring-1 ring-inset ${BUCKET_CLASS[bucket]}`}
-    >
-      {EMPLOYMENT_BUCKET_LABEL[bucket]}
-    </span>
-  );
-}
-
-const CONTACT_TONE_CLASS: Record<
-  (typeof CONTACT_STATE_TONE)[ContactState],
-  string
-> = {
-  slate: "bg-[#F3F4F6] text-[#374151] ring-[#E5E7EB]",
-  amber: "bg-[#FEF3C7] text-[#92400E] ring-[#FDE68A]",
-  violet: "bg-[#EDE9FE] text-[#5B21B6] ring-[#DDD6FE]",
-  rose: "bg-[#FEF2F2] text-[#B91C1C] ring-[#FECACA]",
-  emerald: "bg-[#DCFCE7] text-[#15803D] ring-[#BBF7D0]",
-};
-
-/** Small pill for the lead's contact-protection state (Kontaktschutz). */
-export function ContactStatePill({ state }: { state: ContactState }) {
-  if (state === ContactState.NONE) return null;
-  const tone = CONTACT_TONE_CLASS[CONTACT_STATE_TONE[state]];
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold ring-1 ring-inset ${tone}`}
-    >
-      {CONTACT_STATE_LABEL[state]}
-    </span>
-  );
-}
-
-export const MULTICHAT_TIME = new Intl.DateTimeFormat("de-DE", {
-  day: "2-digit",
-  month: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-});
+export { MULTICHAT_TIME } from "./MultichatBadges";
 
 export function ConversationRow({
   convo,
@@ -93,62 +33,55 @@ export function ConversationRow({
         type="button"
         onClick={onSelect}
         className={
-          "w-full border-b border-[#F3F4F6] px-4 py-3 text-left transition " +
-          (active ? "bg-[#F3F4F6]" : "hover:bg-[#F9FAFB]")
+          "w-full px-3 py-3 text-left transition " +
+          (active
+            ? "bg-emerald-50/70 ring-1 ring-inset ring-emerald-200"
+            : "hover:bg-slate-50")
         }
       >
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className="shrink-0 rounded-md bg-[#111827] px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums text-white">
+            <span className="shrink-0 rounded-lg bg-slate-900/5 px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums text-slate-500">
               #{convo.seq}
             </span>
-            <span className="truncate font-medium text-[#111827]">
+            <span className="truncate font-semibold text-slate-900">
               {convo.leadName}
             </span>
           </span>
-          <span className="shrink-0 text-[11px] text-[#9CA3AF]">
-            {MULTICHAT_TIME.format(new Date(convo.lastAt))}
+          <span className="shrink-0 text-[11px] text-slate-400">
+            {relativeTime(convo.lastAt)}
           </span>
         </div>
-        <p className="mt-0.5 truncate text-[13px] text-[#6B7280]">{convo.preview}</p>
+
+        <div className="mt-1 flex items-center gap-1.5">
+          <WorkStatusPill status={convo.workStatus} />
+          {convo.unread > 0 ? (
+            <span className="rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10.5px] font-semibold text-white">
+              {convo.unread} neu
+            </span>
+          ) : null}
+        </div>
+
+        <p className="mt-1 truncate text-[13px] text-slate-500">
+          {convo.preview}
+        </p>
+
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <EmploymentBucketPill bucket={convo.employmentBucket} />
-          <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-[#6B7280]">
-            {convo.total} Nachr.
-          </span>
+          <FunnelPhasePill phase={convo.funnelPhase} label={convo.funnelPhaseLabel} />
+          {convo.leadType === "neu" ? (
+            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10.5px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+              Funnel-Lead
+            </span>
+          ) : null}
           {convo.numberLabel ? (
-            <span className="rounded-full bg-[#EEF2FF] px-2 py-0.5 text-[10.5px] font-medium text-[#4338CA]">
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-medium text-slate-500">
               {convo.numberLabel}
             </span>
           ) : null}
-          {convo.assignedName ? (
-            <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[10.5px] text-[#6B7280]">
-              {convo.assignedName}
-            </span>
-          ) : null}
-          <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[10.5px] text-[#6B7280]">
-            {WHATSAPP_TRACKING_LABEL[convo.whatsappStatus]}
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-slate-500">
+            {convo.total} Nachr.
           </span>
-          <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[10.5px] font-semibold tabular-nums text-[#374151]">
-            {convo.leadScore}
-          </span>
-          {convo.hasNewReply ? (
-            <span className="rounded-full bg-[#DCFCE7] px-2 py-0.5 text-[10.5px] font-semibold text-[#15803D]">
-              Antwort
-            </span>
-          ) : null}
-          {convo.optOut ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF2F2] px-2 py-0.5 text-[10.5px] font-semibold text-[#B91C1C] ring-1 ring-inset ring-[#FECACA]">
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" />
-              Abgemeldet
-            </span>
-          ) : null}
-          <ContactStatePill state={convo.contactState} />
-          {convo.unread > 0 ? (
-            <span className="ml-auto rounded-full bg-[#16A34A] px-2 py-0.5 text-[10.5px] font-semibold text-white">
-              {convo.unread}
-            </span>
-          ) : null}
         </div>
       </button>
     </li>
@@ -160,8 +93,6 @@ export function Thread({
   draft,
   setDraft,
   onSend,
-  onResolve,
-  onSelfCheck,
   pending,
   error,
   notice,
@@ -171,159 +102,91 @@ export function Thread({
   draft: string;
   setDraft: (v: string) => void;
   onSend: () => void;
-  onResolve: (resolution: ManualResolutionId) => void;
-  onSelfCheck: () => void;
   pending: boolean;
   error: string | null;
   notice: string | null;
   live: boolean;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const actionCls =
-    "shrink-0 rounded-lg border border-[#E5E7EB] px-3 py-1.5 text-[13px] font-medium text-[#374151] transition hover:bg-[#F9FAFB] disabled:opacity-50";
   return (
     <>
-      <header className="border-b border-[#EEF0F3] px-4 py-3">
+      <header className="border-b border-black/5 bg-white/60 px-5 py-3.5 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="shrink-0 rounded-md bg-[#111827] px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
+              <span className="shrink-0 rounded-lg bg-slate-900/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">
                 #{convo.seq}
               </span>
-              <span className="truncate font-semibold text-[#111827]">
+              <span className="truncate text-[15px] font-semibold text-slate-900">
                 {convo.leadName}
               </span>
-              <EmploymentBucketPill bucket={convo.employmentBucket} />
+              <WorkStatusPill status={convo.workStatus} />
             </div>
-            <div className="truncate text-[12px] text-[#6B7280]">
+            <div className="mt-0.5 truncate text-[12px] text-slate-500">
               {convo.phone}
               {convo.numberLabel ? ` · via ${convo.numberLabel}` : ""}
               {convo.assignedName ? ` · ${convo.assignedName}` : ""}
-              {convo.source ? ` · ${convo.source}` : ""}
-              {` · Score ${convo.leadScore}`}
               {` · ${convo.total} Nachrichten`}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
-            {convo.optOut ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#FEF2F2] px-2.5 py-1 text-[11px] font-semibold text-[#B91C1C] ring-1 ring-inset ring-[#FECACA]">
-                <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-[#EF4444]" />
-                WhatsApp abgemeldet
-              </span>
-            ) : null}
-            {convo.automationPaused ? (
-              <span className="rounded-full bg-[#FEF3C7] px-2.5 py-1 text-[11px] font-semibold text-[#92400E] ring-1 ring-inset ring-[#FDE68A]">
-                Automationen pausiert
-              </span>
-            ) : null}
+            <EmploymentBucketPill bucket={convo.employmentBucket} />
             <ContactStatePill state={convo.contactState} />
-            <span className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] font-medium text-[#374151]">
-              {WHATSAPP_TRACKING_LABEL[convo.whatsappStatus]}
-            </span>
-          </div>
-        </div>
-        {convo.lastManualContactAt ? (
-          <p className="mt-1.5 text-[11.5px] text-[#92400E]">
-            Manuell kontaktiert am{" "}
-            {MULTICHAT_DATE.format(new Date(convo.lastManualContactAt))}
-          </p>
-        ) : null}
-        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-          <Link href={`/crm/leads/${convo.leadId}`} className={actionCls}>
-            Lead öffnen
-          </Link>
-          <a href={`tel:${convo.phone}`} className={actionCls}>
-            Anrufen
-          </a>
-          <button
-            type="button"
-            onClick={onSelfCheck}
-            disabled={pending || convo.optOut}
-            className={actionCls}
-          >
-            Selbstcheck-Link senden
-          </button>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setMenuOpen((v) => !v)}
-              disabled={pending}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              className={actionCls}
-            >
-              Als erledigt markieren ▾
-            </button>
-            {menuOpen ? (
-              <div
-                role="menu"
-                className="absolute right-0 z-10 mt-1 w-64 overflow-hidden rounded-lg border border-[#E5E7EB] bg-white py-1 shadow-lg"
-              >
-                {MANUAL_RESOLUTIONS.map((r) => (
-                  <button
-                    key={r.id}
-                    type="button"
-                    role="menuitem"
-                    disabled={pending}
-                    onClick={() => {
-                      setMenuOpen(false);
-                      onResolve(r.id);
-                    }}
-                    className="block w-full px-3 py-2 text-left text-[13px] text-[#374151] transition hover:bg-[#F3F4F6] disabled:opacity-50"
-                  >
-                    {r.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
           </div>
         </div>
         {notice ? (
-          <p className="mt-2 rounded-lg border border-[#BBF7D0] bg-[#F0FDF4] px-3 py-1.5 text-[12.5px] text-[#15803D]">
+          <p className="mt-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[12.5px] text-emerald-700">
             {notice}
           </p>
         ) : null}
       </header>
 
-      <div className="flex-1 space-y-2 overflow-y-auto bg-[#F6F7F9] px-4 py-4">
-        {convo.messages.map((m) => (
-          <div
-            key={m.id}
-            className={m.direction === "OUT" ? "flex justify-end" : "flex justify-start"}
-          >
+      <div className="flex-1 space-y-2 overflow-y-auto bg-gradient-to-b from-slate-50/60 to-white px-5 py-4">
+        {convo.messages.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-center text-[13px] text-slate-400">
+            Noch keine Nachrichten in dieser Unterhaltung.
+          </div>
+        ) : (
+          convo.messages.map((m) => (
             <div
+              key={m.id}
               className={
-                "max-w-[78%] rounded-2xl px-3.5 py-2 text-[13.5px] shadow-sm " +
-                (m.direction === "OUT"
-                  ? "bg-[#DCF8C6] text-[#111827]"
-                  : "border border-[#EEF0F3] bg-white text-[#111827]")
+                m.direction === "OUT" ? "flex justify-end" : "flex justify-start"
               }
             >
-              <p className="whitespace-pre-wrap break-words">{m.body}</p>
-              <div className="mt-1 text-right text-[10.5px] text-[#9CA3AF]">
-                {MULTICHAT_TIME.format(new Date(m.createdAt))}
-                {m.direction === "OUT" ? ` · ${statusLabel(m.status)}` : ""}
-                {m.isDemo ? " · Sim" : ""}
+              <div
+                className={
+                  "max-w-[78%] rounded-2xl px-3.5 py-2 text-[13.5px] shadow-sm ring-1 ring-inset " +
+                  (m.direction === "OUT"
+                    ? "bg-emerald-50 text-slate-900 ring-emerald-100"
+                    : "bg-white text-slate-900 ring-black/5")
+                }
+              >
+                <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                <div className="mt-1 text-right text-[10.5px] text-slate-400">
+                  {MULTICHAT_TIME.format(new Date(m.createdAt))}
+                  {m.direction === "OUT" ? ` · ${statusLabel(m.status)}` : ""}
+                  {m.isDemo ? " · Sim" : ""}
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
 
-      <div className="border-t border-[#EEF0F3] p-3">
+      <div className="border-t border-black/5 bg-white/60 p-3 backdrop-blur">
         {error ? (
-          <p className="mb-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-1.5 text-[13px] text-[#B91C1C]">
+          <p className="mb-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-[13px] text-rose-700">
             {error}
           </p>
         ) : null}
         {convo.optOut ? (
-          <p className="mb-2 rounded-lg border border-[#FECACA] bg-[#FEF2F2] px-3 py-1.5 text-[13px] font-medium text-[#B91C1C]">
+          <p className="mb-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-[13px] font-medium text-rose-700">
             Dieser Lead hat sich per WhatsApp abgemeldet (Opt-out). Es können
             keine WhatsApp-Nachrichten mehr gesendet werden.
           </p>
         ) : null}
         {!live ? (
-          <p className="mb-2 text-[12px] text-[#92400E]">
+          <p className="mb-2 text-[12px] text-amber-700">
             Simulationsmodus – Nachrichten werden protokolliert, aber nicht real
             versendet.
           </p>
@@ -345,13 +208,13 @@ export function Thread({
                 ? "Lead abgemeldet – Versand deaktiviert"
                 : "Antwort schreiben… (⌘/Strg + Enter zum Senden)"
             }
-            className="min-h-[44px] flex-1 resize-y rounded-lg border border-[#E5E7EB] px-3 py-2 text-sm outline-none focus:border-[#111827] disabled:cursor-not-allowed disabled:bg-[#F9FAFB]"
+            className="min-h-[46px] flex-1 resize-y rounded-2xl border border-black/10 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
           />
           <button
             type="button"
             onClick={onSend}
             disabled={pending || !draft.trim() || convo.optOut}
-            className="h-[44px] shrink-0 rounded-lg bg-[#16A34A] px-4 text-sm font-medium text-white transition hover:bg-[#15803D] disabled:opacity-50"
+            className="h-[46px] shrink-0 rounded-2xl bg-emerald-500 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 disabled:opacity-40"
           >
             {pending ? "Sendet…" : "Senden"}
           </button>

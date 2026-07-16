@@ -14,6 +14,7 @@ import {
   CommunicationChannelSchema,
   ManualResolutionSchema,
 } from "@/features/fairtrain-funnel/types";
+import { absoluteUrl } from "@/lib/site";
 
 import { ValidationError } from "../errors";
 import { leadRepository } from "../repositories/LeadRepository";
@@ -215,6 +216,54 @@ export async function sendTemplateMessage(
       throw new ValidationError(
         entry.failedReason
           ? `WhatsApp-Versand von Meta abgelehnt: ${entry.failedReason}`
+          : "WhatsApp-Versand fehlgeschlagen.",
+      );
+    }
+    return { id: entry.id };
+  });
+}
+
+const SendEligibilityLinkSchema = z.object({ leadId: z.string().min(1) });
+
+/**
+ * Send the public Eignungscheck link to a reactivation lead via WhatsApp — the
+ * one-click "Eignungscheck senden" action from the Multichat work surface. A
+ * human is deliberately reaching out inside an open conversation, so consent /
+ * contact-guard are bypassed (opt-out stays enforced upstream).
+ */
+export async function sendEligibilityLink(
+  raw: unknown,
+): Promise<Result<{ id: string }>> {
+  return runAction(async () => {
+    const parsed = SendEligibilityLinkSchema.safeParse(raw);
+    if (!parsed.success) throw new ValidationError("Ungültiger Lead");
+    const actor = await requirePermission("canManageLeads");
+    await assertLeadScopeForActor(actor, parsed.data.leadId);
+    const lead = await leadRepository.findById(parsed.data.leadId);
+    if (!lead) throw new ValidationError("Lead nicht gefunden.");
+    const link = absoluteUrl("/eignungscheck");
+    const greeting = lead.firstName ? `Hallo ${lead.firstName},` : "Hallo,";
+    const body = [
+      greeting,
+      "gerne machen wir gleich weiter: Hier geht es zu Ihrem persönlichen Eignungscheck für die geförderte Weiterbildung zum Triebfahrzeugführer (Lokführer):",
+      link,
+      "Der Check dauert nur wenige Minuten.",
+      "Viele Grüße\nIhr Team vom Lokführerzentrum",
+    ].join("\n\n");
+    const entry = await messageLedgerService.sendText({
+      leadId: parsed.data.leadId,
+      body,
+      actorId: actor.id,
+      channel: CommunicationChannel.WHATSAPP,
+      bypassConsent: true,
+      bypassContactGuard: true,
+      respondingToInbound: true,
+    });
+    revalidateCommunication(parsed.data.leadId);
+    if (entry.status === "FAILED") {
+      throw new ValidationError(
+        entry.failedReason
+          ? `WhatsApp-Versand fehlgeschlagen: ${entry.failedReason}`
           : "WhatsApp-Versand fehlgeschlagen.",
       );
     }

@@ -313,6 +313,77 @@ export const EMPLOYMENT_BUCKET_LABEL: Record<EmploymentBucket, string> = {
   other: "Sonstige Situation",
 };
 
+/**
+ * Processing state of a reactivation chat, derived server-side from real
+ * signals (unhandled inbound, contact-protection state, follow-up date). This
+ * is the single "Bearbeitungsstatus" badge shown on every chat so an operator
+ * sees at a glance what a conversation needs next.
+ */
+export type WorkStatus =
+  | "new_reply" // neue, noch nicht bearbeitete Antwort
+  | "callback" // Rückruf vereinbart / angefordert
+  | "waiting" // wartet auf Rückmeldung des Bewerbers
+  | "followup" // Wiedervorlage geplant
+  | "no_interest" // kein Interesse / abgemeldet
+  | "done" // erledigt, kein weiterer Kontakt
+  | "open"; // offen, nächster Schritt zu wählen
+
+export const WORK_STATUS_LABEL: Record<WorkStatus, string> = {
+  new_reply: "Neue Antwort",
+  callback: "Rückruf vereinbart",
+  waiting: "Wartet auf Rückmeldung",
+  followup: "Wiedervorlage",
+  no_interest: "Kein Interesse",
+  done: "Erledigt",
+  open: "Offen",
+};
+
+/** Short tone key per work status → mapped to Tailwind classes in the UI. */
+export const WORK_STATUS_TONE: Record<
+  WorkStatus,
+  "emerald" | "amber" | "sky" | "violet" | "rose" | "slate"
+> = {
+  new_reply: "emerald",
+  callback: "violet",
+  waiting: "amber",
+  followup: "sky",
+  no_interest: "rose",
+  done: "slate",
+  open: "slate",
+};
+
+/** Suggested "was ist als Nächstes zu tun" hint per work status. */
+export const WORK_STATUS_NEXT_ACTION: Record<WorkStatus, string> = {
+  new_reply: "Antwort lesen & beantworten",
+  callback: "Rückruf durchführen",
+  waiting: "Auf Rückmeldung des Bewerbers warten",
+  followup: "Wiedervorlage fällig – erneut melden",
+  no_interest: "Kein Interesse – ggf. archivieren",
+  done: "Abgeschlossen – keine Aktion nötig",
+  open: "Erstkontakt bzw. nächsten Schritt wählen",
+};
+
+/** WhatsApp template option for the inline template picker. */
+export interface MultichatTemplateOption {
+  id: string;
+  name: string;
+  category: string;
+}
+
+/**
+ * Live reactivation funnel counters shown at the top of the Multichat work
+ * surface, so every operator instantly sees the current state and priorities.
+ */
+export interface ReactivationStats {
+  imported: number;
+  contacted: number;
+  replied: number;
+  unread: number;
+  waitingCallback: number;
+  eligibilityStarted: number;
+  applicationsCompleted: number;
+}
+
 export interface MultichatConversation {
   leadId: string;
   /**
@@ -323,6 +394,20 @@ export interface MultichatConversation {
   seq: number;
   /** Employment situation bucket for the overview filter. */
   employmentBucket: EmploymentBucket;
+  /** Derived processing status (single "Bearbeitungsstatus" badge). */
+  workStatus: WorkStatus;
+  /** "neu" (converted / funnel lead) | "alt_lead" (still in reactivation). */
+  leadType: string;
+  /** Current funnel/process phase + its German label. */
+  funnelPhase: string;
+  funnelPhaseLabel: string;
+  /** When a callback was requested/arranged (ISO) or null. */
+  callbackRequestedAt: string | null;
+  /** Wiedervorlage date (ISO) or null. */
+  followUpAt: string | null;
+  /** Timestamp of the last inbound message (ISO) or null. */
+  lastInboundAt: string | null;
+  email: string;
   leadName: string;
   phone: string;
   assignedUserId: string | null;
@@ -366,6 +451,12 @@ export interface MultichatData {
   totalConversations: number;
   /** Conversation counts per employment bucket, for the filter chips. */
   bucketCounts: Record<EmploymentBucket, number>;
+  /** Conversation counts per work status, for the status filter chips. */
+  workStatusCounts: Record<WorkStatus, number>;
+  /** Live reactivation funnel counters for the overview bar. */
+  reactivationStats: ReactivationStats;
+  /** Active WhatsApp templates available for the inline template picker. */
+  templates: MultichatTemplateOption[];
 }
 
 // ---------------------------------------------------------------------------

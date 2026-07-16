@@ -250,6 +250,14 @@ export class LeadService {
               automationPaused: false,
               callbackRequestedAt: null,
               callbackHandledAt: null,
+              // Durable reactivation-cohort marker: the funnel submission
+              // overwrites `source` (the original REACTIVATION_CAMPAIGN_KEY is
+              // lost), so tag the lead as "reaktiviert" — this is what keeps a
+              // converted Alt-Lead counted in the Multichat reactivation stats
+              // and recognisable as "came from reactivation" everywhere.
+              tags: Array.from(
+                new Set([...altLeadMatch.tags, "reaktiviert"]),
+              ),
             },
             tx,
           )

@@ -10,7 +10,10 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import type { MultichatConversation } from "@/features/fairtrain-funnel/messaging/types";
-import type { ManualResolutionId } from "@/features/fairtrain-funnel/types";
+import {
+  MANUAL_RESOLUTIONS,
+  type ManualResolutionId,
+} from "@/features/fairtrain-funnel/contactState";
 import {
   resolveMultichatConversation,
   sendWhatsAppText,
@@ -97,19 +100,38 @@ export function LeadMultichatPanel({
   }
 
   return (
-    <section className="flex max-h-[70vh] min-h-[440px] flex-col overflow-hidden rounded-2xl border border-[#E5E7EB] bg-white shadow-sm">
+    <section className="flex max-h-[70vh] min-h-[440px] flex-col overflow-hidden rounded-3xl border border-black/5 bg-white/70 shadow-[0_8px_30px_rgba(0,0,0,0.06)] backdrop-blur-xl">
       <Thread
         convo={conversation}
         draft={draft}
         setDraft={setDraft}
         onSend={handleSend}
-        onResolve={handleResolve}
-        onSelfCheck={handleSelfCheck}
         pending={pending}
         error={error}
         notice={notice}
         live={whatsappLive}
       />
+      <div className="flex flex-wrap items-center gap-1.5 border-t border-black/5 bg-white/60 px-3 py-2 backdrop-blur">
+        <button
+          type="button"
+          onClick={handleSelfCheck}
+          disabled={pending || conversation.optOut}
+          className="rounded-full bg-emerald-500 px-3 py-1.5 text-[12.5px] font-semibold text-white shadow-sm transition hover:bg-emerald-600 disabled:opacity-40"
+        >
+          Selbstcheck-Link senden
+        </button>
+        {MANUAL_RESOLUTIONS.map((r) => (
+          <button
+            key={r.id}
+            type="button"
+            onClick={() => handleResolve(r.id)}
+            disabled={pending}
+            className="rounded-full border border-black/10 bg-white/80 px-3 py-1.5 text-[12.5px] font-medium text-slate-700 transition hover:bg-white disabled:opacity-40"
+          >
+            {r.label}
+          </button>
+        ))}
+      </div>
     </section>
   );
 }
