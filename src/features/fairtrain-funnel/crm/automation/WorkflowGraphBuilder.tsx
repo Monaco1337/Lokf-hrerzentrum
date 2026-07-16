@@ -29,6 +29,7 @@ import { useRouter } from "next/navigation";
 import {
   NODE_KIND_LABEL,
   ROUTER_PATH_LABEL,
+  ROUTER_PATHS,
   type WorkflowEdge,
   type WorkflowNode,
   type WorkflowNodeKind,
@@ -83,6 +84,7 @@ const PALETTE: WorkflowNodeKind[] = [
 
 function WfNodeView({ data }: NodeProps<WfNode>) {
   const wf = data.wf;
+  if (wf.kind === "aiRouter") return <RouterNodeView wf={wf} />;
   const showTarget = wf.kind !== "trigger";
   const showSource = wf.kind !== "end";
   return (
@@ -95,6 +97,46 @@ function WfNodeView({ data }: NodeProps<WfNode>) {
         {wf.label || NODE_KIND_LABEL[wf.kind]}
       </p>
       {showSource ? <Handle type="source" position={Position.Bottom} /> : null}
+    </div>
+  );
+}
+
+/**
+ * The KI-Antwort-Router node: one labelled OUTPUT point per category. Dragging a
+ * connection from a category point wires exactly that path — no extra step. Each
+ * category maps to exactly one next step (a new connection replaces the old one
+ * for the same category, see onConnect).
+ */
+function RouterNodeView({ wf }: { wf: WorkflowNode }) {
+  return (
+    <div className={`w-[228px] rounded-xl border px-3 py-2 shadow-sm ${KIND_TONE.aiRouter}`}>
+      <Handle type="target" position={Position.Top} />
+      <p className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+        {NODE_KIND_LABEL.aiRouter}
+      </p>
+      <p className="mt-0.5 truncate text-[12.5px] font-semibold">
+        {wf.label || NODE_KIND_LABEL.aiRouter}
+      </p>
+      <p className="mt-1 text-[9.5px] leading-tight opacity-70">
+        Ziehe von einem Punkt eine Verbindung zum nächsten Schritt – die Kategorie
+        wird automatisch zugeordnet.
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {ROUTER_PATHS.map((p) => (
+          <li
+            key={p}
+            className="relative flex items-center justify-between rounded-md bg-white/70 py-[3px] pl-2 pr-2.5 text-[10.5px] font-medium text-violet-900"
+          >
+            <span className="truncate">{ROUTER_PATH_LABEL[p]}</span>
+            <Handle
+              id={p}
+              type="source"
+              position={Position.Right}
+              className="!static !ml-1.5 !h-3 !w-3 !shrink-0 !translate-y-0 !border-2 !border-white !bg-violet-500"
+            />
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -171,8 +213,39 @@ export function WorkflowGraphBuilder({ workflow, templates, users, onClose }: Pr
   }, [selId, nodes, edges]);
 
   const onConnect = useCallback(
-    (c: Connection) => setEdges((eds) => addEdge({ ...c, markerEnd: { type: MarkerType.ArrowClosed } }, eds)),
-    [setEdges],
+    (c: Connection) =>
+      setEdges((eds) => {
+        const src = nodes.find((n) => n.id === c.source);
+        const isRouter = src?.data.wf.kind === "aiRouter";
+        // The dragged handle id IS the category → auto-assign the path.
+        const path =
+          isRouter && c.sourceHandle
+            ? (c.sourceHandle as WorkflowRouterPath)
+            : undefined;
+        // One output per category: drop any existing edge for this path first,
+        // so a category is never wired to two different next steps.
+        const base = path
+          ? eds.filter(
+              (e) =>
+                !(
+                  e.source === c.source &&
+                  (e.data as { path?: WorkflowRouterPath } | undefined)?.path ===
+                    path
+                ),
+            )
+          : eds;
+        return addEdge(
+          {
+            ...c,
+            markerEnd: { type: MarkerType.ArrowClosed },
+            ...(path
+              ? { label: ROUTER_PATH_LABEL[path], data: { path } }
+              : {}),
+          },
+          base,
+        );
+      }),
+    [setEdges, nodes],
   );
 
   function addNode(kind: WorkflowNodeKind) {
@@ -338,6 +411,8 @@ function toRfEdge(e: WorkflowEdge): Edge {
     id: e.id,
     source: e.from,
     target: e.to,
+    // Anchor router edges to their category's OUTPUT point (handle id === path).
+    ...(e.path ? { sourceHandle: e.path } : {}),
     ...(label ? { label } : {}),
     markerEnd: { type: MarkerType.ArrowClosed },
     data: { path: e.path, branch: e.branch },
@@ -346,11 +421,15 @@ function toRfEdge(e: WorkflowEdge): Edge {
 
 function fromRfEdge(e: Edge): WorkflowEdge {
   const data = (e.data ?? {}) as { path?: WorkflowEdge["path"]; branch?: WorkflowEdge["branch"] };
+  // Fall back to the source handle id (which is the category path) so a freshly
+  // dragged edge keeps its path even before the data field is read back.
+  const path =
+    data.path ?? ((e.sourceHandle ?? undefined) as WorkflowEdge["path"]);
   return {
     id: e.id,
     from: e.source,
     to: e.target,
-    ...(data.path ? { path: data.path } : {}),
+    ...(path ? { path } : {}),
     ...(data.branch ? { branch: data.branch } : {}),
   };
 }

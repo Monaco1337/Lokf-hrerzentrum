@@ -389,10 +389,11 @@ function RouterOutputs({
     <div className="space-y-2">
       <p className="text-[12px] text-ink-soft">
         Der KI-Router erkennt eingehende WhatsApp-Antworten (Buttons, Emojis und
-        Freitext) automatisch und ordnet sie genau einer Kategorie zu. Verbinde
-        jede Kategorie mit ihrem eigenen nächsten Schritt: ziehe eine Verbindung
-        vom Router zu einem Schritt und wähle dann auf der Verbindung die
-        passende Kategorie.
+        Freitext) automatisch und ordnet sie genau einer Kategorie zu. Jede
+        Kategorie hat am Router einen eigenen Ausgangspunkt: ziehe von dem Punkt
+        der gewünschten Kategorie eine Verbindung zum nächsten Schritt – der Pfad
+        wird automatisch zugeordnet. Pro Antwort wird nur ein Pfad ausgeführt,
+        alle anderen werden übersprungen.
       </p>
       <ul className="space-y-1">
         {ROUTER_PATHS.map((p) => {
