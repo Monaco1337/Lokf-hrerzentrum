@@ -32,6 +32,7 @@ export type ReplyIntent =
   | "stop"
   | "no_interest"
   | "callback"
+  | "consultation"
   | "question"
   | "employed"
   | "job_seeking"
@@ -57,6 +58,7 @@ export interface ReplyFlags {
   generalInterest: boolean;
   noInterest: boolean;
   callback: boolean;
+  consultation: boolean;
   question: boolean;
   stop: boolean;
 }
@@ -88,20 +90,62 @@ function fold(input: string | undefined): string {
 
 // ── free-text signal patterns (checked on the folded text) ───────────────────
 
+// Rückruf: the lead wants to be CALLED (a phone action). Kept separate from
+// Beratung so each can drive its own router output.
 const CALLBACK_PATTERNS: RegExp[] = [
   /rufen?\s+sie\s+mich\s+an/,
   /ruf\s+mich\s+an/,
   /rueckruf/,
   /zurueck\s*rufen/,
   /koennen\s+sie\s+mich\s+anrufen/,
-  /telefon(isch|ieren)?/,
+  /telefon(isch|ieren|at)?/,
   /(bitte\s+)?anrufen/,
   /erreichen\s+sie\s+mich/,
   /melden?\s+sie\s+sich/,
   /meldet?\s+euch/,
   /meld(e|et)\s+dich/,
+];
+
+// Beratung: the lead wants a consultation / advisory conversation.
+const CONSULTATION_PATTERNS: RegExp[] = [
   /beratung/,
   /berat(en|er)/,
+  /beratungsgespraech/,
+  /beratungstermin/,
+  /beraten\s+lassen/,
+  /informationsgespraech/,
+];
+
+// Emoji signals — a single emoji reply must still route. Only STRONG, action-
+// specific emojis map to a category; ambiguous positives (👍🙂) stay manual
+// review so we never send a wrong follow-up on a thumbs-up.
+const EMOJI = {
+  callback: /[\u260E\u{1F4DE}\u{1F4F2}\u{1F4DF}]/u, // ☎ 📞 📲 📟
+  consultation: /[\u{1FA7A}\u{1F469}\u200D\u2695]/u, // 🩺 (health/advisory)
+  stop: /[\u{1F6D1}\u{1F6AB}\u26D4]/u, // 🛑 🚫 ⛔
+  noInterest: /[\u{1F44E}\u274C\u{1F645}]/u, // 👎 ❌ 🙅
+  question: /[\u2753\u2754]/u, // ❓ ❔
+} as const;
+
+// "Sonstige Situation": a recognisable but non-standard status (self-employed,
+// retired, student, …). Distinct from "unclear" (nothing recognised at all).
+const SONSTIGE_PATTERNS: RegExp[] = [
+  /selbststaendig/,
+  /selbstaendig/,
+  /\brente\b/,
+  /rentner/,
+  /pension/,
+  /\bstudent/,
+  /studiere/,
+  /\bausbildung\b/,
+  /\bazubi\b/,
+  /elternzeit/,
+  /erziehungszeit/,
+  /hausfrau/,
+  /hausmann/,
+  /\bschueler/,
+  /minijob/,
+  /erwerbsunfaehig/,
 ];
 
 const QUESTION_PATTERNS: RegExp[] = [
@@ -196,17 +240,29 @@ function any(patterns: RegExp[], text: string): boolean {
 }
 
 /**
- * Full analysis. Priority (highest first):
- *   Quick-Reply button → stop → no-interest → employment/career/insecure →
- *   callback → question → general interest → fallback.
+ * Full analysis. First the authoritative shortcuts (hard opt-out, quick-reply
+ * button, empty), then ALL free-text/emoji signals are collected so a message
+ * that mentions several things is understood as a whole. The single primary
+ * `intent` is then chosen by the product priority (highest first):
+ *
+ *   1. STOPP / Abmeldung
+ *   2. Rückruf oder Beratung
+ *   3. Kein Interesse
+ *   4. Arbeitssuchend / Beschäftigt / Sonstige
+ *   5. Mehr Informationen
+ *   6. Unklar / manuelle Prüfung
+ *
+ * On genuine ambiguity `manualReview` is set — the caller then flags the lead
+ * and never sends a (possibly wrong) automatic follow-up.
  */
 export function analyzeReply(input: EmploymentReplyInput): ReplyAnalysis {
   const original = (input.body ?? "").trim();
   const text = fold(input.body);
 
   // 1) STOP / opt-out — always wins. Strict keyword match OR a softer stop
-  //    phrase ("keine weiteren Nachrichten", "nicht mehr schreiben", …).
-  if (isOptOutMessage(input) || any(STOP_PATTERNS, text)) {
+  //    phrase ("keine weiteren Nachrichten", "nicht mehr schreiben", …) OR a
+  //    stop emoji (🛑🚫⛔).
+  if (isOptOutMessage(input) || any(STOP_PATTERNS, text) || EMOJI.stop.test(original)) {
     return build({
       intent: "stop",
       interest: "no",
@@ -222,21 +278,21 @@ export function analyzeReply(input: EmploymentReplyInput): ReplyAnalysis {
   const quick = classifyEmploymentQuickReply(input);
   if (quick) {
     return build({
-      intent: quick,
-      interest: "yes",
+      intent: quick === "other" ? "other" : quick,
+      interest: quick === "other" ? "unknown" : "yes",
       employment: quick,
       source: "quick_reply",
       confidence: 1,
       original,
       set: {
-        interest: true,
+        interest: quick !== "other",
         employed: quick === "employed",
         jobSeeking: quick === "job_seeking",
       },
     });
   }
 
-  if (!text) {
+  if (!text && !original) {
     return build({
       intent: "other",
       interest: "unknown",
@@ -249,20 +305,68 @@ export function analyzeReply(input: EmploymentReplyInput): ReplyAnalysis {
     });
   }
 
-  const hasInterest = any(INTEREST_PATTERNS, text);
-  const hasNoInterest = any(NO_INTEREST_PATTERNS, text);
-  const hasCallback = any(CALLBACK_PATTERNS, text);
-  const hasQuestion = any(QUESTION_PATTERNS, text);
-  const hasInsecure = any(JOB_INSECURE_PATTERNS, text);
-  const hasCareer = any(CAREER_CHANGE_PATTERNS, text);
+  // Collect every signal up front — a reply can carry more than one intent.
   const employment = classifyEmploymentReply(input);
   const detectedEmployed = employment.source === "freetext" && employment.situation === "employed";
   const detectedSeeking =
     any(JOB_SEEKING_HINTS, text) ||
     (employment.source === "freetext" && employment.situation === "job_seeking");
 
+  // Strip explicit rejections before matching positive interest so that the
+  // bare word "Interesse" inside "kein Interesse" / "nicht interessiert" does
+  // NOT count as a positive signal.
+  const positiveText = text
+    .replace(/kein(e)?\s+interesse/g, " ")
+    .replace(/nicht\s+interessiert/g, " ");
+  const hasInterest = any(INTEREST_PATTERNS, positiveText);
+  const hasNoInterest = any(NO_INTEREST_PATTERNS, text) || EMOJI.noInterest.test(original);
+  const hasCallback = any(CALLBACK_PATTERNS, text) || EMOJI.callback.test(original);
+  const hasConsultation = any(CONSULTATION_PATTERNS, text) || EMOJI.consultation.test(original);
+  const hasQuestion = any(QUESTION_PATTERNS, text) || EMOJI.question.test(original);
+  const hasInsecure = any(JOB_INSECURE_PATTERNS, text);
+  const hasCareer = any(CAREER_CHANGE_PATTERNS, text);
+  const hasSonstige = any(SONSTIGE_PATTERNS, text);
+
+  const flags: Partial<ReplyFlags> = {
+    interest: hasInterest,
+    employed: detectedEmployed,
+    jobSeeking: detectedSeeking,
+    jobInsecure: hasInsecure,
+    careerChange: hasCareer,
+    generalInterest: hasInterest && !detectedEmployed && !detectedSeeking,
+    noInterest: hasNoInterest,
+    callback: hasCallback,
+    consultation: hasConsultation,
+    question: hasQuestion,
+  };
+
+  // 2) Rückruf oder Beratung — a concrete contact request beats everything
+  //    except an explicit STOPP. Rückruf (phone) wins a tie over Beratung.
+  if (hasCallback) {
+    return build({
+      intent: "callback",
+      interest: hasInterest || !hasNoInterest ? "yes" : "no",
+      employment: null,
+      source: "freetext",
+      confidence: 0.85,
+      original,
+      set: flags,
+    });
+  }
+  if (hasConsultation) {
+    return build({
+      intent: "consultation",
+      interest: "yes",
+      employment: null,
+      source: "freetext",
+      confidence: 0.83,
+      original,
+      set: flags,
+    });
+  }
+
   // 3) Explicit rejection (unless it also clearly states interest, which "no"
-  //    patterns are written to avoid) wins over the softer situation signals.
+  //    patterns are written to avoid).
   if (hasNoInterest && !hasInterest) {
     return build({
       intent: "no_interest",
@@ -271,12 +375,13 @@ export function analyzeReply(input: EmploymentReplyInput): ReplyAnalysis {
       source: "freetext",
       confidence: 0.85,
       original,
-      set: { noInterest: true },
+      set: flags,
     });
   }
 
-  // 4) Concrete situations. Career change / insecurity are more specific than a
-  //    plain employed/seeking classification, so they are checked first.
+  // 4) Concrete situations: Arbeitssuchend / Beschäftigt / Sonstige. Career
+  //    change / insecurity are more specific and checked first, but still map
+  //    to the Beschäftigt output downstream.
   if (hasCareer) {
     return build({
       intent: "career_change",
@@ -285,7 +390,7 @@ export function analyzeReply(input: EmploymentReplyInput): ReplyAnalysis {
       source: "freetext",
       confidence: 0.8,
       original,
-      set: { interest: true, careerChange: true, employed: detectedEmployed },
+      set: { ...flags, employed: detectedEmployed },
     });
   }
   if (hasInsecure) {
@@ -296,7 +401,7 @@ export function analyzeReply(input: EmploymentReplyInput): ReplyAnalysis {
       source: "freetext",
       confidence: 0.78,
       original,
-      set: { interest: true, jobInsecure: true },
+      set: flags,
     });
   }
   if (detectedSeeking) {
@@ -307,7 +412,7 @@ export function analyzeReply(input: EmploymentReplyInput): ReplyAnalysis {
       source: "freetext",
       confidence: 0.82,
       original,
-      set: { interest: true, jobSeeking: true },
+      set: flags,
     });
   }
   if (detectedEmployed) {
@@ -318,22 +423,22 @@ export function analyzeReply(input: EmploymentReplyInput): ReplyAnalysis {
       source: "freetext",
       confidence: 0.8,
       original,
-      set: { interest: hasInterest, employed: true },
+      set: flags,
+    });
+  }
+  if (hasSonstige) {
+    return build({
+      intent: "other",
+      interest: "unknown",
+      employment: "other",
+      source: "freetext",
+      confidence: 0.72,
+      original,
+      set: flags,
     });
   }
 
-  // 5) Callback / question requests (no situation stated).
-  if (hasCallback) {
-    return build({
-      intent: "callback",
-      interest: hasInterest ? "yes" : "unknown",
-      employment: null,
-      source: "freetext",
-      confidence: 0.8,
-      original,
-      set: { callback: true, interest: hasInterest, question: hasQuestion },
-    });
-  }
+  // 5) Mehr Informationen: a question or plain interest without a situation.
   if (hasQuestion) {
     return build({
       intent: "question",
@@ -342,11 +447,9 @@ export function analyzeReply(input: EmploymentReplyInput): ReplyAnalysis {
       source: "freetext",
       confidence: 0.7,
       original,
-      set: { question: true, interest: hasInterest },
+      set: flags,
     });
   }
-
-  // 6) General interest without any concrete situation.
   if (hasInterest) {
     return build({
       intent: "general_interest",
@@ -355,11 +458,11 @@ export function analyzeReply(input: EmploymentReplyInput): ReplyAnalysis {
       source: "freetext",
       confidence: 0.65,
       original,
-      set: { interest: true, generalInterest: true },
+      set: flags,
     });
   }
 
-  // 7) Nothing recognised → manual review, never auto-branch.
+  // 6) Nothing recognised → manual review, never auto-branch.
   return build({
     intent: "other",
     interest: "unknown",
@@ -394,6 +497,7 @@ function build(args: {
     generalInterest: false,
     noInterest: false,
     callback: false,
+    consultation: false,
     question: false,
     stop: false,
     ...args.set,
@@ -415,6 +519,7 @@ export const REPLY_INTENT_LABEL: Record<ReplyIntent, string> = {
   stop: "STOPP / Abmeldung",
   no_interest: "Kein Interesse",
   callback: "Rückruf gewünscht",
+  consultation: "Beratung gewünscht",
   question: "Frage gestellt",
   employed: "Beschäftigt",
   job_seeking: "Arbeitssuchend",

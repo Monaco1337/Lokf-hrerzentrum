@@ -42,34 +42,63 @@ export const WORKFLOW_TRIGGER_LABEL: Record<WorkflowTrigger, string> = {
 
 /**
  * The AI router classifies an inbound reply into exactly ONE of these paths.
- * Adding a new path later is additive — draw a new edge + node, existing paths
- * keep working.
+ * Each path is a separate output of the KI-Antwort-Router node, so the operator
+ * can wire an individual follow-up (template / status / phase / task / notice)
+ * behind every category. Adding a new path later is additive — draw a new edge
+ * + node, existing paths keep working.
  */
 export type WorkflowRouterPath =
-  | "job_seeking"
-  | "employed"
-  | "more_info"
-  | "callback"
-  | "no_interest"
-  | "other";
+  | "job_seeking" // Arbeitssuchend
+  | "employed" // Beschäftigt
+  | "other" // Sonstige Situation (erkannt, aber kein Standard-Bucket)
+  | "more_info" // Mehr Informationen gewünscht
+  | "callback" // Rückruf gewünscht
+  | "consultation" // Beratung gewünscht
+  | "no_interest" // Kein Interesse
+  | "stop" // STOPP / Abmeldung
+  | "unclear"; // Unklar / manuelle Prüfung
 
 export const ROUTER_PATH_LABEL: Record<WorkflowRouterPath, string> = {
   job_seeking: "Arbeitssuchend",
   employed: "Beschäftigt",
+  other: "Sonstige Situation",
   more_info: "Mehr Informationen",
-  callback: "Rückruf gewünscht",
+  callback: "Rückruf",
+  consultation: "Beratung",
   no_interest: "Kein Interesse",
-  other: "Sonstige Fälle",
+  stop: "STOPP / Abmeldung",
+  unclear: "Unklar / manuelle Prüfung",
 };
 
 export const ROUTER_PATHS: readonly WorkflowRouterPath[] = [
   "job_seeking",
   "employed",
+  "other",
   "more_info",
   "callback",
+  "consultation",
   "no_interest",
-  "other",
+  "stop",
+  "unclear",
 ] as const;
+
+/**
+ * When a classified path has no explicit edge (e.g. an older graph built before
+ * the category existed), fall back along this chain so the lead is still routed
+ * to the closest sensible output instead of dropping off the graph. Every chain
+ * ends at a manual-review / catch-all path so nothing is ever silently lost.
+ */
+const ROUTER_PATH_FALLBACK: Record<WorkflowRouterPath, WorkflowRouterPath[]> = {
+  job_seeking: ["other", "unclear"],
+  employed: ["other", "unclear"],
+  other: ["unclear"],
+  more_info: ["other", "unclear"],
+  callback: ["consultation", "other", "unclear"],
+  consultation: ["callback", "other", "unclear"],
+  no_interest: ["stop", "other", "unclear"],
+  stop: ["no_interest", "unclear", "other"],
+  unclear: ["other"],
+};
 
 /** Node kinds the engine can execute. */
 export type WorkflowNodeKind =
@@ -214,7 +243,12 @@ export function nextNodeId(
   return edge?.to ?? null;
 }
 
-/** The target for a specific AI router path (falls back to the `other` edge). */
+/**
+ * The target for a specific AI router path. Prefers the exact edge; if the graph
+ * has no edge for that category it walks the fallback chain (e.g. Beratung →
+ * Rückruf → Sonstige → Unklar) so the lead always lands on the closest wired
+ * output. Never returns null unless the router has no outgoing edges at all.
+ */
 export function routerTargetId(
   graph: WorkflowGraph,
   nodeId: string,
@@ -223,8 +257,13 @@ export function routerTargetId(
   const edges = outgoingEdges(graph, nodeId);
   const exact = edges.find((e) => e.path === path);
   if (exact) return exact.to;
-  const fallback = edges.find((e) => e.path === "other");
-  return fallback?.to ?? null;
+  for (const alt of ROUTER_PATH_FALLBACK[path] ?? []) {
+    const hit = edges.find((e) => e.path === alt);
+    if (hit) return hit.to;
+  }
+  // Last resort: any catch-all edge, then the first outgoing edge.
+  const catchAll = edges.find((e) => e.path === "unclear" || e.path === "other");
+  return catchAll?.to ?? edges[0]?.to ?? null;
 }
 
 /** The target for a condition branch. */

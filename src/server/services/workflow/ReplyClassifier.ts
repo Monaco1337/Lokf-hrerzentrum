@@ -27,9 +27,9 @@ import {
   type WorkflowRouterPath,
 } from "@/features/fairtrain-funnel/automation/workflow/graph";
 
-import { intentToPath } from "./pathMapping";
+import { intentToPath, pathForAnalysis } from "./pathMapping";
 
-export { intentToPath };
+export { intentToPath, pathForAnalysis };
 
 export interface WorkflowClassification {
   path: WorkflowRouterPath;
@@ -67,10 +67,15 @@ async function classifyWithLlm(
     "Kategorien: " +
     '"job_seeking" (arbeitssuchend/arbeitslos/sucht Job), ' +
     '"employed" (aktuell beschäftigt, auch unsicher/befristet/Veränderungswunsch), ' +
+    '"other" (erkennbare, aber sonstige Situation: selbstständig/Rente/Student/Ausbildung), ' +
     '"more_info" (will mehr Infos, stellt Fragen), ' +
-    '"callback" (möchte angerufen werden), ' +
-    '"no_interest" (kein Interesse/Absage/Abmeldung), ' +
-    '"other" (unklar/sonstiges). ' +
+    '"callback" (möchte zurückgerufen/angerufen werden), ' +
+    '"consultation" (möchte eine Beratung / ein Beratungsgespräch), ' +
+    '"no_interest" (kein Interesse/Absage), ' +
+    '"stop" (Abmeldung/keine Nachrichten mehr/STOPP), ' +
+    '"unclear" (unklar, nicht eindeutig zuordenbar → manuelle Prüfung). ' +
+    "Wähle bei Unsicherheit IMMER \"unclear\" statt zu raten. " +
+    "Priorität bei mehreren Absichten: stop > callback/consultation > no_interest > job_seeking/employed/other > more_info > unclear. " +
     "Analysiere die GESAMTE Nachricht, nicht nur Emojis.";
 
   const controller = new AbortController();
@@ -127,7 +132,7 @@ export async function classifyReply(
   input: EmploymentReplyInput,
 ): Promise<WorkflowClassification> {
   const analysis = analyzeReply(input);
-  const deterministicPath = intentToPath(analysis.intent);
+  const deterministicPath = pathForAnalysis(analysis);
 
   // A quick-reply button (or a strong stop) is authoritative — trust it.
   if (analysis.source === "quick_reply" || analysis.intent === "stop") {
@@ -150,7 +155,7 @@ export async function classifyReply(
       path: llm.path,
       intent: analysis.intent,
       confidence: llm.confidence,
-      manualReview: false,
+      manualReview: llm.path === "unclear",
       originalMessage: analysis.originalMessage,
       signals: collectSignals(analysis),
       source: "llm",
@@ -159,11 +164,13 @@ export async function classifyReply(
   }
 
   // No LLM answer → keep deterministic; uncertain text stays manual review.
+  const manualReview =
+    analysis.manualReview || analysis.confidence < MANUAL_REVIEW_THRESHOLD;
   return {
-    path: analysis.manualReview ? "other" : deterministicPath,
+    path: manualReview ? "unclear" : deterministicPath,
     intent: analysis.intent,
     confidence: analysis.confidence,
-    manualReview: analysis.manualReview || analysis.confidence < MANUAL_REVIEW_THRESHOLD,
+    manualReview,
     originalMessage: analysis.originalMessage,
     signals: collectSignals(analysis),
     source: analysis.source,

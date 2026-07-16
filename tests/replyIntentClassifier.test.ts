@@ -80,4 +80,39 @@ describe("ReplyIntentClassifier — analyzeReply (Antwort analysieren KI)", () =
     const a = analyzeReply({ body: "" });
     expect(a.manualReview).toBe(true);
   });
+
+  it("'Ich möchte eine Beratung' → Beratung (consultation), not Rückruf", () => {
+    const a = analyzeReply({ body: "Ich möchte eine Beratung" });
+    expect(a.intent).toBe("consultation");
+    expect(a.flags.consultation).toBe(true);
+    expect(a.flags.callback).toBe(false);
+  });
+
+  it("phone emoji '📞' → Rückruf (callback)", () => {
+    const a = analyzeReply({ body: "📞" });
+    expect(a.intent).toBe("callback");
+    expect(a.flags.callback).toBe(true);
+  });
+
+  it("stop emoji '🛑' → STOPP", () => {
+    const a = analyzeReply({ body: "🛑" });
+    expect(a.intent).toBe("stop");
+    expect(a.flags.stop).toBe(true);
+  });
+
+  it("priority: Rückruf beats Kein Interesse in the same message", () => {
+    const a = analyzeReply({ body: "Eigentlich kein Interesse, aber rufen Sie mich an" });
+    expect(a.intent).toBe("callback");
+  });
+
+  it("priority: STOPP beats everything", () => {
+    const a = analyzeReply({ body: "Kein Interesse, keine weiteren Nachrichten bitte" });
+    expect(a.intent).toBe("stop");
+  });
+
+  it("'selbstständig' → Sonstige Situation (recognised, not manual review)", () => {
+    const a = analyzeReply({ body: "Ich bin selbstständig" });
+    expect(a.intent).toBe("other");
+    expect(a.manualReview).toBe(false);
+  });
 });

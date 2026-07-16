@@ -9,6 +9,7 @@
  * gets two messages at once.
  */
 import {
+  ROUTER_PATHS,
   type WorkflowEdge,
   type WorkflowGraph,
   type WorkflowNode,
@@ -25,10 +26,13 @@ export const WORKFLOW_NAME = {
 const PATH_TAG: Record<WorkflowRouterPath, string> = {
   job_seeking: "arbeitssuchend",
   employed: "beschaeftigt",
+  other: "sonstige_situation",
   more_info: "mehr_infos",
   callback: "rueckruf",
+  consultation: "beratung",
   no_interest: "kein_interesse",
-  other: "sonstige_situation",
+  stop: "abmeldung",
+  unclear: "unklar_pruefen",
 };
 
 export interface ReactivationTemplateIds {
@@ -47,10 +51,23 @@ function edge(id: string, from: string, to: string, extra?: Partial<WorkflowEdge
   return { id, from, to, ...extra };
 }
 
+/** Human task title per callback-style path. */
+const TASK_TITLE: Partial<Record<WorkflowRouterPath, string>> = {
+  callback: "Rückruf gewünscht – Lead anrufen",
+  consultation: "Beratung gewünscht – Termin vereinbaren",
+  other: "Sonstige Situation – bitte klären",
+};
+
 /**
- * Build the six AI-router path sub-graphs. Each path: tag the lead, send the
- * fitting template (if assigned), then a sensible terminal (end / manual review
- * / callback task). Returns the nodes + edges plus the router node id.
+ * Build the nine AI-router path sub-graphs. Every category the classifier can
+ * produce gets its OWN wired output so the operator can attach a template /
+ * task / notice behind each one:
+ *   • job_seeking / employed / more_info → tag → send template → end
+ *   • callback / consultation           → tag → send template → high task → end
+ *   • other (Sonstige)                  → tag → send template → task → end
+ *   • no_interest                       → tag → end
+ *   • stop (Abmeldung)                  → tag → internal notice → end (no send)
+ *   • unclear (manuelle Prüfung)        → tag → manual review (flag + task)
  */
 function buildRouterPaths(
   routerId: string,
@@ -59,16 +76,8 @@ function buildRouterPaths(
 ): { nodes: WorkflowNode[]; edges: WorkflowEdge[] } {
   const nodes: WorkflowNode[] = [];
   const edges: WorkflowEdge[] = [];
-  const order: WorkflowRouterPath[] = [
-    "job_seeking",
-    "employed",
-    "more_info",
-    "callback",
-    "no_interest",
-    "other",
-  ];
 
-  order.forEach((path, i) => {
+  ROUTER_PATHS.forEach((path, i) => {
     const y = 120 + i * 150;
     const tagId = `p_${path}_tag`;
     nodes.push(
@@ -83,13 +92,32 @@ function buildRouterPaths(
     );
     edges.push(edge(`e_router_${path}`, routerId, tagId, { path }));
 
+    // Terminal-only paths (no outbound message).
     if (path === "no_interest") {
       const endId = `p_${path}_end`;
       nodes.push(node({ id: endId, kind: "end", x: baseX + 640, y }));
       edges.push(edge(`e_${path}_end`, tagId, endId));
       return;
     }
-    if (path === "other") {
+    if (path === "stop") {
+      const notifyId = `p_${path}_notify`;
+      nodes.push(
+        node({
+          id: notifyId,
+          kind: "notify",
+          x: baseX + 640,
+          y,
+          note: "Abmeldung/STOPP erkannt – Kontakt zentral sperren und prüfen.",
+          label: "Abmeldung prüfen",
+        }),
+      );
+      edges.push(edge(`e_${path}_notify`, tagId, notifyId));
+      const endId = `p_${path}_end`;
+      nodes.push(node({ id: endId, kind: "end", x: baseX + 960, y }));
+      edges.push(edge(`e_${path}_end`, notifyId, endId));
+      return;
+    }
+    if (path === "unclear") {
       const mrId = `p_${path}_manual`;
       nodes.push(
         node({
@@ -97,13 +125,15 @@ function buildRouterPaths(
           kind: "manualReview",
           x: baseX + 640,
           y,
-          note: "Antwort unklar – bitte im Multichat prüfen.",
+          note: "Antwort unklar – bitte im Multichat prüfen (keine automatische Nachricht).",
+          label: "Manuelle Prüfung",
         }),
       );
       edges.push(edge(`e_${path}_manual`, tagId, mrId));
       return;
     }
 
+    // Paths that send a follow-up template (if the operator assigned one).
     const sendId = `p_${path}_send`;
     nodes.push(
       node({
@@ -112,12 +142,13 @@ function buildRouterPaths(
         x: baseX + 640,
         y,
         templateId: paths[path],
-        label: `Antwort senden (${path})`,
+        label: `Antwort senden (${PATH_TAG[path]})`,
       }),
     );
     edges.push(edge(`e_${path}_send`, tagId, sendId));
 
-    if (path === "callback") {
+    const taskTitle = TASK_TITLE[path];
+    if (taskTitle) {
       const taskId = `p_${path}_task`;
       nodes.push(
         node({
@@ -125,8 +156,8 @@ function buildRouterPaths(
           kind: "createTask",
           x: baseX + 960,
           y,
-          taskTitle: "Rückruf gewünscht – Lead anrufen",
-          taskPriority: "high",
+          taskTitle,
+          taskPriority: path === "other" ? "normal" : "high",
         }),
       );
       edges.push(edge(`e_${path}_task`, sendId, taskId));

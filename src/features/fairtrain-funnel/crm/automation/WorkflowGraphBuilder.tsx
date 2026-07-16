@@ -33,6 +33,7 @@ import {
   type WorkflowNode,
   type WorkflowNodeKind,
   type WorkflowProcessKey,
+  type WorkflowRouterPath,
   type WorkflowTrigger,
   WORKFLOW_TRIGGER_LABEL,
 } from "@/features/fairtrain-funnel/automation/workflow/graph";
@@ -157,6 +158,16 @@ export function WorkflowGraphBuilder({ workflow, templates, users, onClose }: Pr
       edge: fromRfEdge(e),
       sourceKind: src?.data.wf.kind ?? null,
     };
+  }, [selId, nodes, edges]);
+
+  const connectedPaths = useMemo<WorkflowRouterPath[]>(() => {
+    if (selId?.kind !== "node") return [];
+    const n = nodes.find((x) => x.id === selId.id);
+    if (!n || n.data.wf.kind !== "aiRouter") return [];
+    return edges
+      .filter((e) => e.source === selId.id)
+      .map((e) => (e.data as { path?: WorkflowRouterPath } | undefined)?.path)
+      .filter((p): p is WorkflowRouterPath => !!p);
   }, [selId, nodes, edges]);
 
   const onConnect = useCallback(
@@ -310,6 +321,7 @@ export function WorkflowGraphBuilder({ workflow, templates, users, onClose }: Pr
             selection={selection}
             templates={templates}
             users={users}
+            connectedPaths={connectedPaths}
             onNodeChange={patchNode}
             onEdgeChange={patchEdge}
             onDelete={deleteSelection}

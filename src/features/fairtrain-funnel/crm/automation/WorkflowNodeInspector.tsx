@@ -15,6 +15,7 @@ import {
   type WorkflowEdge,
   type WorkflowNode,
   type WorkflowNodeKind,
+  type WorkflowRouterPath,
 } from "@/features/fairtrain-funnel/automation/workflow/graph";
 import type { WorkflowTemplateOption } from "@/features/fairtrain-funnel/automation/workflow/types";
 import { LeadStatus } from "@/features/fairtrain-funnel/types";
@@ -44,6 +45,8 @@ interface Props {
   selection: Selection;
   templates: ReadonlyArray<WorkflowTemplateOption>;
   users: ReadonlyArray<{ id: string; name: string }>;
+  /** For an aiRouter node: which category outputs already have an edge. */
+  connectedPaths?: ReadonlyArray<WorkflowRouterPath>;
   onNodeChange: (patch: Partial<WorkflowNode>) => void;
   onEdgeChange: (patch: Partial<WorkflowEdge>) => void;
   onDelete: () => void;
@@ -53,6 +56,7 @@ export function WorkflowNodeInspector({
   selection,
   templates,
   users,
+  connectedPaths,
   onNodeChange,
   onEdgeChange,
   onDelete,
@@ -120,6 +124,10 @@ export function WorkflowNodeInspector({
           onChange={(e) => onNodeChange({ label: e.target.value })}
         />
       </Field>
+
+      {node.kind === "aiRouter" ? (
+        <RouterOutputs connected={connectedPaths ?? []} />
+      ) : null}
 
       {node.kind === "sendTemplate" ? (
         <Field label="WhatsApp-Vorlage">
@@ -362,6 +370,54 @@ export function WorkflowNodeInspector({
           ) : null}
         </>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * Router outputs overview: lists every category the KI-Antwort-Router can emit
+ * and whether it already has a wired output. The operator draws a connection
+ * from the router to a step, then picks the category on that connection.
+ */
+function RouterOutputs({
+  connected,
+}: {
+  connected: ReadonlyArray<WorkflowRouterPath>;
+}) {
+  const set = new Set(connected);
+  return (
+    <div className="space-y-2">
+      <p className="text-[12px] text-ink-soft">
+        Der KI-Router erkennt eingehende WhatsApp-Antworten (Buttons, Emojis und
+        Freitext) automatisch und ordnet sie genau einer Kategorie zu. Verbinde
+        jede Kategorie mit ihrem eigenen nächsten Schritt: ziehe eine Verbindung
+        vom Router zu einem Schritt und wähle dann auf der Verbindung die
+        passende Kategorie.
+      </p>
+      <ul className="space-y-1">
+        {ROUTER_PATHS.map((p) => {
+          const isSet = set.has(p);
+          return (
+            <li
+              key={p}
+              className="flex items-center justify-between rounded-lg border border-ink/[0.08] bg-surface-subtle/50 px-2.5 py-1.5"
+            >
+              <span className="text-[12.5px] font-medium text-ink">
+                {ROUTER_PATH_LABEL[p]}
+              </span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10.5px] font-semibold ring-1 ${
+                  isSet
+                    ? "bg-emerald-50 text-emerald-700 ring-emerald-200"
+                    : "bg-amber-50 text-amber-700 ring-amber-200"
+                }`}
+              >
+                {isSet ? "verbunden" : "offen"}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

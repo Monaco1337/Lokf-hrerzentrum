@@ -130,6 +130,7 @@ function resolveReplyAnalysis(
       generalInterest: intent === "general_interest",
       noInterest: intent === "no_interest",
       callback: intent === "callback",
+      consultation: intent === "consultation",
       question: intent === "question",
       stop: intent === "stop",
     },

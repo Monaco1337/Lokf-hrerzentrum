@@ -358,16 +358,21 @@ export class WhatsAppWebhookService {
       // fitting follow-up — idempotent, never a duplicate.
       if (isWorkflowEngineEnabled()) {
         const { workflowEngine } = await import("./workflow/WorkflowEngine");
-        await workflowEngine.onInbound(lead.id, replyInput, {
+        const res = await workflowEngine.onInbound(lead.id, replyInput, {
           at: event.at,
           inboundKey: event.providerMessageId,
         });
-        await callbackRequestService.detectAndFlag(lead.id, {
-          actor: "whatsapp-webhook",
-          at: event.at,
-          reason: "whatsapp_reply_callback_signal",
-        });
-        return;
+        if (res.handled) {
+          await callbackRequestService.detectAndFlag(lead.id, {
+            actor: "whatsapp-webhook",
+            at: event.at,
+            reason: "whatsapp_reply_callback_signal",
+          });
+          return;
+        }
+        // Engine active but this lead has no live workflow / active router
+        // (e.g. never enrolled). Do NOT drop the reply — fall through to the
+        // legacy classifier so it is still classified, persisted and answered.
       }
 
       // First: the "Beschäftigten-Statusabfrage" router. It intercepts replies

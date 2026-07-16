@@ -10,6 +10,8 @@ import { useRouter } from "next/navigation";
 
 import {
   PROCESS_KEY_LABEL,
+  ROUTER_PATH_LABEL,
+  ROUTER_PATHS,
   WORKFLOW_TRIGGER_LABEL,
   type WorkflowProcessKey,
 } from "@/features/fairtrain-funnel/automation/workflow/graph";
@@ -20,9 +22,15 @@ import type {
 import {
   deleteWorkflow,
   migrateReactivationToEngine,
+  previewWorkflowBackfill,
+  runWorkflowBackfill,
   seedDefaultWorkflows,
   setWorkflowStatus,
 } from "@/server/actions/workflows";
+import type {
+  WorkflowBackfillPreview,
+  WorkflowBackfillResult,
+} from "@/server/services/workflow/WorkflowBackfillService";
 
 import { WorkflowGraphBuilder } from "./WorkflowGraphBuilder";
 
@@ -52,6 +60,8 @@ export function WorkflowManager({ workflows, templates, users, engineEnabled }: 
   const [editing, setEditing] = useState<WorkflowSummary | null>(null);
   const [creating, setCreating] = useState(false);
   const [flash, setFlash] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [backfill, setBackfill] = useState<WorkflowBackfillPreview | null>(null);
+  const [backfillResult, setBackfillResult] = useState<WorkflowBackfillResult | null>(null);
 
   if (creating) {
     return <WorkflowGraphBuilder workflow={null} templates={templates} users={users} onClose={() => setCreating(false)} />;
@@ -82,6 +92,33 @@ export function WorkflowManager({ workflows, templates, users, engineEnabled }: 
           : { ok: false, msg: res.message },
       );
       router.refresh();
+    });
+  }
+
+  function openBackfill() {
+    setBackfillResult(null);
+    setFlash(null);
+    start(async () => {
+      const res = await previewWorkflowBackfill({ scope: "reactivation" });
+      if (res.ok) setBackfill(res.data);
+      else setFlash({ ok: false, msg: res.message });
+    });
+  }
+
+  function confirmBackfill() {
+    start(async () => {
+      const res = await runWorkflowBackfill({ scope: "reactivation" });
+      if (res.ok) {
+        setBackfillResult(res.data);
+        setBackfill(null);
+        setFlash({
+          ok: true,
+          msg: `Nachverarbeitung fertig: ${res.data.processed} Antworten verarbeitet, ${res.data.manualReview} zur manuellen Prüfung, ${res.data.skipped} übersprungen.`,
+        });
+        router.refresh();
+      } else {
+        setFlash({ ok: false, msg: res.message });
+      }
     });
   }
 
@@ -126,6 +163,9 @@ export function WorkflowManager({ workflows, templates, users, engineEnabled }: 
           <button type="button" disabled={pending} onClick={migrate} className="rounded-xl bg-surface-subtle px-4 py-2 text-[13px] font-semibold text-ink ring-1 ring-ink/10 hover:bg-accent-50 disabled:opacity-50">
             Reaktivierung übernehmen
           </button>
+          <button type="button" disabled={pending} onClick={openBackfill} className="rounded-xl bg-surface-subtle px-4 py-2 text-[13px] font-semibold text-ink ring-1 ring-ink/10 hover:bg-accent-50 disabled:opacity-50">
+            Vorhandene Antworten nachverarbeiten
+          </button>
           <button type="button" onClick={() => setCreating(true)} className="rounded-xl bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm hover:bg-brand-700">
             Neuer Prozess
           </button>
@@ -135,6 +175,69 @@ export function WorkflowManager({ workflows, templates, users, engineEnabled }: 
       {flash ? (
         <div className={`rounded-xl px-4 py-2.5 text-[13px] font-medium ring-1 ${flash.ok ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-rose-50 text-rose-700 ring-rose-200"}`}>
           {flash.msg}
+        </div>
+      ) : null}
+
+      {backfill ? (
+        <div className="space-y-3 rounded-2xl border border-ink/[0.08] bg-white p-5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="font-display text-[15px] font-bold text-navy-950">
+                Vorschau: unbehandelte Antworten nachverarbeiten
+              </h3>
+              <p className="mt-1 text-[12.5px] text-ink-soft">
+                {backfill.eligible} noch nicht klassifizierte Antworten würden über den KI-Router verarbeitet
+                ({backfill.scanned} geprüft, {backfill.skipped} übersprungen). Es werden nur bisher
+                unbehandelte Antworten verarbeitet – bereits klassifizierte, abgemeldete oder manuell
+                bearbeitete Leads bleiben unberührt, keine Nachricht wird doppelt gesendet.
+              </p>
+              {!backfill.hasActiveRouter ? (
+                <p className="mt-1.5 text-[12px] font-medium text-amber-700">
+                  Achtung: Es ist noch kein aktiver Prozess mit KI-Router vorhanden. Bitte zuerst „Standard-Prozesse anlegen“ und aktivieren.
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {ROUTER_PATHS.filter((p) => backfill.byCategory[p] > 0).map((p) => (
+              <div key={p} className="rounded-lg border border-ink/[0.08] bg-surface-subtle/50 px-3 py-2">
+                <p className="text-[11px] text-ink-muted">{ROUTER_PATH_LABEL[p]}</p>
+                <p className="text-[16px] font-bold text-navy-950">{backfill.byCategory[p]}</p>
+              </div>
+            ))}
+          </div>
+
+          {backfill.samples.length > 0 ? (
+            <div className="space-y-1">
+              <p className="text-[11.5px] font-semibold text-ink-soft">Beispiele</p>
+              <ul className="space-y-1">
+                {backfill.samples.map((s) => (
+                  <li key={s.leadId} className="flex items-center gap-2 text-[12px] text-ink-soft">
+                    <span className="shrink-0 rounded-full bg-brand-50 px-2 py-0.5 text-[10.5px] font-semibold text-brand-700">{s.pathLabel}</span>
+                    <span className="min-w-0 flex-1 truncate">{s.name}: „{s.message}“</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          <div className="flex items-center gap-2">
+            <button type="button" disabled={pending || backfill.eligible === 0} onClick={confirmBackfill} className="rounded-xl bg-brand-600 px-4 py-2 text-[13px] font-semibold text-white shadow-sm hover:bg-brand-700 disabled:opacity-50">
+              {pending ? "Verarbeite…" : `Jetzt ${backfill.eligible} verarbeiten`}
+            </button>
+            <button type="button" onClick={() => setBackfill(null)} className="rounded-xl bg-surface-subtle px-4 py-2 text-[13px] font-semibold text-ink ring-1 ring-ink/10 hover:bg-slate-200">
+              Abbrechen
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {backfillResult ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-[12.5px] text-emerald-900">
+          Nachverarbeitung abgeschlossen: {backfillResult.processed} verarbeitet ·
+          {" "}{backfillResult.manualReview} manuelle Prüfung · {backfillResult.skipped} übersprungen ·
+          {" "}{backfillResult.errors} Fehler.
         </div>
       ) : null}
 

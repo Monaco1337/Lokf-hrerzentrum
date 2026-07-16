@@ -17,6 +17,11 @@ import {
   type WorkflowStatus,
 } from "../repositories/WorkflowDefinitionRepository";
 import { workflowSeedService } from "../services/workflow/WorkflowSeedService";
+import {
+  workflowBackfillService,
+  type WorkflowBackfillPreview,
+  type WorkflowBackfillResult,
+} from "../services/workflow/WorkflowBackfillService";
 import { requirePermission, runAction, type Result } from "./_helpers";
 
 const NODE_KINDS = [
@@ -201,6 +206,46 @@ export async function migrateReactivationToEngine(): Promise<
     await requirePermission("canManageAutomations");
     const summary = await workflowSeedService.migrateFromCampaign();
     revalidatePath("/crm/automation");
+    revalidatePath("/crm");
+    return summary;
+  });
+}
+
+const BackfillSchema = z.object({
+  scope: z.enum(["reactivation", "all"]).optional(),
+  limit: z.number().int().min(1).max(10000).optional(),
+});
+
+/** Read-only: preview how many unclassified replies the router would process. */
+export async function previewWorkflowBackfill(
+  raw: unknown,
+): Promise<Result<WorkflowBackfillPreview>> {
+  return runAction(async () => {
+    const parsed = BackfillSchema.safeParse(raw ?? {});
+    if (!parsed.success) throw new ValidationError("Ungültige Anfrage");
+    await requirePermission("canManageAutomations");
+    return workflowBackfillService.preview({
+      scope: parsed.data.scope ?? "reactivation",
+      ...(parsed.data.limit === undefined ? {} : { limit: parsed.data.limit }),
+    });
+  });
+}
+
+/** Route every eligible unclassified reply through the live KI-router. */
+export async function runWorkflowBackfill(
+  raw: unknown,
+): Promise<Result<WorkflowBackfillResult>> {
+  return runAction(async () => {
+    const parsed = BackfillSchema.safeParse(raw ?? {});
+    if (!parsed.success) throw new ValidationError("Ungültige Anfrage");
+    const actor = await requirePermission("canManageAutomations");
+    const summary = await workflowBackfillService.run({
+      actor: actor.id,
+      scope: parsed.data.scope ?? "reactivation",
+      ...(parsed.data.limit === undefined ? {} : { limit: parsed.data.limit }),
+    });
+    revalidatePath("/crm/automation");
+    revalidatePath("/crm/multichat");
     revalidatePath("/crm");
     return summary;
   });
