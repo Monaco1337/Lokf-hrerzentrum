@@ -20,6 +20,11 @@ import {
   ROUTER_PATHS,
   type WorkflowRouterPath,
 } from "@/features/fairtrain-funnel/automation/workflow/graph";
+import type {
+  WorkflowBackfillPreview,
+  WorkflowBackfillResult,
+  WorkflowBackfillSample,
+} from "@/features/fairtrain-funnel/automation/workflow/types";
 import { isWorkflowEngineEnabled } from "@/server/env";
 
 import { auditLogService } from "../AuditLogService";
@@ -41,32 +46,11 @@ interface EligibleLead {
   inboundKey: string;
 }
 
-export interface WorkflowBackfillSample {
-  leadId: string;
-  name: string;
-  message: string;
-  path: WorkflowRouterPath;
-  pathLabel: string;
-}
-
-export interface WorkflowBackfillPreview {
-  engineEnabled: boolean;
-  hasActiveRouter: boolean;
-  scanned: number;
-  eligible: number;
-  skipped: number;
-  byCategory: Record<WorkflowRouterPath, number>;
-  samples: WorkflowBackfillSample[];
-}
-
-export interface WorkflowBackfillResult {
-  eligible: number;
-  processed: number;
-  manualReview: number;
-  skipped: number;
-  errors: number;
-  byCategory: Record<WorkflowRouterPath, number>;
-}
+export type {
+  WorkflowBackfillPreview,
+  WorkflowBackfillResult,
+  WorkflowBackfillSample,
+};
 
 function emptyByCategory(): Record<WorkflowRouterPath, number> {
   const rec = {} as Record<WorkflowRouterPath, number>;

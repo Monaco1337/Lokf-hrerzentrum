@@ -16,6 +16,8 @@ import {
   type WorkflowProcessKey,
 } from "@/features/fairtrain-funnel/automation/workflow/graph";
 import type {
+  WorkflowBackfillPreview,
+  WorkflowBackfillResult,
   WorkflowSummary,
   WorkflowTemplateOption,
 } from "@/features/fairtrain-funnel/automation/workflow/types";
@@ -27,10 +29,6 @@ import {
   seedDefaultWorkflows,
   setWorkflowStatus,
 } from "@/server/actions/workflows";
-import type {
-  WorkflowBackfillPreview,
-  WorkflowBackfillResult,
-} from "@/server/services/workflow/WorkflowBackfillService";
 
 import { WorkflowGraphBuilder } from "./WorkflowGraphBuilder";
 
