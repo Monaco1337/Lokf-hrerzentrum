@@ -207,7 +207,6 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
                     label={WORK_STATUS_LABEL[w]}
                     count={data.workStatusCounts[w]}
                     onClick={() => setWorkFilter(workFilter === w ? "alle" : w)}
-                    tone="emerald"
                   />
                 ) : null,
               )}
@@ -340,16 +339,13 @@ function Chip({
   label,
   count,
   onClick,
-  tone = "slate",
 }: {
   active: boolean;
   label: string;
   count: number;
   onClick: () => void;
-  tone?: "slate" | "emerald";
 }) {
-  const activeCls =
-    tone === "emerald" ? "bg-emerald-500 text-white" : "bg-slate-900 text-white";
+  const activeCls = "bg-emerald-500 text-white";
   return (
     <button
       type="button"
