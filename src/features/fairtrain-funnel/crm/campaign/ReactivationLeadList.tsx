@@ -11,6 +11,7 @@
  * ReactivationCampaign's router.refresh() re-renders this list in sync — a lead
  * that was just contacted immediately flips from "Offen" to "Angeschrieben".
  */
+import type { Route } from "next";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState, useTransition } from "react";
@@ -63,9 +64,8 @@ export function ReactivationLeadList({
         else params.set(k, v);
       }
       const qs = params.toString();
-      startTransition(() =>
-        router.push(qs ? `${pathname}?${qs}` : pathname, { scroll: false }),
-      );
+      const url = (qs ? `${pathname}?${qs}` : pathname) as Route;
+      startTransition(() => router.push(url, { scroll: false }));
     },
     [sp, router, pathname],
   );
@@ -234,7 +234,7 @@ export function ReactivationLeadList({
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <Link
-                      href={`/crm/leads/${r.id}`}
+                      href={`/crm/leads/${r.id}` as Route}
                       className="rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1 text-[12px] font-medium text-slate-700 transition hover:bg-white"
                     >
                       Öffnen
