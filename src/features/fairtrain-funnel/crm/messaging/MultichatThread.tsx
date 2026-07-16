@@ -9,6 +9,8 @@ import { useState } from "react";
 import Link from "next/link";
 
 import {
+  EMPLOYMENT_BUCKET_LABEL,
+  type EmploymentBucket,
   type MultichatConversation,
   WHATSAPP_TRACKING_LABEL,
 } from "@/features/fairtrain-funnel/messaging/types";
@@ -27,6 +29,23 @@ const MULTICHAT_DATE = new Intl.DateTimeFormat("de-DE", {
   hour: "2-digit",
   minute: "2-digit",
 });
+
+const BUCKET_CLASS: Record<EmploymentBucket, string> = {
+  job_seeking: "bg-[#EFF6FF] text-[#1D4ED8] ring-[#BFDBFE]",
+  employed: "bg-[#ECFDF5] text-[#047857] ring-[#A7F3D0]",
+  other: "bg-[#F5F3FF] text-[#6D28D9] ring-[#DDD6FE]",
+};
+
+/** Small pill for the lead's employment situation bucket. */
+export function EmploymentBucketPill({ bucket }: { bucket: EmploymentBucket }) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10.5px] font-semibold ring-1 ring-inset ${BUCKET_CLASS[bucket]}`}
+    >
+      {EMPLOYMENT_BUCKET_LABEL[bucket]}
+    </span>
+  );
+}
 
 const CONTACT_TONE_CLASS: Record<
   (typeof CONTACT_STATE_TONE)[ContactState],
@@ -79,8 +98,13 @@ export function ConversationRow({
         }
       >
         <div className="flex items-center justify-between gap-2">
-          <span className="truncate font-medium text-[#111827]">
-            {convo.leadName}
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="shrink-0 rounded-md bg-[#111827] px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums text-white">
+              #{convo.seq}
+            </span>
+            <span className="truncate font-medium text-[#111827]">
+              {convo.leadName}
+            </span>
           </span>
           <span className="shrink-0 text-[11px] text-[#9CA3AF]">
             {MULTICHAT_TIME.format(new Date(convo.lastAt))}
@@ -88,6 +112,10 @@ export function ConversationRow({
         </div>
         <p className="mt-0.5 truncate text-[13px] text-[#6B7280]">{convo.preview}</p>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <EmploymentBucketPill bucket={convo.employmentBucket} />
+          <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-[#6B7280]">
+            {convo.total} Nachr.
+          </span>
           {convo.numberLabel ? (
             <span className="rounded-full bg-[#EEF2FF] px-2 py-0.5 text-[10.5px] font-medium text-[#4338CA]">
               {convo.numberLabel}
@@ -158,8 +186,14 @@ export function Thread({
       <header className="border-b border-[#EEF0F3] px-4 py-3">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="truncate font-semibold text-[#111827]">
-              {convo.leadName}
+            <div className="flex items-center gap-2">
+              <span className="shrink-0 rounded-md bg-[#111827] px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
+                #{convo.seq}
+              </span>
+              <span className="truncate font-semibold text-[#111827]">
+                {convo.leadName}
+              </span>
+              <EmploymentBucketPill bucket={convo.employmentBucket} />
             </div>
             <div className="truncate text-[12px] text-[#6B7280]">
               {convo.phone}
@@ -167,6 +201,7 @@ export function Thread({
               {convo.assignedName ? ` · ${convo.assignedName}` : ""}
               {convo.source ? ` · ${convo.source}` : ""}
               {` · Score ${convo.leadScore}`}
+              {` · ${convo.total} Nachrichten`}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">

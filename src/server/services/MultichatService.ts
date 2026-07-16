@@ -6,6 +6,7 @@
  * defined in the UI-safe messaging types module.
  */
 import type {
+  EmploymentBucket,
   MultichatConversation,
   MultichatData,
   MultichatMessage,
@@ -25,31 +26,130 @@ interface Row {
   isDemo: boolean;
   businessPhoneNumberId: string | null;
   createdAt: Date;
-  lead: {
-    firstName: string;
-    lastName: string;
-    phone: string;
-    assignedToId: string | null;
-    assignedToUser: { name: string } | null;
-    leadScore: number;
-    whatsappStatus: string;
-    source: string | null;
-    lastWhatsappReplyAt: Date | null;
-    optOut: boolean;
-    contactState: string;
-    automationPaused: boolean;
-    lastManualContactAt: Date | null;
-  } | null;
+}
+
+interface LeadMeta {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  assignedToId: string | null;
+  assignedToUser: { name: string } | null;
+  leadScore: number;
+  whatsappStatus: string;
+  source: string | null;
+  lastWhatsappReplyAt: Date | null;
+  optOut: boolean;
+  contactState: string;
+  automationPaused: boolean;
+  lastManualContactAt: Date | null;
+  tags: string[];
+  employmentStatus: string;
 }
 
 const MESSAGES_PER_THREAD = 60;
 
+/**
+ * Hard safety cap on message rows loaded for the inbox. At current scale the
+ * whole WhatsApp ledger is a few thousand rows, so this never truncates; it
+ * only guards against a pathological future explosion. Even if it ever bit,
+ * the conversation LIST stays complete (it is built from a groupBy, not from
+ * these rows), so no chat silently disappears — only a very old thread's
+ * message bodies would be lazy-loaded on open instead.
+ */
+const MAX_MESSAGE_ROWS = 20000;
+
+/** V2 Beschäftigten-Situation tags that are all "employed" variants. */
+const EMPLOYED_SITUATION_TAGS: ReadonlySet<string> = new Set([
+  "befristung_kuendigung",
+  "kurzarbeit_betriebskrise",
+  "gesundheitliche_gruende",
+  "arbeitsplatz_sicher",
+]);
+
+/**
+ * One conversation → exactly one employment bucket. Classifier tags are the
+ * authoritative signal (set the moment the lead answers the Statusabfrage);
+ * we fall back to the stored employmentStatus, and finally to "other" so a
+ * conversation is never dropped from the buckets.
+ */
+export function deriveEmploymentBucket(
+  tags: readonly string[],
+  employmentStatus: string,
+): EmploymentBucket {
+  if (tags.includes("arbeitssuchend")) return "job_seeking";
+  if (tags.includes("beschaeftigt")) return "employed";
+  if (tags.some((t) => EMPLOYED_SITUATION_TAGS.has(t))) return "employed";
+  if (tags.includes("sonstige_situation")) return "other";
+  switch (employmentStatus) {
+    case "UNEMPLOYED":
+      return "job_seeking";
+    case "EMPLOYED_FULL":
+    case "EMPLOYED_PART":
+    case "MARGINAL":
+      return "employed";
+    default:
+      return "other";
+  }
+}
+
+const LEAD_META_SELECT = {
+  firstName: true,
+  lastName: true,
+  phone: true,
+  assignedToId: true,
+  assignedToUser: { select: { name: true } },
+  leadScore: true,
+  whatsappStatus: true,
+  source: true,
+  lastWhatsappReplyAt: true,
+  optOut: true,
+  contactState: true,
+  automationPaused: true,
+  lastManualContactAt: true,
+  tags: true,
+  employmentStatus: true,
+} as const;
+
 export async function loadMultichat(whatsappLive: boolean): Promise<MultichatData> {
-  const [rows, numberRecords] = await Promise.all([
-    prisma.communicationEvent.findMany({
+  // The conversation list is built from a groupBy — this is the single source
+  // of truth for "which chats exist": exactly one entry per lead (no dupes),
+  // every lead that ever exchanged a WhatsApp message (nothing missing), with
+  // an authoritative total message count that never depends on how many rows
+  // we later load. This is what guarantees the numbered list is complete.
+  const [groups, numberRecords] = await Promise.all([
+    prisma.communicationEvent.groupBy({
+      by: ["leadId"],
       where: { channel: "WHATSAPP" },
+      _count: { _all: true },
+      _max: { createdAt: true },
+    }),
+    whatsAppNumberRepository.listActive(),
+  ]);
+
+  const leadIds = groups.map((g) => g.leadId);
+  if (leadIds.length === 0) {
+    return {
+      conversations: [],
+      numbers: numberRecords.map((n) => ({
+        phoneNumberId: n.phoneNumberId,
+        label: n.label,
+        displayPhone: n.displayPhone,
+      })),
+      whatsappLive,
+      totalConversations: 0,
+      bucketCounts: { job_seeking: 0, employed: 0, other: 0 },
+    };
+  }
+
+  const totalCountByLead = new Map(
+    groups.map((g) => [g.leadId, g._count._all]),
+  );
+
+  const [rows, leadRows] = await Promise.all([
+    prisma.communicationEvent.findMany({
+      where: { channel: "WHATSAPP", leadId: { in: leadIds } },
       orderBy: { createdAt: "desc" },
-      take: 1200,
+      take: MAX_MESSAGE_ROWS,
       select: {
         id: true,
         leadId: true,
@@ -59,79 +159,70 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
         isDemo: true,
         businessPhoneNumberId: true,
         createdAt: true,
-        lead: {
-          select: {
-            firstName: true,
-            lastName: true,
-            phone: true,
-            assignedToId: true,
-            assignedToUser: { select: { name: true } },
-            leadScore: true,
-            whatsappStatus: true,
-            source: true,
-            lastWhatsappReplyAt: true,
-            optOut: true,
-            contactState: true,
-            automationPaused: true,
-            lastManualContactAt: true,
-          },
-        },
       },
     }),
-    whatsAppNumberRepository.listActive(),
+    prisma.lead.findMany({
+      where: { id: { in: leadIds }, deletedAt: null },
+      select: { id: true, ...LEAD_META_SELECT },
+    }),
   ]);
 
   const labelByPhoneId = new Map(
     numberRecords.map((n) => [n.phoneNumberId, n.label]),
   );
+  const leadById = new Map(
+    (leadRows as (LeadMeta & { id: string })[]).map((l) => [l.id, l]),
+  );
 
-  // Group rows (already newest-first) into per-lead conversations.
+  // Seed one conversation per lead FIRST (from the groupBy), so a chat is
+  // present even if — in the safety-cap edge case — none of its messages made
+  // it into the loaded window. Soft-deleted (DSGVO-erased) leads are skipped.
   const map = new Map<string, MultichatConversation>();
-  for (const r of rows as Row[]) {
-    if (!r.lead) continue;
-    const direction = r.direction === "IN" ? "IN" : "OUT";
-    const msg: MultichatMessage = {
-      id: r.id,
-      direction,
-      body: r.payload,
-      status: r.status,
-      isDemo: r.isDemo,
-      businessPhoneNumberId: r.businessPhoneNumberId,
-      createdAt: r.createdAt.toISOString(),
-    };
+  for (const g of groups) {
+    const lead = leadById.get(g.leadId);
+    if (!lead) continue;
+    const name = `${lead.firstName} ${lead.lastName}`.trim();
+    map.set(g.leadId, {
+      leadId: g.leadId,
+      seq: 0,
+      employmentBucket: deriveEmploymentBucket(lead.tags, lead.employmentStatus),
+      leadName: name || lead.phone,
+      phone: lead.phone,
+      assignedUserId: lead.assignedToId,
+      assignedName: lead.assignedToUser?.name ?? null,
+      businessPhoneNumberId: null,
+      numberLabel: null,
+      leadScore: lead.leadScore,
+      whatsappStatus: parseWhatsappStatus(lead.whatsappStatus),
+      source: lead.source,
+      hasNewReply: lead.lastWhatsappReplyAt !== null,
+      optOut: lead.optOut,
+      contactState: parseContactState(lead.contactState),
+      automationPaused: lead.automationPaused,
+      lastManualContactAt: lead.lastManualContactAt?.toISOString() ?? null,
+      lastAt: g._max.createdAt?.toISOString() ?? new Date(0).toISOString(),
+      preview: "",
+      unread: 0,
+      total: totalCountByLead.get(g.leadId) ?? 0,
+      messages: [],
+    });
+  }
 
-    let convo = map.get(r.leadId);
-    if (!convo) {
-      const name = `${r.lead.firstName} ${r.lead.lastName}`.trim();
-      convo = {
-        leadId: r.leadId,
-        leadName: name || r.lead.phone,
-        phone: r.lead.phone,
-        assignedUserId: r.lead.assignedToId,
-        assignedName: r.lead.assignedToUser?.name ?? null,
-        businessPhoneNumberId: r.businessPhoneNumberId,
-        numberLabel: r.businessPhoneNumberId
-          ? labelByPhoneId.get(r.businessPhoneNumberId) ?? null
-          : null,
-        leadScore: r.lead.leadScore,
-        whatsappStatus: parseWhatsappStatus(r.lead.whatsappStatus),
-        source: r.lead.source,
-        hasNewReply: r.lead.lastWhatsappReplyAt !== null,
-        optOut: r.lead.optOut,
-        contactState: parseContactState(r.lead.contactState),
-        automationPaused: r.lead.automationPaused,
-        lastManualContactAt: r.lead.lastManualContactAt?.toISOString() ?? null,
-        lastAt: msg.createdAt,
-        preview: previewOf(direction, r.payload),
-        unread: 0,
-        total: 0,
-        messages: [],
-      };
-      map.set(r.leadId, convo);
-    }
-    convo.total += 1;
+  // Attach messages (rows are newest-first). Per-thread body cap only — the
+  // authoritative `total` already came from the groupBy above.
+  for (const r of rows as Row[]) {
+    const convo = map.get(r.leadId);
+    if (!convo) continue;
     if (convo.messages.length < MESSAGES_PER_THREAD) {
-      convo.messages.push(msg);
+      convo.messages.push({
+        id: r.id,
+        direction: r.direction === "IN" ? "IN" : "OUT",
+        body: r.payload,
+        status: r.status,
+        isDemo: r.isDemo,
+        businessPhoneNumberId: r.businessPhoneNumberId,
+        createdAt: r.createdAt.toISOString(),
+      });
     }
     if (!convo.businessPhoneNumberId && r.businessPhoneNumberId) {
       convo.businessPhoneNumberId = r.businessPhoneNumberId;
@@ -139,10 +230,14 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
     }
   }
 
-  // Finalise: chronological messages + unread count (inbound after last OUT).
+  // Finalise: chronological messages + preview + unread (inbound after last OUT).
   const conversations: MultichatConversation[] = [];
   for (const convo of map.values()) {
     convo.messages.reverse();
+    const last = convo.messages[convo.messages.length - 1];
+    convo.preview = last
+      ? previewOf(last.direction, last.body)
+      : `${convo.total} Nachricht(en)`;
     const lastOutAt = [...convo.messages]
       .reverse()
       .find((m) => m.direction === "OUT")?.createdAt;
@@ -154,6 +249,17 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
 
   conversations.sort((a, b) => (a.lastAt < b.lastAt ? 1 : -1));
 
+  // Stable running number over the COMPLETE list (#1 = newest … #N = oldest).
+  const bucketCounts: Record<EmploymentBucket, number> = {
+    job_seeking: 0,
+    employed: 0,
+    other: 0,
+  };
+  conversations.forEach((c, i) => {
+    c.seq = i + 1;
+    bucketCounts[c.employmentBucket] += 1;
+  });
+
   return {
     conversations,
     numbers: numberRecords.map((n) => ({
@@ -162,6 +268,8 @@ export async function loadMultichat(whatsappLive: boolean): Promise<MultichatDat
       displayPhone: n.displayPhone,
     })),
     whatsappLive,
+    totalConversations: conversations.length,
+    bucketCounts,
   };
 }
 
@@ -178,21 +286,7 @@ export async function loadMultichatConversationForLead(
   const [lead, rows, numberRecords] = await Promise.all([
     prisma.lead.findUnique({
       where: { id: leadId },
-      select: {
-        firstName: true,
-        lastName: true,
-        phone: true,
-        assignedToId: true,
-        assignedToUser: { select: { name: true } },
-        leadScore: true,
-        whatsappStatus: true,
-        source: true,
-        lastWhatsappReplyAt: true,
-        optOut: true,
-        contactState: true,
-        automationPaused: true,
-        lastManualContactAt: true,
-      },
+      select: LEAD_META_SELECT,
     }),
     prisma.communicationEvent.findMany({
       where: { leadId, channel: "WHATSAPP" },
@@ -243,6 +337,8 @@ export async function loadMultichatConversationForLead(
 
   const conversation: MultichatConversation = {
     leadId,
+    seq: 1,
+    employmentBucket: deriveEmploymentBucket(lead.tags, lead.employmentStatus),
     leadName: name || lead.phone,
     phone: lead.phone,
     assignedUserId: lead.assignedToId,

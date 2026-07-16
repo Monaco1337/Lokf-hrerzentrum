@@ -297,8 +297,32 @@ export interface MultichatMessage {
   createdAt: string;
 }
 
+/**
+ * Employment situation bucket for the Multichat overview filter. Derived from
+ * the lead's classifier tags (authoritative) with a fallback to the stored
+ * employmentStatus, so every conversation lands in exactly one bucket:
+ *   • job_seeking → "Arbeitssuchend"
+ *   • employed    → "Beschäftigt" (incl. befristet/Kurzarbeit/Gesundheit/sicher)
+ *   • other       → "Sonstige Situation" (incl. unbekannt)
+ */
+export type EmploymentBucket = "job_seeking" | "employed" | "other";
+
+export const EMPLOYMENT_BUCKET_LABEL: Record<EmploymentBucket, string> = {
+  job_seeking: "Arbeitssuchend",
+  employed: "Beschäftigt",
+  other: "Sonstige Situation",
+};
+
 export interface MultichatConversation {
   leadId: string;
+  /**
+   * Stable 1-based running number within the COMPLETE conversation list (never
+   * affected by the active filter), so operators can immediately verify that
+   * no chat is missing: the list runs #1 … #totalConversations with no gaps.
+   */
+  seq: number;
+  /** Employment situation bucket for the overview filter. */
+  employmentBucket: EmploymentBucket;
   leadName: string;
   phone: string;
   assignedUserId: string | null;
@@ -338,6 +362,10 @@ export interface MultichatData {
   conversations: MultichatConversation[];
   numbers: MultichatNumberOption[];
   whatsappLive: boolean;
+  /** Total number of distinct conversations (== conversations.length). */
+  totalConversations: number;
+  /** Conversation counts per employment bucket, for the filter chips. */
+  bucketCounts: Record<EmploymentBucket, number>;
 }
 
 // ---------------------------------------------------------------------------

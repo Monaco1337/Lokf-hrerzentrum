@@ -10,7 +10,11 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import type { MultichatData } from "@/features/fairtrain-funnel/messaging/types";
+import {
+  EMPLOYMENT_BUCKET_LABEL,
+  type EmploymentBucket,
+  type MultichatData,
+} from "@/features/fairtrain-funnel/messaging/types";
 import type { ManualResolutionId } from "@/features/fairtrain-funnel/types";
 import {
   resolveMultichatConversation,
@@ -21,10 +25,14 @@ import { sendMagicLink } from "@/server/actions/sendMagicLink";
 import { ConversationRow, Thread } from "./MultichatThread";
 
 type Tab = "alle" | "neu";
+type BucketFilter = "alle" | EmploymentBucket;
+
+const BUCKET_ORDER: EmploymentBucket[] = ["job_seeking", "employed", "other"];
 
 export function MultichatInbox({ data }: { data: MultichatData }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("alle");
+  const [bucket, setBucket] = useState<BucketFilter>("alle");
   const [search, setSearch] = useState("");
   const [numberFilter, setNumberFilter] = useState("");
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -40,6 +48,7 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
     const q = search.trim().toLowerCase();
     return data.conversations.filter((c) => {
       if (tab === "neu" && !c.hasNewReply) return false;
+      if (bucket !== "alle" && c.employmentBucket !== bucket) return false;
       if (numberFilter && c.businessPhoneNumberId !== numberFilter) return false;
       if (unreadOnly && c.unread === 0) return false;
       if (!q) return true;
@@ -49,7 +58,7 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
         (c.assignedName ?? "").toLowerCase().includes(q)
       );
     });
-  }, [data.conversations, tab, search, numberFilter, unreadOnly]);
+  }, [data.conversations, tab, bucket, search, numberFilter, unreadOnly]);
 
   const selected =
     data.conversations.find((c) => c.leadId === selectedId) ?? null;
@@ -119,7 +128,7 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
         <div>
           <h1 className="text-xl font-semibold text-[#111827]">Multichat</h1>
           <p className="mt-0.5 text-sm text-[#6B7280]">
-            Alle WhatsApp-Nummern in einem Posteingang
+            {`${data.totalConversations} Chats · alle WhatsApp-Nummern in einem Posteingang`}
             {totalUnread > 0 ? ` · ${totalUnread} ungelesen` : ""}
           </p>
         </div>
@@ -175,6 +184,23 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
               placeholder="Suchen (Name, Nummer, Vertriebler)…"
               className="w-full rounded-lg border border-[#E5E7EB] px-3 py-2 text-sm outline-none focus:border-[#111827]"
             />
+            <div className="flex flex-wrap gap-1.5">
+              <BucketChip
+                active={bucket === "alle"}
+                label="Alle"
+                count={data.totalConversations}
+                onClick={() => setBucket("alle")}
+              />
+              {BUCKET_ORDER.map((b) => (
+                <BucketChip
+                  key={b}
+                  active={bucket === b}
+                  label={EMPLOYMENT_BUCKET_LABEL[b]}
+                  count={data.bucketCounts[b]}
+                  onClick={() => setBucket(b)}
+                />
+              ))}
+            </div>
             <div className="flex gap-2">
               <select
                 value={numberFilter}
@@ -200,6 +226,23 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
                 Ungelesen
               </button>
             </div>
+          </div>
+
+          <div className="flex items-center justify-between border-b border-[#EEF0F3] bg-[#FAFAFA] px-3 py-1.5 text-[11.5px] text-[#6B7280]">
+            <span>
+              {filtered.length === data.totalConversations
+                ? `Alle ${data.totalConversations} Chats`
+                : `${filtered.length} von ${data.totalConversations} Chats`}
+            </span>
+            {tab === "alle" &&
+            bucket === "alle" &&
+            !numberFilter &&
+            !unreadOnly &&
+            !search.trim() ? (
+              <span className="font-medium text-[#15803D]">vollständig</span>
+            ) : (
+              <span className="text-[#9CA3AF]">gefiltert</span>
+            )}
           </div>
 
           <ul className="flex-1 overflow-y-auto">
@@ -243,5 +286,40 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
         </section>
       </div>
     </div>
+  );
+}
+
+function BucketChip({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium transition " +
+        (active
+          ? "bg-[#111827] text-white"
+          : "border border-[#E5E7EB] text-[#374151] hover:bg-[#F9FAFB]")
+      }
+    >
+      {label}
+      <span
+        className={
+          "rounded-full px-1.5 text-[10.5px] font-semibold tabular-nums " +
+          (active ? "bg-white/20 text-white" : "bg-[#F3F4F6] text-[#6B7280]")
+        }
+      >
+        {count}
+      </span>
+    </button>
   );
 }
