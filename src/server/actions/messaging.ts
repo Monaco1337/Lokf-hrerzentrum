@@ -16,7 +16,7 @@ import {
 } from "@/features/fairtrain-funnel/types";
 import { absoluteUrl } from "@/lib/site";
 
-import { ValidationError } from "../errors";
+import { DomainError, ValidationError } from "../errors";
 import { leadRepository } from "../repositories/LeadRepository";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
 import { contactGuardService } from "../services/ContactGuardService";
@@ -195,20 +195,33 @@ export async function sendTemplateMessage(
     }
     const actor = await requirePermission("canManageLeads");
     await assertLeadScopeForActor(actor, parsed.data.leadId);
-    const entry = await messageLedgerService.sendTemplate({
-      leadId: parsed.data.leadId,
-      templateId: parsed.data.templateId,
-      actorId: actor.id,
-      sentBy: "ADMIN",
-      // Operator-initiated send (canManageLeads). Alt-Leads from other ad
-      // sources have no explicit WhatsApp opt-in, and a human is deliberately
-      // reaching out (e.g. Reaktivierung Erstkontakt) — mirror the manual reply
-      // + campaign behaviour. The opt-out block stays fully enforced upstream.
-      bypassConsent: true,
-      // A human deliberately reaching out IS the explicit release — the
-      // contact-protection gate does not apply to an operator-initiated send.
-      bypassContactGuard: true,
-    });
+    let entry;
+    try {
+      entry = await messageLedgerService.sendTemplate({
+        leadId: parsed.data.leadId,
+        templateId: parsed.data.templateId,
+        actorId: actor.id,
+        sentBy: "ADMIN",
+        // Operator-initiated send (canManageLeads). Alt-Leads from other ad
+        // sources have no explicit WhatsApp opt-in, and a human is deliberately
+        // reaching out (e.g. Reaktivierung Erstkontakt) — mirror the manual reply
+        // + campaign behaviour. The opt-out block stays fully enforced upstream.
+        bypassConsent: true,
+        // A human deliberately reaching out IS the explicit release — the
+        // contact-protection gate does not apply to an operator-initiated send.
+        bypassContactGuard: true,
+      });
+    } catch (err) {
+      // Domain errors already carry a clear, user-facing German message — let
+      // them through unchanged. For anything else (provider/network/DB), surface
+      // the REAL reason instead of a generic "Unexpected error", so the operator
+      // (and we) can see what actually went wrong.
+      if (err instanceof DomainError) throw err;
+      // eslint-disable-next-line no-console
+      console.error("[sendTemplateMessage] send failed", err);
+      const reason = err instanceof Error ? err.message : String(err);
+      throw new ValidationError(`Vorlage konnte nicht gesendet werden: ${reason}`);
+    }
     revalidateCommunication(parsed.data.leadId);
     // A real (non-demo) send that failed must surface the provider reason to
     // the user instead of pretending it worked.
