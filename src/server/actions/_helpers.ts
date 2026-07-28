@@ -17,6 +17,7 @@
  */
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 
 import {
   can,
@@ -69,7 +70,13 @@ export async function getRequestContext(): Promise<{
  * This function therefore NEVER returns a null/undefined user and callers can
  * safely dereference `.role`, `.id`, etc. without extra null checks.
  */
-export async function requireCrmUser(): Promise<UserSummary> {
+/**
+ * Per-request memoized so a single render (layout sidebar + page + guards) does
+ * the cookie verify + user DB lookup ONCE instead of 2–3× serialized round-trips
+ * on the single serverless DB connection. `cache()` scope is one request only —
+ * no cross-request/user leakage, no staleness.
+ */
+export const requireCrmUser = cache(async function requireCrmUser(): Promise<UserSummary> {
   const c = await cookies();
   const token = c.get(SESSION_COOKIE)?.value ?? null;
 
@@ -88,7 +95,7 @@ export async function requireCrmUser(): Promise<UserSummary> {
     redirect("/crm/login");
   }
   return user;
-}
+});
 
 /**
  * Non-throwing session probe for surfaces that must ALWAYS render (e.g. the

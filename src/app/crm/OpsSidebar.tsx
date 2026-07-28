@@ -11,6 +11,8 @@
  * work (Bewerber) and the reactivation work are cleanly separated. Every entry
  * collapses into a chevron group and maps 1:1 onto an existing route.
  */
+import { unstable_cache } from "next/cache";
+
 import {
   can,
   type Permission,
@@ -120,6 +122,17 @@ const SECTIONS: ReadonlyArray<RawSection> = [
   },
 ];
 
+/**
+ * The sidebar renders in the CRM LAYOUT (every hard load). Cache the callback
+ * badge count briefly in the cross-instance Data Cache so it doesn't hit the DB
+ * on every load; it reconciles within the TTL and via AutoRefresh.
+ */
+const cachedCallbackRequestCount = unstable_cache(
+  () => leadRepository.countCallbackRequests(),
+  ["crm-sidebar:callbackCount"],
+  { revalidate: 30, tags: ["crm-dashboard"] },
+);
+
 function leafAllowed(role: Role, leaf: RawLeaf): boolean {
   return !leaf.permission || can(role, leaf.permission);
 }
@@ -175,7 +188,7 @@ export async function OpsSidebar() {
       .slice(0, 2)
       .join("")
       .toUpperCase();
-    callbackRequestCount = await leadRepository.countCallbackRequests();
+    callbackRequestCount = await cachedCallbackRequestCount();
   } catch {
     /* Unauthenticated requests are handled by middleware; render minimal shell. */
   }

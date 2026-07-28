@@ -13,6 +13,7 @@
  */
 /* eslint-disable no-restricted-imports -- server-only data loader (no client code); direct DB/service access is intentional and never bundled to the client. */
 import type { Prisma } from "@prisma/client";
+import { unstable_cache } from "next/cache";
 
 import { prisma } from "@/server/db/prisma";
 import { auditLogRepository } from "@/server/repositories/AuditLogRepository";
@@ -439,22 +440,90 @@ async function safe<T>(promise: Promise<T>, fallback: T): Promise<T> {
   }
 }
 
+/**
+ * Short-lived Data-Cache wrappers for each Dashboard section.
+ *
+ * The whole CRM runs on a single serverless DB connection (connection_limit=1),
+ * so the ~14 dashboard queries otherwise run strictly one-after-another on every
+ * visit. Caching each section for a few seconds means repeat visits / rapid
+ * navigation hit the (cross-instance) Data Cache instead of the DB — the page
+ * fills near-instantly. The `safe()` wrappers stay OUTSIDE the cache, so a
+ * transient DB error is never cached (it degrades for that one render only).
+ * All share the `crm-dashboard` tag for optional targeted invalidation, and the
+ * existing 45s AutoRefresh + this TTL keep the numbers current.
+ */
+const DASHBOARD_TTL = 20;
+const cachedByStatus = unstable_cache(loadByStatus, ["crm-dash:byStatus"], {
+  revalidate: DASHBOARD_TTL,
+  tags: ["crm-dashboard"],
+});
+const cachedExtraCounts = unstable_cache(loadExtraCounts, ["crm-dash:extraCounts"], {
+  revalidate: DASHBOARD_TTL,
+  tags: ["crm-dashboard"],
+});
+const cachedCallbacks = unstable_cache(loadCallbacks, ["crm-dash:callbacks"], {
+  revalidate: DASHBOARD_TTL,
+  tags: ["crm-dashboard"],
+});
+const cachedNewFunnelLeads = unstable_cache(loadNewFunnelLeads, ["crm-dash:newFunnel"], {
+  revalidate: DASHBOARD_TTL,
+  tags: ["crm-dashboard"],
+});
+const cachedDocs = unstable_cache(
+  () => portalDocumentRepository.listAwaitingReview(8),
+  ["crm-dash:docs"],
+  { revalidate: DASHBOARD_TTL, tags: ["crm-dashboard"] },
+);
+const cachedWhatsapp = unstable_cache(aggregateWhatsAppKpis, ["crm-dash:whatsapp"], {
+  revalidate: DASHBOARD_TTL,
+  tags: ["crm-dashboard"],
+});
+const cachedTimeline = unstable_cache(loadTimeline, ["crm-dash:timeline"], {
+  revalidate: DASHBOARD_TTL,
+  tags: ["crm-dashboard"],
+});
+
+/**
+ * The Next.js Data Cache serialises values to JSON, so any `Date` that passes
+ * through `unstable_cache` comes back as an ISO string. Revive it to a real
+ * `Date` at the boundary so every consumer keeps the typed `Date` contract
+ * (calling `.getTime()`/formatting) exactly as before caching was introduced.
+ */
+function reviveDate(value: Date | string | null | undefined): Date | null {
+  if (value == null) return null;
+  return value instanceof Date ? value : new Date(value);
+}
+
 export async function loadDashboard(user: UserSummary): Promise<DashboardData> {
-  const [statusData, extra, callbacks, newFunnelLeads, docs, whatsapp, timeline] =
+  const [statusData, extra, callbacksRaw, newFunnelRaw, docs, whatsapp, timelineRaw] =
     await Promise.all([
-      safe(loadByStatus(), { byStatus: emptyByStatus(), newToday: 0 }),
-      safe(loadExtraCounts(), {
+      safe(cachedByStatus(), { byStatus: emptyByStatus(), newToday: 0 }),
+      safe(cachedExtraCounts(), {
         callbacksOpen: 0,
         docsAwaiting: 0,
         qualified: 0,
         needsHandling: 0,
       }),
-      safe(loadCallbacks(), [] as CallbackLead[]),
-      safe(loadNewFunnelLeads(), [] as FunnelLead[]),
-      safe(portalDocumentRepository.listAwaitingReview(8), []),
-      safe(aggregateWhatsAppKpis(), EMPTY_WHATSAPP),
-      safe(loadTimeline(), [] as BusinessEvent[]),
+      safe(cachedCallbacks(), [] as CallbackLead[]),
+      safe(cachedNewFunnelLeads(), [] as FunnelLead[]),
+      safe(cachedDocs(), []),
+      safe(cachedWhatsapp(), EMPTY_WHATSAPP),
+      safe(cachedTimeline(), [] as BusinessEvent[]),
     ]);
+
+  // Revive Dates dropped to strings by the Data Cache (see reviveDate).
+  const callbacks: CallbackLead[] = callbacksRaw.map((c) => ({
+    ...c,
+    lastMessageAt: reviveDate(c.lastMessageAt),
+  }));
+  const newFunnelLeads: FunnelLead[] = newFunnelRaw.map((l) => ({
+    ...l,
+    at: reviveDate(l.at) ?? new Date(0),
+  }));
+  const timeline: BusinessEvent[] = timelineRaw.map((e) => ({
+    ...e,
+    at: reviveDate(e.at) ?? new Date(0),
+  }));
 
   const byStatus = statusData.byStatus;
   const newFunnel = NEW_FUNNEL_STATUSES.reduce(
@@ -475,7 +544,7 @@ export async function loadDashboard(user: UserSummary): Promise<DashboardData> {
       leadId: d.leadId,
       leadName: d.leadName,
       pending: d.pending,
-      latestAt: d.latestAt,
+      latestAt: reviveDate(d.latestAt),
       documents: d.kinds.map(
         (k: PortalDocumentKind) => PORTAL_DOCUMENT_LABEL[k],
       ),
