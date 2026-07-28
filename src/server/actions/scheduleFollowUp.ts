@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 
 import { ScheduleFollowUpSchema } from "@/features/fairtrain-funnel/forms/schemas";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { ValidationError } from "../errors";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
 import { leadService } from "../services/LeadService";
@@ -22,6 +23,7 @@ export async function scheduleFollowUp(
     await leadService.scheduleFollowUp(parsed.data.leadId, when, actor.id);
     revalidatePath(`/crm/leads/${parsed.data.leadId}`);
     revalidatePath(`/crm/leads`);
+    invalidateCrmLeadCaches();
     return {
       leadId: parsed.data.leadId,
       when: parsed.data.when,

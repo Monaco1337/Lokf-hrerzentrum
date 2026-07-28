@@ -16,6 +16,7 @@ import {
   CallOutcomeSchema,
 } from "@/features/fairtrain-funnel/types";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { ValidationError } from "../errors";
 import { callLogRepository } from "../repositories/CallLogRepository";
 import { leadRepository } from "../repositories/LeadRepository";
@@ -104,6 +105,7 @@ export async function logCall(
     revalidatePath(`/crm/leads/${parsed.data.leadId}`);
     revalidatePath("/crm/leads");
     revalidatePath("/crm");
+    invalidateCrmLeadCaches();
     return { id: created.id };
   });
 }

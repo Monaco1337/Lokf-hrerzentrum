@@ -5,6 +5,7 @@ import { z } from "zod";
 import { AddNoteSchema } from "@/features/fairtrain-funnel/forms/schemas";
 import type { NoteEntry } from "@/features/fairtrain-funnel/types";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { ValidationError } from "../errors";
 import { noteRepository } from "../repositories/NoteRepository";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
@@ -29,6 +30,7 @@ export async function addNote(raw: unknown): Promise<Result<NoteEntry>> {
     );
     revalidatePath(`/crm/leads/${parsed.data.leadId}`);
     revalidatePath(`/crm/multichat`);
+    invalidateCrmLeadCaches();
     return note;
   });
 }

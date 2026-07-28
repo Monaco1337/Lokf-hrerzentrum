@@ -11,6 +11,7 @@
 import { AutoRefresh } from "@/features/fairtrain-funnel/crm/operations/AutoRefresh";
 import { CallbackRequestsInbox } from "@/features/fairtrain-funnel/crm/messaging/CallbackRequestsInbox";
 import { requireCrmUser } from "@/server/actions/_helpers";
+import { CRM_LEADS_TAG, cachedCrmRead } from "@/server/cache/crmCache";
 import { loadCallbackRequests } from "@/server/services/CallbackRequestsLoader";
 import { getWhatsAppConfigStatus } from "@/server/services/messaging/whatsappService";
 
@@ -19,7 +20,11 @@ export const dynamic = "force-dynamic";
 export default async function CallbackRequestsPage() {
   await requireCrmUser();
   const live = getWhatsAppConfigStatus().isLive;
-  const data = await loadCallbackRequests(live);
+  const data = await cachedCrmRead(
+    () => loadCallbackRequests(live),
+    ["crm-callback-requests", String(live)],
+    { revalidate: 15, tags: [CRM_LEADS_TAG] },
+  )();
   return (
     <>
       <AutoRefresh intervalMs={30000} />

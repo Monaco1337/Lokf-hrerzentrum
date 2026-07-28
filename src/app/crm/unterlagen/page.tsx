@@ -23,6 +23,7 @@ import {
   type BewerberakteRow,
 } from "@/features/fairtrain-funnel/crm/UnterlagenBoard";
 import { requireCrmUser } from "@/server/actions/_helpers";
+import { CRM_LEADS_TAG, cachedCrmRead } from "@/server/cache/crmCache";
 import { leadRepository } from "@/server/repositories/LeadRepository";
 import { portalDocumentRepository } from "@/server/repositories/PortalDocumentRepository";
 import { applyScope } from "@/server/services/LeadAccess";
@@ -101,21 +102,28 @@ export default async function UnterlagenPage() {
   const currentUser = await requireCrmUser();
   // Only real web-funnel applicants — excludes alt-leads / reactivation contacts.
   const scoped = applyScope({ leadType: "neu" }, currentUser);
-  const leads = await leadRepository.list(scoped, { limit: APPLICANT_LIMIT });
 
-  const docsByLead = await portalDocumentRepository.listForLeads(
-    leads.map((l) => l.id),
-  );
-
-  const applicants: BewerberakteRow[] = leads
-    .map((lead) => buildRow(lead, docsByLead.get(lead.id) ?? []))
-    // Needs-attention first: awaiting review, then incomplete, then newest.
-    .sort(
-      (a, b) =>
-        b.pendingReview - a.pendingReview ||
-        b.missingRequired - a.missingRequired ||
-        b.pct - a.pct,
-    );
+  // Cache the built board per user-scope; served from the shared Data Cache on
+  // repeat visits instead of re-loading all applicants + documents every time.
+  const applicants: BewerberakteRow[] = await cachedCrmRead(
+    async () => {
+      const leads = await leadRepository.list(scoped, { limit: APPLICANT_LIMIT });
+      const docsByLead = await portalDocumentRepository.listForLeads(
+        leads.map((l) => l.id),
+      );
+      return leads
+        .map((lead) => buildRow(lead, docsByLead.get(lead.id) ?? []))
+        // Needs-attention first: awaiting review, then incomplete, then newest.
+        .sort(
+          (a, b) =>
+            b.pendingReview - a.pendingReview ||
+            b.missingRequired - a.missingRequired ||
+            b.pct - a.pct,
+        );
+    },
+    ["crm-unterlagen:board", `${currentUser.role}:${currentUser.id}`],
+    { revalidate: 15, tags: [CRM_LEADS_TAG] },
+  )();
 
   return <UnterlagenBoard applicants={applicants} />;
 }

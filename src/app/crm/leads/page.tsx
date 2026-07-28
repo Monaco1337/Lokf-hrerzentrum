@@ -13,6 +13,7 @@ import {
   WhatsappTrackingStatusSchema,
 } from "@/features/fairtrain-funnel/types";
 import { requireCrmUser } from "@/server/actions/_helpers";
+import { CRM_LEADS_TAG, cachedCrmRead } from "@/server/cache/crmCache";
 import { userRepository } from "@/server/repositories/UserRepository";
 import { leadInsightsService } from "@/server/services/LeadInsightsService";
 import { applyScope } from "@/server/services/LeadAccess";
@@ -138,15 +139,30 @@ export default async function LeadsPage({
 
   const currentUser = await requireCrmUser();
   const filters = applyScope(baseFilters, currentUser);
-  const [leads, userRows] = await Promise.all([
-    leadService.list(filters, { limit: LEADS_VIEW_LIMIT }),
-    userRepository.list({ includeInactive: false }),
-  ]);
-  // Temperature is derived from engagement, so it is filtered after load.
-  const scoped = temperature
-    ? leads.filter((l) => leadTemperature(l) === temperature)
-    : leads;
-  const enriched = await leadInsightsService.enrich(scoped);
-  const users = userRows.map((u) => ({ id: u.id, name: u.name }));
+
+  // Cache the (expensive, full-scope) list per user-scope + filter signature.
+  // Repeat visits / navigation are served from the shared Data Cache instead of
+  // re-running the query on the single serverless DB connection. Invalidated
+  // immediately on any lead write via invalidateCrmLeadCaches().
+  const scopeSig = `${currentUser.role}:${currentUser.id}`;
+  const filterSig = JSON.stringify({ ...baseFilters, temp: temperature ?? null });
+  const load = cachedCrmRead(
+    async () => {
+      const [leads, userRows] = await Promise.all([
+        leadService.list(filters, { limit: LEADS_VIEW_LIMIT }),
+        userRepository.list({ includeInactive: false }),
+      ]);
+      // Temperature is derived from engagement, so it is filtered after load.
+      const scoped = temperature
+        ? leads.filter((l) => leadTemperature(l) === temperature)
+        : leads;
+      const enriched = await leadInsightsService.enrich(scoped);
+      const users = userRows.map((u) => ({ id: u.id, name: u.name }));
+      return { enriched, users };
+    },
+    ["crm-leads:list", scopeSig, filterSig],
+    { revalidate: 15, tags: [CRM_LEADS_TAG] },
+  );
+  const { enriched, users } = await load();
   return <LeadList leads={enriched} filters={baseFilters} users={users} />;
 }

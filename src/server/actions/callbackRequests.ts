@@ -6,6 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { ValidationError } from "../errors";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
 import {
@@ -20,6 +21,7 @@ function revalidateCallbackRequests(leadId?: string): void {
   revalidatePath("/crm/leads");
   revalidatePath("/crm/pipeline");
   if (leadId) revalidatePath(`/crm/leads/${leadId}`);
+  invalidateCrmLeadCaches();
 }
 
 const NEXT_STEPS: ReadonlyArray<CallbackNextStep> = [

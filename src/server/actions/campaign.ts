@@ -14,6 +14,7 @@ import {
   type ReleaseTier,
 } from "@/features/fairtrain-funnel/campaign/types";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { ValidationError } from "../errors";
 import { leadRepository } from "../repositories/LeadRepository";
 import { campaignRepository } from "../repositories/CampaignRepository";
@@ -24,6 +25,7 @@ function revalidate(): void {
   revalidatePath("/crm/campaigns/reaktivierung");
   revalidatePath("/crm/leads");
   revalidatePath("/crm");
+  invalidateCrmLeadCaches();
 }
 
 const ReleaseSchema = z.object({

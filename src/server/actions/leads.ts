@@ -18,6 +18,7 @@ import {
 } from "@/features/fairtrain-funnel/types";
 import { tagsWithFundingStatus } from "@/features/fairtrain-funnel/fundingStatus";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { NotFoundError, ValidationError } from "../errors";
 import { leadRepository } from "../repositories/LeadRepository";
 import { userRepository } from "../repositories/UserRepository";
@@ -38,6 +39,7 @@ function revalidateCrm(leadId?: string) {
   revalidatePath("/crm/sales/followups");
   revalidatePath("/crm/bildungsgutschein");
   revalidatePath("/crm/agenturtermine");
+  invalidateCrmLeadCaches();
 }
 
 // ---------------------------------------------------------------------------

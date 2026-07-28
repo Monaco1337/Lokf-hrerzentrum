@@ -10,6 +10,7 @@ import { z } from "zod";
 
 import { revalidatePath } from "next/cache";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { ValidationError } from "../errors";
 import { automationService } from "../services/AutomationService";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
@@ -33,6 +34,7 @@ export async function sendFirstContactEmail(
       actor.id,
     );
     revalidatePath(`/crm/leads/${parsed.data.leadId}`);
+    invalidateCrmLeadCaches();
     return { status: log.status };
   });
 }
@@ -61,6 +63,7 @@ export async function sendFirstContactBatch(
     }
 
     revalidatePath("/crm/leads");
+    invalidateCrmLeadCaches();
     return { sent, skipped, failed };
   });
 }

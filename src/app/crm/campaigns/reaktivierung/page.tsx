@@ -15,6 +15,7 @@ import { REACTIVATION_CAMPAIGN_KEY } from "@/features/fairtrain-funnel/campaign/
 import { ReactivationCampaign } from "@/features/fairtrain-funnel/crm/campaign/ReactivationCampaign";
 import { ReactivationLeadList } from "@/features/fairtrain-funnel/crm/campaign/ReactivationLeadList";
 import { requireCrmUser } from "@/server/actions/_helpers";
+import { CRM_LEADS_TAG, cachedCrmRead } from "@/server/cache/crmCache";
 import {
   aggregateCampaignKpis,
   loadReactivationOverview,
@@ -54,7 +55,10 @@ export default async function ReactivationCampaignPage({
   const page = Math.max(1, Number.parseInt(String(sp.p ?? "1"), 10) || 1);
   const skip = (page - 1) * PAGE_SIZE;
 
-  const [
+  // Campaign-wide overview + the full imported cohort in ONE cached batch.
+  // Same for every manager, so it's cached globally and served from the shared
+  // Data Cache on repeat visits; invalidated on any lead write.
+  const {
     overview,
     kpis,
     readyCount,
@@ -63,16 +67,41 @@ export default async function ReactivationCampaignPage({
     failedReasons,
     templates,
     cohort,
-  ] = await Promise.all([
-    loadReactivationOverview(),
-    aggregateCampaignKpis(REACTIVATION_CAMPAIGN_KEY),
-    leadRepository.countReadyCampaignLeads(REACTIVATION_CAMPAIGN_KEY),
-    campaignRepository.countDueJobs(new Date()),
-    campaignRepository.countFailedJobs(REACTIVATION_CAMPAIGN_KEY),
-    campaignRepository.failedReasonBreakdown(REACTIVATION_CAMPAIGN_KEY),
-    campaignTemplateService.resolveTemplates(),
-    leadRepository.listReactivationCohort(REACTIVATION_CAMPAIGN_KEY),
-  ]);
+  } = await cachedCrmRead(
+    async () => {
+      const [
+        overview,
+        kpis,
+        readyCount,
+        dueCount,
+        failedCount,
+        failedReasons,
+        templates,
+        cohort,
+      ] = await Promise.all([
+        loadReactivationOverview(),
+        aggregateCampaignKpis(REACTIVATION_CAMPAIGN_KEY),
+        leadRepository.countReadyCampaignLeads(REACTIVATION_CAMPAIGN_KEY),
+        campaignRepository.countDueJobs(new Date()),
+        campaignRepository.countFailedJobs(REACTIVATION_CAMPAIGN_KEY),
+        campaignRepository.failedReasonBreakdown(REACTIVATION_CAMPAIGN_KEY),
+        campaignTemplateService.resolveTemplates(),
+        leadRepository.listReactivationCohort(REACTIVATION_CAMPAIGN_KEY),
+      ]);
+      return {
+        overview,
+        kpis,
+        readyCount,
+        dueCount,
+        failedCount,
+        failedReasons,
+        templates,
+        cohort,
+      };
+    },
+    ["crm-reactivation:overview", REACTIVATION_CAMPAIGN_KEY],
+    { revalidate: 15, tags: [CRM_LEADS_TAG] },
+  )();
 
   // Derive state once, then filter / count / paginate in memory (one DB query).
   const withState = cohort.map((l) => ({

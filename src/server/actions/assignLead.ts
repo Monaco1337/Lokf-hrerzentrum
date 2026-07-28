@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { AuditAction } from "@/features/fairtrain-funnel/types";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { NotFoundError, ValidationError } from "../errors";
 import { leadRepository } from "../repositories/LeadRepository";
 import { userRepository } from "../repositories/UserRepository";
@@ -77,6 +78,7 @@ export async function assignLead(
     revalidatePath(`/crm/leads/${parsed.data.leadId}`);
     revalidatePath("/crm/leads");
     revalidatePath("/crm");
+    invalidateCrmLeadCaches();
     return { leadId: parsed.data.leadId, userId: parsed.data.userId };
   });
 }

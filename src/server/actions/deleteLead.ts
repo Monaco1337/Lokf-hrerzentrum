@@ -6,6 +6,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { ValidationError } from "../errors";
 import { leadService } from "../services/LeadService";
 import { requirePermission, runAction, type Result } from "./_helpers";
@@ -30,6 +31,7 @@ export async function deleteLead(
 
     revalidatePath("/crm/leads");
     revalidatePath("/crm");
+    invalidateCrmLeadCaches();
     return { id: parsed.data.id };
   });
 }

@@ -9,6 +9,7 @@
 import { PipelineBoard } from "@/features/fairtrain-funnel/crm/operations/PipelineBoard";
 import { LeadStatus } from "@/features/fairtrain-funnel/types";
 import { requireCrmUser } from "@/server/actions/_helpers";
+import { CRM_LEADS_TAG, cachedCrmRead } from "@/server/cache/crmCache";
 import { applyScope } from "@/server/services/LeadAccess";
 import { leadInsightsService } from "@/server/services/LeadInsightsService";
 import { leadService } from "@/server/services/LeadService";
@@ -40,7 +41,14 @@ export default async function PipelinePage() {
   // themselves start/complete the Eignungscheck and become "neu" (see
   // LeadService.submit) — mirrors the Dashboard/Leads scoping.
   const scope = applyScope({ status: BOARD_STATUSES, leadType: "neu" }, user);
-  const leads = await leadService.list(scope);
-  const enriched = await leadInsightsService.enrich(leads);
+  const load = cachedCrmRead(
+    async () => {
+      const leads = await leadService.list(scope);
+      return leadInsightsService.enrich(leads);
+    },
+    ["crm-pipeline:board", `${user.role}:${user.id}`],
+    { revalidate: 15, tags: [CRM_LEADS_TAG] },
+  );
+  const enriched = await load();
   return <PipelineBoard leads={enriched} />;
 }

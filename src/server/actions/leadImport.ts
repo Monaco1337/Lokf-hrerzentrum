@@ -15,6 +15,7 @@ import type {
   ImportPreviewRowDto,
 } from "@/features/fairtrain-funnel/campaign/types";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { ValidationError } from "../errors";
 import {
   type AnalyzedRow,
@@ -89,6 +90,7 @@ export async function commitLeadImport(
     revalidatePath("/crm/import");
     revalidatePath("/crm/campaigns/reaktivierung");
     revalidatePath("/crm/leads");
+    invalidateCrmLeadCaches();
     return result;
   });
 }

@@ -7,6 +7,7 @@ import {
   LeadStatusSchema,
 } from "@/features/fairtrain-funnel/types";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { ValidationError } from "../errors";
 import { automationRuleEngine } from "../services/AutomationRuleEngine";
 import { assertLeadScopeForActor } from "../services/LeadAccess";
@@ -57,6 +58,7 @@ export async function updateLeadStatus(
     revalidatePath(`/crm/unterlagen`);
     revalidatePath(`/crm/bildungsgutschein`);
     revalidatePath(`/crm/agenturtermine`);
+    invalidateCrmLeadCaches();
     return { leadId: parsed.data.leadId, status };
   });
 }

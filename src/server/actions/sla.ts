@@ -6,6 +6,7 @@
  */
 import { revalidatePath } from "next/cache";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { slaService, type SlaSweepResult } from "../services/SlaService";
 import { requirePermission, runAction, type Result } from "./_helpers";
 
@@ -14,6 +15,7 @@ export async function runSlaSweepNow(): Promise<Result<SlaSweepResult>> {
     await requirePermission("canManageLeads");
     const result = await slaService.sweep();
     revalidatePath("/crm");
+    invalidateCrmLeadCaches();
     return result;
   });
 }

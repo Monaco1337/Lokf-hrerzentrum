@@ -1,6 +1,7 @@
 "use server";
 import { revalidatePath } from "next/cache";
 
+import { invalidateCrmLeadCaches } from "../cache/crmCache";
 import { statusMachineService } from "../services/StatusMachineService";
 import { requirePermission, runAction, type Result } from "./_helpers";
 
@@ -21,6 +22,7 @@ export async function reconcilePipelineFromWhatsapp(): Promise<
     revalidatePath("/crm/leads");
     revalidatePath("/crm/pipeline");
     revalidatePath("/crm/sales/followups");
+    invalidateCrmLeadCaches();
     return result;
   });
 }
