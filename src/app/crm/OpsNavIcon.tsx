@@ -118,6 +118,13 @@ export function OpsNavIcon({ name }: { name: string }) {
           <path d="M21 12c0 4.4-4 8-9 8-1.4 0-2.7-.3-3.9-.8L3 21l1.6-4.5C3.6 15.2 3 13.7 3 12c0-4.4 4-8 9-8s9 3.6 9 8Z" />
         </svg>
       );
+    case "chat":
+      return (
+        <svg className={s} {...common}>
+          <path d="M8 13.5c0 3-2.6 5.2-6 4.7l-.5 2 2.7-1a6.7 6.7 0 0 0 2.3.4" />
+          <path d="M20 10c0 3.3-3.1 6-7 6-.9 0-1.8-.1-2.6-.4L7 17l.9-2.3A5.6 5.6 0 0 1 6 10c0-3.3 3.1-6 7-6s7 2.7 7 6Z" />
+        </svg>
+      );
     case "spark":
       return (
         <svg className={s} {...common}>

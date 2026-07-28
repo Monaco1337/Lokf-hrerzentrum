@@ -12,13 +12,13 @@
  * same as before.
  */
 import { headers } from "next/headers";
-import Link from "next/link";
 import { Suspense } from "react";
 
 import { AutoRefresh } from "@/features/fairtrain-funnel/crm/operations/AutoRefresh";
 import { OperationsTopHeader } from "@/features/fairtrain-funnel/crm/operations/OperationsTopHeader";
 import { userService } from "@/server/services/UserService";
 
+import { OpsMobileNav } from "./OpsMobileNav";
 import { OpsShellProvider } from "./OpsShellProvider";
 import { OpsSidebar } from "./OpsSidebar";
 
@@ -72,8 +72,11 @@ export default async function CrmLayout({
             <OpsSidebar />
           </Suspense>
           <main className="min-w-0 flex-1">
-            {/* Mobile section nav */}
-            <MobileSectionNav />
+            {/* Phone navigation — premium colour-tile rail (no burger). Hidden
+                from md up where the sidebar/rail takes over. */}
+            <Suspense fallback={<MobileNavSkeleton />}>
+              <OpsMobileNav />
+            </Suspense>
             <div className="px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-7">
               {children}
             </div>
@@ -98,21 +101,18 @@ function TopHeaderSkeleton() {
 }
 
 /**
- * Instant placeholder for the sticky sidebar (matches its 248px width and
- * position) so navigation and the page skeleton appear immediately while the
- * per-user permission/badge query resolves.
+ * Instant placeholder for the sticky sidebar — matches the responsive rail
+ * (76px on tablet) / full (248px on desktop) footprint so there's no layout
+ * shift while the per-user permission/badge query resolves.
  */
 function SidebarSkeleton() {
   return (
-    <aside className="hidden shrink-0 flex-col border-r border-[#EEF0F3] bg-white lg:flex sticky top-[60px] h-[calc(100vh-60px)] w-[248px]">
+    <aside className="hidden shrink-0 flex-col border-r border-[#EEF0F3] bg-white md:flex sticky top-[60px] h-[calc(100vh-60px)] w-[76px] lg:w-[248px]">
       <div className="flex-1 space-y-2 p-2.5">
         {Array.from({ length: 10 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-2.5 rounded-xl px-2.5 py-2"
-          >
-            <div className="h-5 w-5 animate-pulse rounded-md bg-slate-200/70" />
-            <div className="h-3.5 w-28 animate-pulse rounded bg-slate-200/60" />
+          <div key={i} className="flex items-center gap-2.5 rounded-xl px-2 py-1.5">
+            <div className="h-8 w-8 animate-pulse rounded-[10px] bg-slate-200/70" />
+            <div className="hidden h-3.5 w-28 animate-pulse rounded bg-slate-200/60 lg:block" />
           </div>
         ))}
       </div>
@@ -120,36 +120,18 @@ function SidebarSkeleton() {
   );
 }
 
-/**
- * Mobile fallback for the 17-section sidebar — the sidebar itself hides
- * below `lg` to preserve usable canvas space on tablets and phones.
- * Renders a horizontally scrollable chip strip with the top 8 destinations.
- */
-function MobileSectionNav() {
-  const items: Array<{ href: string; label: string }> = [
-    { href: "/crm", label: "Dashboard" },
-    { href: "/crm/leads", label: "Leads" },
-    { href: "/crm/pipeline", label: "Pipeline" },
-    { href: "/crm/campaigns/reaktivierung", label: "Reaktivierung" },
-    { href: "/crm/multichat", label: "Multi-Chat" },
-    { href: "/crm/import", label: "Lead-Import" },
-    { href: "/crm/unterlagen", label: "Bewerberakte" },
-    { href: "/crm/agenturtermine", label: "Termine" },
-  ];
+/** Instant placeholder for the phone rail (matches its height, no layout shift). */
+function MobileNavSkeleton() {
   return (
-    <nav className="lg:hidden border-b border-[#EEF0F3] bg-white">
-      <ul className="flex gap-1 overflow-x-auto px-3 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {items.map((i) => (
-          <li key={i.href} className="shrink-0">
-            <Link
-              href={i.href as never}
-              className="rounded-full border border-[#E5E7EB] bg-white px-3 py-1.5 text-[12px] font-medium text-[#374151] transition hover:bg-[#F9FAFB] hover:text-[#111827]"
-            >
-              {i.label}
-            </Link>
-          </li>
+    <div className="md:hidden sticky top-[60px] z-30 border-b border-[#EEF0F3] bg-white">
+      <div className="flex gap-1.5 overflow-hidden px-3 py-2.5">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="flex w-[68px] shrink-0 flex-col items-center gap-1.5 py-1.5">
+            <div className="h-9 w-9 animate-pulse rounded-[12px] bg-slate-200/70" />
+            <div className="h-2.5 w-12 animate-pulse rounded bg-slate-200/60" />
+          </div>
         ))}
-      </ul>
-    </nav>
+      </div>
+    </div>
   );
 }
