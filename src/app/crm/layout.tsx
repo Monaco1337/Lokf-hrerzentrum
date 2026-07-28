@@ -13,6 +13,7 @@
  */
 import { headers } from "next/headers";
 import Link from "next/link";
+import { Suspense } from "react";
 
 import { AutoRefresh } from "@/features/fairtrain-funnel/crm/operations/AutoRefresh";
 import { OperationsTopHeader } from "@/features/fairtrain-funnel/crm/operations/OperationsTopHeader";
@@ -57,12 +58,19 @@ export default async function CrmLayout({
             only on the Dashboard. */}
         <AutoRefresh />
 
-        {/* Sticky top bar */}
-        <OperationsTopHeader />
+        {/* Sticky top bar — streamed so the shell paints instantly instead of
+            blocking on the header's live health counts. */}
+        <Suspense fallback={<TopHeaderSkeleton />}>
+          <OperationsTopHeader />
+        </Suspense>
 
         {/* Layout body: sidebar + content */}
         <div className="flex">
-          <OpsSidebar />
+          {/* Sidebar streamed too: the page skeleton + nav appear immediately
+              while the per-user permission/badge query resolves. */}
+          <Suspense fallback={<SidebarSkeleton />}>
+            <OpsSidebar />
+          </Suspense>
           <main className="min-w-0 flex-1">
             {/* Mobile section nav */}
             <MobileSectionNav />
@@ -73,6 +81,42 @@ export default async function CrmLayout({
         </div>
       </div>
     </OpsShellProvider>
+  );
+}
+
+/**
+ * Instant, layout-shift-free placeholder for the sticky top header while its
+ * live health counts stream in. Matches the real header's 60px height.
+ */
+function TopHeaderSkeleton() {
+  return (
+    <div className="sticky top-0 z-30 flex h-[60px] items-center justify-between border-b border-[#EEF0F3] bg-white px-4 sm:px-6">
+      <div className="h-6 w-40 animate-pulse rounded-lg bg-slate-200/70" />
+      <div className="h-8 w-8 animate-pulse rounded-full bg-slate-200/70" />
+    </div>
+  );
+}
+
+/**
+ * Instant placeholder for the sticky sidebar (matches its 248px width and
+ * position) so navigation and the page skeleton appear immediately while the
+ * per-user permission/badge query resolves.
+ */
+function SidebarSkeleton() {
+  return (
+    <aside className="hidden shrink-0 flex-col border-r border-[#EEF0F3] bg-white lg:flex sticky top-[60px] h-[calc(100vh-60px)] w-[248px]">
+      <div className="flex-1 space-y-2 p-2.5">
+        {Array.from({ length: 10 }).map((_, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2.5 rounded-xl px-2.5 py-2"
+          >
+            <div className="h-5 w-5 animate-pulse rounded-md bg-slate-200/70" />
+            <div className="h-3.5 w-28 animate-pulse rounded bg-slate-200/60" />
+          </div>
+        ))}
+      </div>
+    </aside>
   );
 }
 
