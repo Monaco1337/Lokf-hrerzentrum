@@ -14,7 +14,7 @@
  */
 import Link from "next/link";
 import type { Route } from "next";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import type { DashboardData } from "./DashboardLoader";
 import { DashboardCallbacks } from "./DashboardCallbacks";
@@ -40,12 +40,41 @@ interface KpiCard {
   icon: ReactNode;
 }
 
-const KPI_TONE: Record<KpiTone, { ring: string; icon: string; value: string }> = {
-  blue: { ring: "hover:ring-blue-200", icon: "bg-blue-50 text-blue-600", value: "text-blue-700" },
-  orange: { ring: "hover:ring-orange-200", icon: "bg-orange-50 text-orange-600", value: "text-orange-700" },
-  sky: { ring: "hover:ring-sky-200", icon: "bg-sky-50 text-sky-600", value: "text-sky-700" },
-  emerald: { ring: "hover:ring-emerald-200", icon: "bg-emerald-50 text-emerald-600", value: "text-emerald-700" },
+const KPI_TONE: Record<
+  KpiTone,
+  { ring: string; icon: string; value: string; spark: string }
+> = {
+  blue: { ring: "hover:ring-blue-200", icon: "bg-blue-50 text-blue-600", value: "text-blue-700", spark: "#60a5fa" },
+  orange: { ring: "hover:ring-orange-200", icon: "bg-orange-50 text-orange-600", value: "text-orange-700", spark: "#fb923c" },
+  sky: { ring: "hover:ring-sky-200", icon: "bg-sky-50 text-sky-600", value: "text-sky-700", spark: "#38bdf8" },
+  emerald: { ring: "hover:ring-emerald-200", icon: "bg-emerald-50 text-emerald-600", value: "text-emerald-700", spark: "#4ade80" },
 };
+
+/**
+ * A restrained decorative trend flourish that mirrors the reference's KPI
+ * silhouette. Purely visual (aria-hidden) — it makes no numeric claim, so no
+ * business metric is fabricated.
+ */
+function Sparkline({ color }: { color: string }) {
+  return (
+    <svg
+      aria-hidden
+      width="76"
+      height="26"
+      viewBox="0 0 76 26"
+      fill="none"
+      className="shrink-0 opacity-90"
+    >
+      <path
+        d="M1 20 L12 16 L22 18 L33 10 L44 13 L55 6 L64 9 L75 4"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
 
 function FunnelIcon() {
   return (
@@ -98,7 +127,10 @@ function KpiCardView({ card }: { card: KpiCard }) {
       <p className={`mt-4 text-[42px] font-bold leading-none tabular-nums ${t.value}`}>
         {card.value}
       </p>
-      <p className="mt-2 text-[13px] font-semibold text-ink-soft">{card.label}</p>
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <p className="text-[13px] font-semibold text-ink-soft">{card.label}</p>
+        <Sparkline color={t.spark} />
+      </div>
     </>
   );
   const cls = `group flex flex-col rounded-2xl border border-ink/[0.07] bg-white p-5 shadow-card ring-1 ring-transparent transition ${t.ring}`;
@@ -221,7 +253,14 @@ export function Dashboard(data: DashboardData) {
 
   return (
     <div className="space-y-6">
-      <header className="ops-hero relative flex flex-col gap-1 rounded-2xl px-6 py-7 sm:px-8 sm:py-9">
+      <header
+        className="ops-hero relative flex min-h-[172px] flex-col justify-center gap-1 rounded-2xl px-6 py-7 sm:px-8 sm:py-9"
+        style={
+          {
+            "--ops-hero-image": "url(/brand/dashboard-hero.jpg)",
+          } as CSSProperties
+        }
+      >
         <span aria-hidden className="ops-hero__art" />
         <p className="relative text-[11px] font-bold uppercase tracking-[0.16em] text-[#6b776f]">
           Dashboard · Operations Center
