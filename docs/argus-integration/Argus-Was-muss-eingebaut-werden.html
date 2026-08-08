@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<title>Was muss Argus einbauen?</title>
+<style>
+  :root{
+    --green:#2E7D4F; --green-d:#24603D; --green-l:#EEF5EF; --green-l2:#F4F9F5;
+    --ink:#1B241E; --title:#141A16; --gray:#6B7280; --gray2:#8A9098;
+    --line:#E6E8EA; --card:#FFFFFF; --amber:#B45309;
+  }
+  *{ box-sizing:border-box; }
+  html{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  body{
+    font-family:"Helvetica Neue",Arial,-apple-system,"Segoe UI",Roboto,sans-serif;
+    color:var(--ink); margin:0; font-size:8.9pt; line-height:1.32;
+    background:#fff;
+  }
+  @page{ size:A4; margin:10mm 12mm 12mm 12mm; }
+  .wrap{ position:relative; }
+
+  /* Header */
+  .top{ display:flex; align-items:center; justify-content:space-between; padding-bottom:8px; }
+  .logo{ display:flex; align-items:center; gap:9px; }
+  .logo .badge{ width:40px; height:40px; }
+  .logo .wm{ line-height:1; }
+  .logo .wm .l1{ font-weight:800; font-size:13.5pt; letter-spacing:.3px; color:var(--green-d); }
+  .logo .wm .l1 b{ color:var(--green); }
+  .logo .wm .l2{ font-size:5.4pt; letter-spacing:1.6px; color:var(--gray2); margin-top:2px; font-weight:700; }
+  .partners{ display:flex; align-items:center; gap:12px; color:#3a4a55; }
+  .partners .p{ display:flex; align-items:center; gap:6px; font-weight:800; font-size:9pt; letter-spacing:.5px; }
+  .partners .divider{ width:1px; height:20px; background:var(--line); }
+  .partners .dot{ display:inline-flex; }
+  .rule{ height:1px; background:var(--line); margin:2px 0 14px; }
+
+  .kicker{ color:var(--green); font-weight:800; letter-spacing:2.2px; font-size:7.6pt; text-transform:uppercase; }
+  h1{ font-size:20pt; color:var(--title); margin:3px 0 6px; letter-spacing:-.4px; font-weight:800; }
+  .intro{ color:var(--gray); font-size:9pt; max-width:172mm; margin:0 0 10px; }
+  .intro b{ color:var(--ink); }
+
+  /* Section headers with numbered circle */
+  .sec-title{ display:flex; align-items:center; gap:9px; margin:0 0 6px; }
+  .num{ width:22px; height:22px; border-radius:999px; background:var(--green); color:#fff;
+        font-weight:800; font-size:10pt; display:inline-flex; align-items:center; justify-content:center; }
+  .sec-title h2{ font-size:12.5pt; margin:0; color:var(--title); font-weight:800; }
+
+  .cols{ display:grid; grid-template-columns:1fr 1fr; gap:11px; align-items:start; }
+
+  .card{ border:1px solid var(--line); border-radius:13px; background:var(--card); padding:9px 12px;
+         box-shadow:0 1px 2px rgba(16,40,25,.04); }
+  .card.tint{ background:var(--green-l2); border-color:#DCEBE0; }
+
+  .item{ display:flex; gap:10px; padding:4.5px 0; border-bottom:1px solid #EEF1EE; }
+  .item:last-child{ border-bottom:0; }
+  .item .ic{ flex:0 0 26px; width:26px; height:26px; border-radius:8px; display:inline-flex;
+             align-items:center; justify-content:center; }
+  .ic.g{ background:#E7F2EA; } .ic.b{ background:#E7EFFA; } .ic.a{ background:#FBF0DD; }
+  .item .tx{ flex:1; }
+  .item .tx .h{ font-weight:800; font-size:9.6pt; color:var(--ink); }
+  .item .tx .d{ color:var(--gray); font-size:8.7pt; margin-top:1px; }
+  .item .tx .d .chip{ display:inline-block; background:#fff; border:1px solid var(--line);
+        border-radius:5px; padding:0 5px; font-size:7.8pt; color:var(--green-d); font-weight:700; margin:1px 2px 1px 0; }
+
+  .whoami{ margin-top:9px; border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .whoami .row{ display:grid; grid-template-columns:120px 1fr; }
+  .whoami .row + .row{ border-top:1px solid var(--line); }
+  .whoami .lab{ background:#F6F8F6; padding:6px 12px; font-weight:800; font-size:8.8pt; color:var(--green-d); display:flex; align-items:center; gap:7px; }
+  .whoami .val{ padding:6px 12px; color:var(--ink); font-size:8.8pt; }
+  .whoami .val b{ color:var(--ink); }
+
+  .callout{ margin-top:9px; background:var(--green-l); border:1px solid #D6E7DB; border-left:4px solid var(--green);
+            border-radius:12px; padding:10px 12px; display:flex; gap:12px; align-items:flex-start; }
+  .callout .cic{ flex:0 0 26px; }
+  .callout .ct .t{ font-weight:800; color:var(--green-d); font-size:10pt; }
+  .callout .ct .s{ color:#3a4a40; font-size:9pt; margin-top:3px; }
+
+  .qbox{ margin-top:8px; background:#FBF7EE; border:1px solid #F0E4C8; border-radius:10px; padding:7px 11px;
+         font-size:8.5pt; color:#6b5a2e; }
+  .qbox b{ color:var(--amber); }
+
+  .foot{ display:flex; justify-content:space-between; margin-top:12px;
+         color:var(--gray2); font-size:7.6pt; border-top:1px solid var(--line); padding-top:6px; }
+  svg{ display:block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- HEADER -->
+  <div class="top">
+    <div class="logo">
+      <svg class="badge" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="24" cy="24" r="23" fill="#fff" stroke="#2E7D4F" stroke-width="2"/>
+        <!-- skyline -->
+        <g fill="#2E7D4F" opacity="0.35">
+          <rect x="9" y="16" width="4" height="14"/><rect x="14" y="12" width="3" height="18"/>
+          <rect x="31" y="14" width="3" height="16"/><rect x="35" y="18" width="4" height="12"/>
+        </g>
+        <!-- train -->
+        <g fill="#2E7D4F">
+          <path d="M17 30c0-5 3-8 7-8s7 3 7 8v3H17z"/>
+          <rect x="19.5" y="25" width="9" height="4" rx="1" fill="#fff"/>
+          <circle cx="20" cy="35" r="2"/><circle cx="28" cy="35" r="2"/>
+          <rect x="15" y="33" width="18" height="1.6" rx=".8"/>
+        </g>
+      </svg>
+      <div class="wm">
+        <div class="l1">LOKFÜHRER<b>ZENTRUM</b></div>
+        <div class="l2">DEIN EINSTIEG. DEINE ZUKUNFT. DEIN WEG.</div>
+      </div>
+    </div>
+    <div class="partners">
+      <span class="p"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="none" stroke="#2E7D4F" stroke-width="1.6"/><circle cx="8" cy="8" r="2.4" fill="#2E7D4F"/></svg>AGI WORKS</span>
+      <span class="divider"></span>
+      <span class="p"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M8 1l6 3.5v7L8 15 2 11.5v-7z" fill="none" stroke="#1B241E" stroke-width="1.4"/></svg>NEXCELAI</span>
+    </div>
+  </div>
+  <div class="rule"></div>
+
+  <!-- TITLE -->
+  <div class="kicker">Technische Klärung · Integration Argus</div>
+  <h1>Was muss Argus einbauen?</h1>
+  <p class="intro">Unser <b>Lokführerzentrum CRM</b> übernimmt die komplette Leadgewinnung, Kommunikation und
+  KI‑Qualifizierung — und liefert Argus am Ende nur das fertige, qualifizierte Ergebnis.
+  <b>Argus muss unser System nicht nachbauen.</b> Nötig sind lediglich ein Empfang der Daten, ein Speicherort dafür
+  und die Statusrückmeldung. Die gesamte Übersetzungs‑ und Absicherungslogik läuft auf unserer Seite.</p>
+
+  <div class="cols">
+    <!-- LEFT: what Argus must build -->
+    <div>
+      <div class="sec-title"><span class="num">1</span><h2>Das muss Argus einbauen</h2></div>
+      <div class="card">
+        <div class="item">
+          <span class="ic b"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h10"/></svg></span>
+          <div class="tx"><div class="h">Empfangs‑Endpunkt für Leads</div>
+            <div class="d">Bestehende REST‑API bereitstellen oder Endpunkt anlegen, der einen Lead entgegennimmt und <b>unsere Lead‑ID (externe ID) speichert</b> und zurückgibt.</div></div>
+        </div>
+        <div class="item">
+          <span class="ic b"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h5"/></svg></span>
+          <div class="tx"><div class="h">Felder für die zu speichernden Daten</div>
+            <div class="d">Nur für das, was Argus dauerhaft behalten will (z.&nbsp;B. Herkunft, KI‑Zusammenfassung, Eignungscheck). Nicht relevante Felder dürfen ignoriert werden.</div></div>
+        </div>
+        <div class="item">
+          <span class="ic b"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg></span>
+          <div class="tx"><div class="h">Dokument‑Empfang</div>
+            <div class="d">Download über eine <b>signierte URL</b> von uns (empfohlen) oder Upload akzeptieren. Danach <code>document.received</code> zurückmelden.</div></div>
+        </div>
+        <div class="item">
+          <span class="ic b"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M4 4v6h6M20 20v-6h-6"/><path d="M20 8a8 8 0 00-14-3M4 16a8 8 0 0014 3"/></svg></span>
+          <div class="tx"><div class="h">Status‑Rückmeldung (Webhooks)</div>
+            <div class="d">Bei jeder Änderung ein Event an uns senden:
+              <span class="chip">Bearbeitung</span><span class="chip">Termine</span><span class="chip">Bildungsgutschein</span><span class="chip">Dokumente</span><span class="chip">Abschluss</span>
+              Falls keine Webhooks möglich: Status‑Abfrage‑Endpunkt (Polling).</div></div>
+        </div>
+        <div class="item">
+          <span class="ic b"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/></svg></span>
+          <div class="tx"><div class="h">Authentifizierung &amp; Idempotenz</div>
+            <div class="d">OAuth2 oder API‑Key über HTTPS. Einen <b>Idempotency‑Key</b> je Request akzeptieren (verhindert Doppel‑Leads).</div></div>
+        </div>
+        <div class="item">
+          <span class="ic b"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2"><path d="M4 5h16v10H4z"/><path d="M8 19h8"/></svg></span>
+          <div class="tx"><div class="h">Testumgebung</div>
+            <div class="d">Ein Staging/Test‑System mit separaten Zugangsdaten für einen End‑to‑End‑Test der Übergabe.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT: what runs on our side without problems -->
+    <div>
+      <div class="sec-title"><span class="num" style="background:var(--green-d)">2</span><h2>Das läuft bei uns ohne Probleme</h2></div>
+      <div class="card tint">
+        <div class="item">
+          <span class="ic g"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2.2"><path d="M20 6L9 17l-5-5"/></svg></span>
+          <div class="tx"><div class="h">Alle Lead‑Daten senden</div>
+            <div class="d">Stammdaten, Herkunft, Funnel/Eignungscheck, KI‑Zusammenfassung, Qualifizierungsstatus — als sauberes JSON. Keine Größenprobleme.</div></div>
+        </div>
+        <div class="item">
+          <span class="ic g"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2.2"><path d="M20 6L9 17l-5-5"/></svg></span>
+          <div class="tx"><div class="h">Alle Dokumente bereitstellen</div>
+            <div class="d">Dauerhaft gespeichert, mit Prüfsumme (sha256).
+              <span class="chip">PDF</span><span class="chip">JPG</span><span class="chip">PNG</span><span class="chip">WEBP</span> bis 15&nbsp;MB.</div></div>
+        </div>
+        <div class="item">
+          <span class="ic g"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2.2"><path d="M20 6L9 17l-5-5"/></svg></span>
+          <div class="tx"><div class="h">Sichere Download‑Links</div>
+            <div class="d">Signierte, zeitlich begrenzte URLs — Argus lädt bei Bedarf, ohne Login. Widerrufbar und protokolliert.</div></div>
+        </div>
+        <div class="item">
+          <span class="ic g"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2.2"><path d="M20 6L9 17l-5-5"/></svg></span>
+          <div class="tx"><div class="h">Übersetzung &amp; Mapping</div>
+            <div class="d">Unser <b>Adapter</b> passt unsere Daten an das Format von Argus an — die Anpassung liegt bei uns, nicht bei Argus.</div></div>
+        </div>
+        <div class="item">
+          <span class="ic g"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2.2"><path d="M20 6L9 17l-5-5"/></svg></span>
+          <div class="tx"><div class="h">Zuverlässigkeit</div>
+            <div class="d">Automatische Wiederholung bei Fehlern (Retry), Idempotenz und vollständiges Audit‑Log — komplett auf unserer Seite.</div></div>
+        </div>
+        <div class="item">
+          <span class="ic g"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2.2"><path d="M20 6L9 17l-5-5"/></svg></span>
+          <div class="tx"><div class="h">Statusverarbeitung</div>
+            <div class="d">Eingehende Argus‑Events werden automatisch in unserem CRM verbucht und im Reporting sichtbar.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WHO DOES WHAT -->
+  <div class="whoami">
+    <div class="row">
+      <div class="lab"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c0-3.5 3-6 7-6s7 2.5 7 6"/></svg>Wir (CRM)</div>
+      <div class="val">Leadgewinnung, WhatsApp, KI‑Qualifizierung, Funnel · <b>Datenübertragung, Übersetzung/Mapping, signierte Links, Retry, Idempotenz, Audit</b></div>
+    </div>
+    <div class="row">
+      <div class="lab"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#24603D" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 12l2 2 4-4"/></svg>Argus</div>
+      <div class="val"><b>Empfangen, speichern, zurückmelden</b> · operative Bearbeitung (Beratung, Termine, Bildungsgutschein, Vertrag, Einschreibung, Abschluss)</div>
+    </div>
+  </div>
+
+  <!-- KEY CALLOUT -->
+  <div class="callout">
+    <span class="cic"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#2E7D4F" stroke-width="2"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1.2" fill="#2E7D4F" stroke="none"/></svg></span>
+    <div class="ct">
+      <div class="t">Argus muss NICHT unser gesamtes System nachbauen.</div>
+      <div class="s">Nur ein paar Felder anlegen, die Daten empfangen und den Status zurückmelden. Die komplette Übersetzung, Absicherung und Wiederholungslogik übernimmt unser Adapter. Wie groß der Aufwand für Argus wird, hängt allein davon ab, was Argus heute schon kann.</div>
+    </div>
+  </div>
+
+  <div class="qbox"><b>Entscheidende Frage an Argus:</b> „Gibt es bereits eine REST‑API mit Doku, könnt ihr Webhooks senden und eine externe Lead‑ID speichern?" — Die Antwort bestimmt, ob der Aufwand klein oder mittel ist.</div>
+
+</div>
+
+<div class="foot">
+  <span>API‑Integrationskonzept – Lokführerzentrum CRM ↔ Argus</span>
+  <span>Zusatzblatt · Technische Klärung</span>
+</div>
+</body>
+</html>

@@ -408,6 +408,109 @@
     border-color: var(--border-subtle) !important;
   }
 
+  /* ==================================================================== */
+  /* Coverage gap-fill — light utilities still used by the pages that are  */
+  /* not yet on the bespoke `.dash-*` system (Leads, Rückrufe, Bewerber-   */
+  /* portal, Mitarbeiter, Automation, Reporting, Einstellungen …). Mapping */
+  /* them here makes every remaining surface coherent + fully legible on   */
+  /* the dark canvas, with no per-file rewrite. `.dash-*` components never  */
+  /* use these classes, so nothing bespoke is affected.                    */
+  /* ==================================================================== */
+
+  /* Black hairlines / rings / dividers → white hairlines on dark. */
+  [data-ops] .border-black\/5,
+  [data-ops] .border-black\/\[0\.05\],
+  [data-ops] .border-black\/\[0\.06\] {
+    border-color: var(--border-subtle) !important;
+  }
+  [data-ops] .border-black\/\[0\.08\],
+  [data-ops] .border-black\/10 {
+    border-color: var(--border-default) !important;
+  }
+  [data-ops] .ring-black\/5,
+  [data-ops] .ring-black\/\[0\.05\],
+  [data-ops] .ring-black\/\[0\.06\] {
+    --tw-ring-color: var(--border-subtle) !important;
+  }
+  [data-ops] .divide-black\/5 > * + *,
+  [data-ops] .divide-black\/\[0\.04\] > * + *,
+  [data-ops] .divide-black\/\[0\.05\] > * + *,
+  [data-ops] .divide-black\/\[0\.06\] > * + * {
+    border-color: var(--border-subtle) !important;
+  }
+
+  /* Headings / body text that were previously dark-on-dark. */
+  [data-ops] .text-slate-800,
+  [data-ops] .text-slate-900 {
+    color: var(--text-primary) !important;
+  }
+  [data-ops] .text-slate-300 {
+    color: var(--text-secondary) !important;
+  }
+  [data-ops] .text-slate-400,
+  [data-ops] .text-slate-500 {
+    color: var(--text-tertiary) !important;
+  }
+
+  /* Translucent white glass panels → layered dark surface. */
+  [data-ops] .bg-white\/70,
+  [data-ops] .bg-white\/60,
+  [data-ops] .bg-white\/50,
+  [data-ops] .bg-white\/40 {
+    background-color: var(--surface-1) !important;
+  }
+
+  /* Slate wash surfaces / hover rows / faint chips. */
+  [data-ops] .bg-slate-50,
+  [data-ops] .bg-slate-50\/70,
+  [data-ops] .bg-slate-50\/60,
+  [data-ops] .bg-slate-50\/40,
+  [data-ops] .hover\:bg-slate-50:hover,
+  [data-ops] .hover\:bg-slate-50\/60:hover,
+  [data-ops] .hover\:bg-slate-50\/70:hover {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+  }
+  [data-ops] .bg-slate-900\/5,
+  [data-ops] .bg-black\/5,
+  [data-ops] .bg-black\/\[0\.06\] {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+  }
+
+  /* Opacity variants of the soft coloured tint backgrounds. */
+  [data-ops] .bg-emerald-50\/70,
+  [data-ops] .bg-emerald-50\/40,
+  [data-ops] .bg-emerald-50\/30 {
+    background-color: var(--brand-soft) !important;
+  }
+  [data-ops] .bg-amber-50\/70,
+  [data-ops] .bg-amber-50\/60,
+  [data-ops] .bg-amber-50\/50 {
+    background-color: rgba(245, 158, 11, 0.12) !important;
+  }
+  [data-ops] .bg-sky-50\/70,
+  [data-ops] .bg-blue-50\/40,
+  [data-ops] .bg-blue-50\/30 {
+    background-color: rgba(56, 189, 248, 0.12) !important;
+  }
+  [data-ops] .bg-rose-50\/70,
+  [data-ops] .bg-rose-50\/60,
+  [data-ops] .bg-red-50\/20 {
+    background-color: rgba(251, 113, 133, 0.12) !important;
+  }
+
+  /* Gradient stops that resolved to white / light and washed out panels. */
+  [data-ops] .to-white,
+  [data-ops] .via-white {
+    --tw-gradient-to: #0c120f var(--tw-gradient-to-position) !important;
+  }
+  [data-ops] .from-surface-subtle,
+  [data-ops] .from-slate-50\/60,
+  [data-ops] .from-slate-50 {
+    --tw-gradient-from: #0f1613 var(--tw-gradient-from-position) !important;
+    --tw-gradient-to: rgba(15, 22, 19, 0) var(--tw-gradient-to-position) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
+  }
+
   /* === Text scale → dark ============================================= */
   [data-ops] .text-white,
   [data-ops] .text-zinc-50,
