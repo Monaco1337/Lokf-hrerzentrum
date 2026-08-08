@@ -60,10 +60,10 @@ function LeafLink({
     <Link
       href={item.href as Route}
       className={[
-        "group relative flex items-center gap-2.5 rounded-xl text-[13px] font-medium transition",
-        nested ? "py-1.5 pl-2.5 pr-2.5" : "px-2 py-1.5",
+        "group relative flex items-center gap-3 rounded-xl text-[13.5px] font-medium transition",
+        nested ? "py-1.5 pl-2.5 pr-2.5" : "px-2 py-2",
         active
-          ? color.row
+          ? `${color.row} font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.25)]`
           : "text-[#374151] hover:bg-[#F6F7F9] hover:text-[#111827]",
       ].join(" ")}
     >
@@ -130,15 +130,18 @@ function FullNav({
   pathname: string;
 }) {
   return (
-    <div className="space-y-4">
+    <div>
       {sections.map((section, si) => (
-        <div key={section.title || `section-${si}`}>
+        <div
+          key={section.title || `section-${si}`}
+          className={si > 0 ? "mt-3 border-t border-[#EEF0F3] pt-3" : ""}
+        >
           {section.title ? (
             <p className="px-2 pb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[#9CA3AF]">
               {section.title}
             </p>
           ) : null}
-          <ul className="space-y-0.5">
+          <ul className="space-y-1">
             {section.entries.map((entry) =>
               entry.kind === "group" ? (
                 <GroupBlock key={entry.label} group={entry} pathname={pathname} />

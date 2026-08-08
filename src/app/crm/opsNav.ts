@@ -59,70 +59,42 @@ function isRawGroup(entry: RawLeaf | RawGroup): entry is RawGroup {
 }
 
 /**
- * Grouped information architecture. Hrefs map 1:1 onto the existing routes.
- * Management and System are collapsible groups (chevron) like Bewerber/Dokumente.
+ * FLAT information architecture — no group "Überpunkte", every destination is a
+ * first-class leaf shown immediately with its high-end icon tile. Hrefs map 1:1
+ * onto the existing routes (nothing is renamed under the hood). Two sections
+ * (operational vs. administration) are separated by a hairline only — no header
+ * labels — for a clean, dense operations rail. Curated per the current spec:
+ * Pipeline, Bewerberakte and Bildungsgutscheine are intentionally not surfaced
+ * here (the routes still exist and remain reachable directly / via deep links).
  */
 const SECTIONS: ReadonlyArray<RawSection> = [
   {
-    title: "Operativ",
+    title: "",
     entries: [
       { href: "/crm", label: "Dashboard", icon: "leitstand" },
+      { href: "/crm/leads", label: "Leads", icon: "leads", permission: "canManageLeads" },
       {
-        label: "Bewerber",
-        icon: "applicants",
-        children: [
-          { href: "/crm/leads", label: "Leads", icon: "leads", permission: "canManageLeads" },
-          { href: "/crm/pipeline", label: "Pipeline", icon: "pipeline", permission: "canManageLeads" },
-          {
-            href: "/crm/callback-requests",
-            label: "Rückrufe angefordert",
-            icon: "phone",
-            permission: "canManageLeads",
-          },
-        ],
+        href: "/crm/callback-requests",
+        label: "Rückrufe",
+        icon: "phone",
+        permission: "canManageLeads",
       },
-      {
-        label: "Reaktivierung",
-        icon: "megaphone",
-        children: [
-          { href: "/crm/campaigns/reaktivierung", label: "Kommunikation", icon: "message", permission: "canManageLeads" },
-          { href: "/crm/multichat", label: "Multi-Chat", icon: "chat", permission: "canManageLeads" },
-          { href: "/crm/import", label: "Lead-Import", icon: "import", permission: "canManageLeads" },
-        ],
-      },
-      {
-        label: "Dokumente",
-        icon: "folder",
-        children: [
-          { href: "/crm/unterlagen", label: "Bewerberakte", icon: "doc" },
-          { href: "/crm/bildungsgutschein", label: "Bildungsgutscheine", icon: "voucher" },
-          { href: "/crm/applicants", label: "Bewerberportal", icon: "user-circle" },
-        ],
-      },
+      { href: "/crm/campaigns/reaktivierung", label: "Kommunikation", icon: "message", permission: "canManageLeads" },
+      { href: "/crm/multichat", label: "Multi-Chat", icon: "chat", permission: "canManageLeads" },
+      { href: "/crm/import", label: "Lead-Import", icon: "import", permission: "canManageLeads" },
+      { href: "/crm/applicants", label: "Bewerberportal", icon: "user-circle" },
       { href: "/crm/agenturtermine", label: "Termine", icon: "calendar" },
     ],
   },
   {
     title: "",
     entries: [
-      {
-        label: "Management",
-        icon: "chart-up",
-        children: [
-          { href: "/crm/users", label: "Mitarbeiter", icon: "users", permission: "canManageUsers" },
-          { href: "/crm/team/performance", label: "Vertrieb", icon: "chart-up", permission: "canViewAnalytics" },
-          { href: "/crm/reporting", label: "Reports", icon: "report", permission: "canViewAnalytics" },
-        ],
-      },
-      {
-        label: "System",
-        icon: "settings",
-        children: [
-          { href: "/crm/automation", label: "Automationen", icon: "spark", permission: "canManageAutomations" },
-          { href: "/crm/settings/whatsapp-numbers", label: "WhatsApp-Nummern", icon: "message", permission: "canManageSettings" },
-          { href: "/crm/settings", label: "Einstellungen", icon: "settings", permission: "canManageSettings" },
-        ],
-      },
+      { href: "/crm/users", label: "Mitarbeiter", icon: "users", permission: "canManageUsers" },
+      { href: "/crm/team/performance", label: "Vertrieb", icon: "chart-up", permission: "canViewAnalytics" },
+      { href: "/crm/reporting", label: "Reports", icon: "report", permission: "canViewAnalytics" },
+      { href: "/crm/automation", label: "Automationen", icon: "spark", permission: "canManageAutomations" },
+      { href: "/crm/settings/whatsapp-numbers", label: "WhatsApp-Nummern", icon: "message", permission: "canManageSettings" },
+      { href: "/crm/settings", label: "Einstellungen", icon: "settings", permission: "canManageSettings" },
     ],
   },
 ];
