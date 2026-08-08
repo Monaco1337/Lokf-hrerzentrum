@@ -121,55 +121,27 @@ function SyncNowButton() {
 export function OperationsTopHeaderClient({
   health,
 }: OperationsTopHeaderClientProps) {
-  const healthTone =
-    health.level === "crit"
-      ? "border-[#FECACA] bg-[#FEE2E2] text-[#991B1B]"
-      : health.level === "warn"
-        ? "border-[#FDE68A] bg-[#FEF3C7] text-[#92400E]"
-        : "border-[#A7F3D0] bg-[#ECFDF5] text-[#065F46]";
-
   return (
     <header className="sticky top-0 z-40 h-[60px] border-b border-[#EEF0F3] bg-white/90 shadow-[0_1px_0_0_rgba(15,23,42,0.04)] backdrop-blur-md">
       <div className="flex h-full items-center gap-3 px-4 sm:gap-4 sm:px-5 lg:px-6">
         <SidebarToggle />
 
-        <span
-          aria-hidden
-          className="hidden h-7 w-px bg-[#E5E7EB] lg:inline-block"
-        />
-
         <Link
           href="/crm"
-          className="group flex shrink-0 items-center gap-3 rounded-lg py-1 pr-2 transition hover:opacity-90"
+          className="group flex shrink-0 items-center gap-2.5 rounded-lg py-1 pr-1 transition hover:opacity-90"
         >
           <Logo variant="compact" className="h-8 w-auto sm:h-9" />
-          <span className="hidden flex-col border-l border-[#EEF0F3] pl-3 leading-tight md:flex">
-            <span className="text-[11px] font-semibold tracking-[0.14em] text-[#9CA3AF] uppercase">
-              Lead-Leitstand
-            </span>
-            <span className="text-[12px] font-medium text-[#6B7280]">
-              Operations Center
-            </span>
+          <span className="hidden text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9CA3AF] lg:inline">
+            Lead-Leitstand
           </span>
         </Link>
 
         <span
           aria-hidden
-          className="hidden h-7 w-px bg-[#E5E7EB] sm:inline-block"
+          className="hidden h-6 w-px bg-[#E5E7EB] sm:inline-block"
         />
 
-        <span
-          className={[
-            "hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold sm:inline-flex",
-            healthTone,
-          ].join(" ")}
-          title={`SLA-Verstöße: ${health.slaBreached} · Hot ohne Bearbeiter: ${health.hotUnassigned} · Wiedervorlagen überfällig: ${health.callbacksOverdue}`}
-        >
-          <span className={`h-1.5 w-1.5 rounded-full ${health.dotClass}`} />
-          {health.label}
-        </span>
-
-        <div className="hidden items-center gap-1.5 md:flex">
+        <div className="hidden items-center gap-1.5 sm:flex">
           {health.slaBreached > 0 && (
             <Link
               href="/crm/leads?sla=1"

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Route } from "next";
-import { useState } from "react";
 
 import { useOpsShell } from "@/app/crm/OpsShellProvider";
 import type { Role } from "@/features/fairtrain-funnel/types";
@@ -86,6 +85,11 @@ function LeafLink({
   );
 }
 
+/**
+ * A navigation group rendered ALWAYS expanded — no dropdown/toggle. The group
+ * label is a quiet, non-interactive header (icon tile + name); every child is
+ * shown immediately below it, so the whole IA is visible at a glance.
+ */
 function GroupBlock({
   group,
   pathname,
@@ -94,53 +98,25 @@ function GroupBlock({
   pathname: string;
 }) {
   const hasActiveChild = group.children.some((c) => isActive(c.href, pathname));
-  const [override, setOverride] = useState<boolean | null>(null);
-  const open = override ?? hasActiveChild;
   const color = colorForGroup(group.icon);
 
   return (
     <li>
-      <button
-        type="button"
-        onClick={() => setOverride(!open)}
-        aria-expanded={open}
-        className={[
-          "group flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-[13px] font-semibold transition",
-          hasActiveChild
-            ? "text-[#111827]"
-            : "text-[#374151] hover:bg-[#F6F7F9] hover:text-[#111827]",
-        ].join(" ")}
-      >
+      <div className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-[13px] font-semibold text-[#111827]">
         <IconTile icon={group.icon} color={color} active={hasActiveChild} />
         <span className="flex-1 truncate text-left">{group.label}</span>
-        <svg
-          className={[
-            "h-3.5 w-3.5 text-[#9CA3AF] transition-transform duration-200",
-            open ? "rotate-90" : "",
-          ].join(" ")}
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="m9 18 6-6-6-6" />
-        </svg>
-      </button>
-      {open && (
-        <ul className="relative mt-0.5 space-y-0.5 pl-[22px]">
-          <span
-            aria-hidden
-            className="absolute bottom-1 left-[22px] top-1 w-px bg-[#EEF0F3]"
-          />
-          {group.children.map((child) => (
-            <li key={child.href}>
-              <LeafLink item={child} pathname={pathname} nested />
-            </li>
-          ))}
-        </ul>
-      )}
+      </div>
+      <ul className="relative mt-0.5 space-y-0.5 pl-[22px]">
+        <span
+          aria-hidden
+          className="absolute bottom-1 left-[22px] top-1 w-px bg-[#EEF0F3]"
+        />
+        {group.children.map((child) => (
+          <li key={child.href}>
+            <LeafLink item={child} pathname={pathname} nested />
+          </li>
+        ))}
+      </ul>
     </li>
   );
 }
