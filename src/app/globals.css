@@ -893,4 +893,182 @@
       rgba(12, 18, 15, 0.15) 100%
     );
   }
+
+  /* ==================================================================== */
+  /* Dashboard — a bespoke, remap-proof premium dark system.              */
+  /*                                                                      */
+  /* The generic [data-ops] layer above flattens light utility classes    */
+  /* (bg-blue-50, text-blue-600 …) into muted greys, which kills the      */
+  /* metric identity on the Dashboard. These `.dash-*` classes are        */
+  /* dark-native by design — vivid translucent tints, bright accent text  */
+  /* and real depth — and are never touched by that remap. Each tone is   */
+  /* driven by a single `--tone` custom property via a `.dash-t-*`        */
+  /* modifier, so cards stay DRY and perfectly consistent.                */
+  /* ==================================================================== */
+  [data-ops] .dash-t-emerald { --tone: #34d399; --tone-strong: #6ee7b7; }
+  [data-ops] .dash-t-blue    { --tone: #60a5fa; --tone-strong: #93c5fd; }
+  [data-ops] .dash-t-amber   { --tone: #fbbf24; --tone-strong: #fcd34d; }
+  [data-ops] .dash-t-cyan    { --tone: #38bdf8; --tone-strong: #7dd3fc; }
+  [data-ops] .dash-t-violet  { --tone: #a78bfa; --tone-strong: #c4b5fd; }
+  [data-ops] .dash-t-rose    { --tone: #fb7185; --tone-strong: #fda4af; }
+
+  [data-ops] .dash-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 18px;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.035),
+        rgba(255, 255, 255, 0) 46%
+      ),
+      #121815;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+      0 18px 40px -28px rgba(0, 0, 0, 0.9);
+  }
+  [data-ops] a.dash-card,
+  [data-ops] button.dash-card {
+    transition: transform 0.16s ease, border-color 0.16s ease,
+      box-shadow 0.16s ease;
+  }
+  [data-ops] a.dash-card:hover,
+  [data-ops] button.dash-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--tone, #34d399) 42%, transparent);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+      0 26px 52px -30px rgba(0, 0, 0, 0.95),
+      0 0 0 1px color-mix(in srgb, var(--tone, #34d399) 22%, transparent);
+  }
+  /* Soft tone glow bleeding from the top-right of a KPI card. */
+  [data-ops] .dash-glow::before {
+    content: "";
+    position: absolute;
+    top: -40%;
+    right: -20%;
+    height: 150px;
+    width: 150px;
+    border-radius: 999px;
+    background: radial-gradient(
+      circle,
+      color-mix(in srgb, var(--tone, #34d399) 30%, transparent) 0%,
+      transparent 70%
+    );
+    filter: blur(14px);
+    pointer-events: none;
+  }
+
+  [data-ops] .dash-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 40px;
+    width: 40px;
+    border-radius: 13px;
+    color: var(--tone-strong, #6ee7b7);
+    background: color-mix(in srgb, var(--tone, #34d399) 16%, transparent);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--tone, #34d399) 30%, transparent);
+  }
+  [data-ops] .dash-tile--sm {
+    height: 34px;
+    width: 34px;
+    border-radius: 11px;
+  }
+
+  [data-ops] .dash-num {
+    font-variant-numeric: tabular-nums;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--tone-strong, #e9efeb);
+  }
+  [data-ops] .dash-num--plain {
+    color: var(--text-primary);
+  }
+
+  [data-ops] .dash-chip {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    background: color-mix(in srgb, var(--tone, #34d399) 18%, transparent);
+    color: var(--tone-strong, #6ee7b7);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in srgb, var(--tone, #34d399) 26%, transparent);
+  }
+  [data-ops] .dash-chip--muted {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-tertiary);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  }
+
+  [data-ops] .dash-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    overflow: hidden;
+  }
+  [data-ops] .dash-bar__fill {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--tone, #34d399) 78%, #000),
+      var(--tone, #34d399)
+    );
+    box-shadow: 0 0 14px -2px
+      color-mix(in srgb, var(--tone, #34d399) 65%, transparent);
+  }
+
+  [data-ops] .dash-row {
+    border-radius: 13px;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.15s ease, border-color 0.15s ease,
+      transform 0.15s ease;
+  }
+  [data-ops] .dash-row:hover {
+    background: color-mix(in srgb, var(--tone, #34d399) 8%, rgba(255, 255, 255, 0.03));
+    border-color: color-mix(in srgb, var(--tone, #34d399) 34%, transparent);
+  }
+
+  [data-ops] .dash-eyebrow {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+  }
+  [data-ops] .dash-divider {
+    border-color: rgba(255, 255, 255, 0.06);
+  }
+  /* Vivid, dark-native action buttons on the Rückruf cards. */
+  [data-ops] .dash-btn-primary {
+    background: linear-gradient(180deg, #34d399, #22c55e);
+    color: #052e16;
+    font-weight: 700;
+    box-shadow: 0 8px 20px -10px rgba(34, 197, 94, 0.7);
+  }
+  [data-ops] .dash-btn-primary:hover {
+    filter: brightness(1.06);
+  }
+  [data-ops] .dash-btn-ghost {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+  [data-ops] .dash-btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.09);
+  }
+  [data-ops] .dash-btn-wa {
+    background: color-mix(in srgb, #34d399 15%, transparent);
+    color: #6ee7b7;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #34d399 28%, transparent);
+  }
+  [data-ops] .dash-btn-wa:hover {
+    background: color-mix(in srgb, #34d399 22%, transparent);
+  }
 }
