@@ -35,7 +35,7 @@ export function DashboardUnterlagen({
   return (
     <section
       id="neue-unterlagen"
-      className="scroll-mt-6 rounded-2xl border border-ink/[0.07] bg-white p-5 shadow-card"
+      className="scroll-mt-6 rounded-2xl border border-ink/[0.07] bg-white p-4 shadow-card"
     >
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">

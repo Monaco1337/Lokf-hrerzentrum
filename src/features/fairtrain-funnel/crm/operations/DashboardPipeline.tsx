@@ -148,8 +148,8 @@ export function DashboardPipeline({
   const overall = total > 0 ? Math.min(1, qualifiedPlus / total) : null;
 
   return (
-    <section className="rounded-2xl border border-ink/[0.07] bg-white p-5 shadow-card">
-      <header className="mb-4 flex items-center justify-between gap-3">
+    <section className="rounded-2xl border border-ink/[0.07] bg-white p-4 shadow-card">
+      <header className="mb-3.5 flex items-center justify-between gap-3">
         <h2 className="text-[16px] font-bold tracking-tight text-navy-950">
           Bewerbungs-Pipeline
         </h2>

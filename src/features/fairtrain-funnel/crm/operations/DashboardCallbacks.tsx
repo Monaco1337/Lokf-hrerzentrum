@@ -43,7 +43,7 @@ export function DashboardCallbacks({
   return (
     <section
       id="rueckruf-center"
-      className="scroll-mt-6 rounded-2xl border border-ink/[0.07] bg-white p-5 shadow-card"
+      className="scroll-mt-6 rounded-2xl border border-ink/[0.07] bg-white p-4 shadow-card"
     >
       <header className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -82,7 +82,7 @@ export function DashboardCallbacks({
           Aktuell keine offenen Rückrufe.
         </p>
       ) : (
-        <ul className="mt-4 space-y-2.5">
+        <ul className="mt-4 grid gap-2.5 lg:grid-cols-2 xl:grid-cols-3">
           {leads.map((lead) => (
             <li
               key={lead.id}

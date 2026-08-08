@@ -36,7 +36,7 @@ export function DashboardTimeline({
   events: ReadonlyArray<BusinessEvent>;
 }) {
   return (
-    <section className="rounded-2xl border border-ink/[0.07] bg-white p-5 shadow-card">
+    <section className="rounded-2xl border border-ink/[0.07] bg-white p-4 shadow-card">
       <header className="mb-3 flex items-center justify-between gap-3">
         <h2 className="text-[16px] font-bold tracking-tight text-navy-950">
           Aktivität
@@ -51,7 +51,7 @@ export function DashboardTimeline({
           Noch keine geschäftsrelevanten Ereignisse.
         </p>
       ) : (
-        <ul className="max-h-[440px] space-y-0 overflow-y-auto">
+        <ul className="max-h-[360px] space-y-0 overflow-y-auto">
           {events.map((e) => {
             const tone = TONE[e.tone];
             const body = (
