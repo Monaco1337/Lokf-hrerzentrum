@@ -52,7 +52,7 @@ export default async function CrmLayout({
 
   return (
     <OpsShellProvider>
-      <div data-ops className="min-h-screen bg-[#F6F7F9] text-[#111827]">
+      <div data-ops className="min-h-screen bg-[#0b100e] text-[#e9efeb]">
         {/* Keeps the sticky top bar (Eskalation/HOT/Rückrufe) and every page
             reconciled with the DB automatically, everywhere in the CRM — not
             only on the Dashboard. */}
@@ -94,8 +94,8 @@ export default async function CrmLayout({
 function TopHeaderSkeleton() {
   return (
     <div className="sticky top-0 z-30 flex h-[60px] items-center justify-between border-b border-[#EEF0F3] bg-white px-4 sm:px-6">
-      <div className="h-6 w-40 animate-pulse rounded-lg bg-slate-200/70" />
-      <div className="h-8 w-8 animate-pulse rounded-full bg-slate-200/70" />
+      <div className="h-6 w-40 animate-pulse rounded-lg bg-white/[0.06]" />
+      <div className="h-8 w-8 animate-pulse rounded-full bg-white/[0.06]" />
     </div>
   );
 }
@@ -111,8 +111,8 @@ function SidebarSkeleton() {
       <div className="flex-1 space-y-2 p-2.5">
         {Array.from({ length: 10 }).map((_, i) => (
           <div key={i} className="flex items-center gap-2.5 rounded-xl px-2 py-1.5">
-            <div className="h-8 w-8 animate-pulse rounded-[10px] bg-slate-200/70" />
-            <div className="hidden h-3.5 w-28 animate-pulse rounded bg-slate-200/60 lg:block" />
+            <div className="h-8 w-8 animate-pulse rounded-[10px] bg-white/[0.06]" />
+            <div className="hidden h-3.5 w-28 animate-pulse rounded bg-white/[0.04] lg:block" />
           </div>
         ))}
       </div>
@@ -127,8 +127,8 @@ function MobileNavSkeleton() {
       <div className="flex gap-1.5 overflow-hidden px-3 py-2.5">
         {Array.from({ length: 6 }).map((_, i) => (
           <div key={i} className="flex w-[68px] shrink-0 flex-col items-center gap-1.5 py-1.5">
-            <div className="h-9 w-9 animate-pulse rounded-[12px] bg-slate-200/70" />
-            <div className="h-2.5 w-12 animate-pulse rounded bg-slate-200/60" />
+            <div className="h-9 w-9 animate-pulse rounded-[12px] bg-white/[0.06]" />
+            <div className="h-2.5 w-12 animate-pulse rounded bg-white/[0.04]" />
           </div>
         ))}
       </div>

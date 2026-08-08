@@ -118,49 +118,72 @@
     @apply bg-red-50 text-red-700 ring-1 ring-red-200;
   }
 
-  /* ------------------------------------------------------------------- */
-  /* Operations Center — Premium LIGHT CRM surface for /crm. Scoped via   */
-  /* the `data-ops` attribute on the CRM layout root. The global remap   */
-  /* layer rewrites every legacy dark utility class (`bg-[#0a0a0b]`,     */
-  /* `text-zinc-300`, `border-white/[0.06]`, …) to the light premium     */
-  /* palette so the existing component tree renders correctly without   */
-  /* any per-file edits. Tokens follow the brief:                       */
-  /*   App bg #F6F7F9 · Surface #FFFFFF · Border #E5E7EB · Soft #EEF0F3 */
-  /*   Ink #111827 · Muted #6B7280 · Subtle #9CA3AF · Accent #16A34A.    */
-  /* ------------------------------------------------------------------- */
+  /* =================================================================== */
+  /* Operations Center — Premium DARK CRM surface for /crm.              */
+  /* Scoped via the `data-ops` attribute on the CRM layout root, so the  */
+  /* public marketing site + /crm/login keep their light identity.       */
+  /*                                                                     */
+  /* This layer remaps every legacy utility the component tree already   */
+  /* uses (both the old dark utilities like `bg-[#0d0d0f]` and the light */
+  /* hardcodes like `bg-white` / `#EEF0F3`) to ONE coherent dark token   */
+  /* set — matching the Lead-Leitstand reference: deep charcoal canvas   */
+  /* with a subtle green tint, layered surfaces, hairline borders and    */
+  /* vivid-but-controlled semantic accents. Zero component edits needed. */
+  /* =================================================================== */
 
-  /* === Semantic ops-* utility classes (light variant) ================= */
+  [data-ops] {
+    /* --- Dark reference tokens ------------------------------------- */
+    --app-bg: #0b100e;
+    --sidebar-bg: #090d0b;
+    --topbar-bg: rgba(11, 16, 14, 0.82);
+    --surface-1: #121815; /* cards */
+    --surface-2: #172019; /* elevated controls / inputs */
+    --surface-3: #1c261f; /* raised panels */
+    --surface-hover: #202b24;
+    --border-subtle: rgba(255, 255, 255, 0.06);
+    --border-default: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.16);
+    --text-primary: #e9efeb;
+    --text-secondary: #9aa6a0;
+    --text-tertiary: #6b776f;
+    --brand: #22c55e;
+    --brand-strong: #4ade80;
+    --brand-soft: rgba(34, 197, 94, 0.13);
+    --brand-edge: rgba(34, 197, 94, 0.36);
+  }
+
+  /* === Semantic ops-* utility classes (dark variant) ================= */
   .ops-canvas {
-    background: #f6f7f9;
-    color: #111827;
+    background: var(--app-bg);
+    color: var(--text-primary);
   }
   .ops-card {
     @apply rounded-2xl border;
-    background: #ffffff;
-    border-color: #e5e7eb;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    background: var(--surface-1);
+    border-color: var(--border-subtle);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   }
   .ops-card-elevated {
     @apply rounded-2xl border;
-    background: #ffffff;
-    border-color: #e5e7eb;
-    box-shadow: 0 6px 18px -10px rgba(15, 23, 42, 0.08),
-      0 2px 4px -2px rgba(15, 23, 42, 0.05);
+    background: var(--surface-1);
+    border-color: var(--border-default);
+    box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.7),
+      0 2px 6px -2px rgba(0, 0, 0, 0.4);
   }
   .ops-hairline {
-    border-color: #eef0f3;
+    border-color: var(--border-subtle);
   }
   .ops-text-primary {
-    color: #111827;
+    color: var(--text-primary);
   }
   .ops-text-muted {
-    color: #6b7280;
+    color: var(--text-secondary);
   }
   .ops-text-dim {
-    color: #9ca3af;
+    color: var(--text-tertiary);
   }
   .ops-eyebrow {
-    color: #6b7280;
+    color: var(--text-tertiary);
     font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.06em;
@@ -168,257 +191,480 @@
   }
   .ops-input {
     @apply w-full rounded-lg border px-3 py-2 text-sm transition;
-    background: #ffffff;
-    border-color: #e5e7eb;
-    color: #111827;
+    background: var(--surface-2);
+    border-color: var(--border-default);
+    color: var(--text-primary);
   }
   .ops-input::placeholder {
-    color: #9ca3af;
+    color: var(--text-tertiary);
   }
   .ops-input:focus {
     @apply outline-none;
-    border-color: #16a34a;
-    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px var(--brand-soft);
   }
   .ops-btn-primary {
     @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition;
-    background: #16a34a;
-    color: #ffffff;
-    box-shadow: 0 1px 2px rgba(22, 163, 74, 0.20);
+    background: var(--brand);
+    color: #04140b;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
   }
   .ops-btn-primary:hover {
-    background: #15803d;
+    background: var(--brand-strong);
   }
   .ops-btn-ghost {
     @apply inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5 text-[12.5px] font-medium transition;
-    background: #ffffff;
-    border-color: #e5e7eb;
-    color: #111827;
+    background: var(--surface-2);
+    border-color: var(--border-default);
+    color: var(--text-primary);
   }
   .ops-btn-ghost:hover {
-    background: #f9fafb;
-    border-color: #d1d5db;
+    background: var(--surface-hover);
+    border-color: var(--border-strong);
   }
   .ops-chip {
     @apply inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold tracking-normal;
   }
   .ops-chip-green {
-    background: #ecfdf5;
-    color: #065f46;
-    border: 1px solid #a7f3d0;
+    background: var(--brand-soft);
+    color: var(--brand-strong);
+    border: 1px solid var(--brand-edge);
   }
   .ops-chip-amber {
-    background: #fef3c7;
-    color: #92400e;
-    border: 1px solid #fde68a;
+    background: rgba(245, 158, 11, 0.14);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.34);
   }
   .ops-chip-orange {
-    background: #ffedd5;
-    color: #9a3412;
-    border: 1px solid #fed7aa;
+    background: rgba(249, 115, 22, 0.14);
+    color: #fb923c;
+    border: 1px solid rgba(249, 115, 22, 0.34);
   }
   .ops-chip-red {
-    background: #fee2e2;
-    color: #991b1b;
-    border: 1px solid #fecaca;
+    background: rgba(239, 68, 68, 0.14);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.34);
   }
   .ops-chip-blue {
-    background: #eff6ff;
-    color: #1e40af;
-    border: 1px solid #bfdbfe;
+    background: rgba(59, 130, 246, 0.14);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.34);
   }
   .ops-chip-violet {
-    background: #f5f3ff;
-    color: #5b21b6;
-    border: 1px solid #ddd6fe;
+    background: rgba(167, 139, 250, 0.14);
+    color: #c4b5fd;
+    border: 1px solid rgba(167, 139, 250, 0.34);
   }
   .ops-chip-slate {
-    background: #f3f4f6;
-    color: #4b5563;
-    border: 1px solid #e5e7eb;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-default);
   }
   .ops-dot {
     @apply inline-block h-1.5 w-1.5 shrink-0 rounded-full;
   }
   .ops-link {
-    color: #0f766e;
+    color: var(--brand-strong);
     transition: color 0.15s ease;
   }
   .ops-link:hover {
-    color: #115e59;
+    color: #86efac;
   }
 
   /* === Canvas + base typography for the data-ops scope ================ */
   [data-ops] {
-    background: #f6f7f9 !important;
-    color: #111827;
+    background: var(--app-bg) !important;
+    color: var(--text-primary);
+    color-scheme: dark;
   }
   [data-ops] h1,
   [data-ops] h2,
   [data-ops] h3,
   [data-ops] h4 {
-    color: #111827;
+    color: var(--text-primary);
   }
   [data-ops] hr {
-    border-color: #eef0f3;
+    border-color: var(--border-subtle);
   }
 
-  /* === Remap inline dark surface utilities to light premium ========== */
-  /* Canvas / app body                                                   */
+  /* === Legacy dark surface utilities → dark tokens (revert to dark) === */
   [data-ops].bg-\[\#050505\],
   [data-ops] .bg-\[\#050505\] {
-    background-color: #f6f7f9 !important;
+    background-color: var(--app-bg) !important;
   }
-  /* Sidebar / sticky header                                             */
   [data-ops] .bg-\[\#0a0a0b\],
   [data-ops] .bg-\[\#0a0a0b\]\/95 {
-    background-color: #ffffff !important;
+    background-color: var(--sidebar-bg) !important;
   }
-  /* Cards                                                               */
   [data-ops] .bg-\[\#0d0d0f\] {
-    background-color: #ffffff !important;
+    background-color: var(--surface-1) !important;
   }
-  /* Table heads / quiet rails                                           */
   [data-ops] .bg-\[\#111113\] {
-    background-color: #f9fafb !important;
+    background-color: rgba(255, 255, 255, 0.03) !important;
   }
-  /* Elevated cards / inputs                                             */
   [data-ops] .bg-\[\#161618\] {
-    background-color: #ffffff !important;
+    background-color: var(--surface-2) !important;
   }
-  /* Raised panels                                                       */
   [data-ops] .bg-\[\#1c1c20\] {
-    background-color: #ffffff !important;
+    background-color: var(--surface-3) !important;
   }
-  /* Hover bg                                                            */
   [data-ops] .bg-\[\#212126\] {
-    background-color: #f3f4f6 !important;
+    background-color: var(--surface-hover) !important;
   }
 
-  /* Bare white-overlay backgrounds (used everywhere as soft fills) ==== */
-  [data-ops] .bg-white\/\[0\.02\],
-  [data-ops] .bg-white\/\[0\.03\],
-  [data-ops] .bg-white\/\[0\.04\],
-  [data-ops] .bg-white\/\[0\.05\],
-  [data-ops] .bg-white\/\[0\.06\] {
-    background-color: #f6f7f9 !important;
+  /* === Light hardcodes → dark surfaces =============================== */
+  [data-ops].bg-\[\#F6F7F9\],
+  [data-ops] .bg-\[\#F6F7F9\] {
+    background-color: var(--app-bg) !important;
   }
-  [data-ops] .hover\:bg-white\/\[0\.04\]:hover,
-  [data-ops] .hover\:bg-white\/\[0\.06\]:hover,
-  [data-ops] .hover\:bg-white\/\[0\.08\]:hover {
-    background-color: #f3f4f6 !important;
+  [data-ops] .bg-\[\#FAFBFC\] {
+    background-color: var(--surface-1) !important;
   }
-
-  /* Borders / hairlines built from translucent white ================== */
-  [data-ops] .border-white\/\[0\.04\],
-  [data-ops] .border-white\/\[0\.06\] {
-    border-color: #eef0f3 !important;
+  [data-ops] .bg-\[\#F9FAFB\],
+  [data-ops] .bg-\[\#F3F4F6\] {
+    background-color: var(--surface-2) !important;
   }
-  [data-ops] .border-white\/\[0\.08\],
-  [data-ops] .border-white\/\[0\.10\],
-  [data-ops] .border-white\/10 {
-    border-color: #e5e7eb !important;
+  [data-ops] .bg-white\/90,
+  [data-ops] .bg-white\/80 {
+    background-color: var(--topbar-bg) !important;
   }
-  [data-ops] .border-white\/\[0\.14\],
-  [data-ops] .border-white\/\[0\.16\],
-  [data-ops] .border-white\/\[0\.18\] {
-    border-color: #d1d5db !important;
-  }
-  [data-ops] .hover\:border-white\/\[0\.16\]:hover,
-  [data-ops] .hover\:border-white\/\[0\.18\]:hover {
-    border-color: #cbd5e1 !important;
-  }
-  [data-ops] .ring-white\/\[0\.06\],
-  [data-ops] .ring-white\/\[0\.08\],
-  [data-ops] .ring-white\/10 {
-    --tw-ring-color: #e5e7eb !important;
-  }
-  [data-ops] .divide-white\/\[0\.06\] > * + *,
-  [data-ops] .divide-white\/\[0\.08\] > * + * {
-    border-color: #eef0f3 !important;
-  }
-
-  /* Zinc text scale used by the dark chrome ============================ */
-  [data-ops] .text-white,
-  [data-ops] .text-zinc-50,
-  [data-ops] .text-zinc-100 {
-    color: #111827 !important;
-  }
-  [data-ops] .text-zinc-200 {
-    color: #1f2937 !important;
-  }
-  [data-ops] .text-zinc-300 {
-    color: #374151 !important;
-  }
-  [data-ops] .text-zinc-400 {
-    color: #6b7280 !important;
-  }
-  [data-ops] .text-zinc-500,
-  [data-ops] .text-zinc-600 {
-    color: #9ca3af !important;
-  }
-  [data-ops] .hover\:text-zinc-100:hover,
-  [data-ops] .hover\:text-zinc-200:hover,
-  [data-ops] .hover\:text-zinc-300:hover,
-  [data-ops] .hover\:text-white:hover {
-    color: #111827 !important;
-  }
-
-  /* Light theme tokens already used by feature components ============= */
   [data-ops] .bg-white,
   [data-ops] .bg-surface,
   [data-ops] .bg-surface-subtle,
   [data-ops] .bg-surface-muted {
-    background-color: #ffffff !important;
+    background-color: var(--surface-1) !important;
   }
+  /* The sticky navigation rail sits a notch darker than cards, matching
+     the reference's near-black sidebar (only affects the sticky sidebar
+     aside + its skeleton, not content panels). */
+  [data-ops] aside.sticky.bg-white {
+    background-color: var(--sidebar-bg) !important;
+  }
+
+  /* Hover fills on any surface --------------------------------------- */
+  [data-ops] .hover\:bg-\[\#F6F7F9\]:hover,
+  [data-ops] .hover\:bg-\[\#F9FAFB\]:hover,
+  [data-ops] .hover\:bg-\[\#F3F4F6\]:hover,
+  [data-ops] .hover\:bg-white:hover,
+  [data-ops] .hover\:bg-surface-muted:hover,
+  [data-ops] .hover\:bg-surface-subtle:hover,
+  [data-ops] .hover\:bg-surface-subtle\/70:hover {
+    background-color: var(--surface-hover) !important;
+  }
+
+  /* Translucent white-overlay fills (`bg-white/[0.0x]`) and their hover
+     variants are intentionally left un-remapped: on the dark canvas they
+     render as their natural subtle luminance layers, which is exactly the
+     depth treatment the reference uses. */
+
+  /* === Borders / hairlines / rings → dark ============================ */
+  [data-ops] .border-\[\#EEF0F3\],
+  [data-ops] .border-white\/\[0\.04\],
+  [data-ops] .border-white\/\[0\.06\],
+  [data-ops] .border-ink\/\[0\.02\],
+  [data-ops] .border-ink\/\[0\.06\],
+  [data-ops] .border-ink\/\[0\.07\],
+  [data-ops] .border-ink\/\[0\.08\] {
+    border-color: var(--border-subtle) !important;
+  }
+  [data-ops] .border-\[\#E5E7EB\],
+  [data-ops] .border-white\/\[0\.08\],
+  [data-ops] .border-white\/\[0\.10\],
+  [data-ops] .border-white\/10,
+  [data-ops] .border-ink\/10,
+  [data-ops] .border-ink\/15,
+  [data-ops] .border-ink\/20 {
+    border-color: var(--border-default) !important;
+  }
+  [data-ops] .border-\[\#D1D5DB\],
+  [data-ops] .border-white\/\[0\.14\],
+  [data-ops] .border-white\/\[0\.16\],
+  [data-ops] .border-white\/\[0\.18\] {
+    border-color: var(--border-strong) !important;
+  }
+  [data-ops] .hover\:border-\[\#D1D5DB\]:hover,
+  [data-ops] .hover\:border-white\/\[0\.16\]:hover,
+  [data-ops] .hover\:border-white\/\[0\.18\]:hover {
+    border-color: var(--border-strong) !important;
+  }
+  [data-ops] .ring-\[\#E5E7EB\],
+  [data-ops] .ring-\[\#EEF0F3\],
+  [data-ops] .ring-white\/\[0\.06\],
+  [data-ops] .ring-white\/\[0\.08\],
+  [data-ops] .ring-white\/10,
+  [data-ops] .ring-ink\/10,
+  [data-ops] .ring-ink\/\[0\.02\],
+  [data-ops] .ring-ink\/\[0\.05\],
+  [data-ops] .ring-ink\/\[0\.06\] {
+    --tw-ring-color: var(--border-default) !important;
+  }
+  [data-ops] .divide-white\/\[0\.06\] > * + *,
+  [data-ops] .divide-white\/\[0\.08\] > * + *,
+  [data-ops] .divide-ink\/10 > * + *,
+  [data-ops] .divide-ink\/\[0\.05\] > * + *,
+  [data-ops] .divide-ink\/\[0\.06\] > * + *,
+  [data-ops] .divide-ink\/\[0\.07\] > * + *,
+  [data-ops] .divide-y > * + * {
+    border-color: var(--border-subtle) !important;
+  }
+
+  /* === Text scale → dark ============================================= */
+  [data-ops] .text-white,
+  [data-ops] .text-zinc-50,
+  [data-ops] .text-zinc-100,
+  [data-ops] .text-\[\#111827\],
   [data-ops] .text-navy-950,
   [data-ops] .text-navy-900,
   [data-ops] .text-ink,
   [data-ops] .text-ink-default {
-    color: #111827 !important;
+    color: var(--text-primary) !important;
   }
+  [data-ops] .text-zinc-200 {
+    color: #d4dcd7 !important;
+  }
+  [data-ops] .text-zinc-300,
+  [data-ops] .text-\[\#374151\],
+  [data-ops] .text-\[\#6B7280\],
+  [data-ops] .text-\[\#6b7280\],
   [data-ops] .text-ink-soft {
-    color: #6b7280 !important;
+    color: var(--text-secondary) !important;
   }
+  [data-ops] .text-zinc-400,
+  [data-ops] .text-zinc-500,
+  [data-ops] .text-zinc-600,
+  [data-ops] .text-\[\#9CA3AF\],
   [data-ops] .text-ink-muted {
-    color: #9ca3af !important;
+    color: var(--text-tertiary) !important;
   }
-  [data-ops] .border-ink\/10,
-  [data-ops] .border-ink\/15,
-  [data-ops] .border-ink\/20,
-  [data-ops] .border-ink\/\[0\.06\],
-  [data-ops] .border-ink\/\[0\.07\],
-  [data-ops] .border-ink\/\[0\.08\],
-  [data-ops] .border-ink\/\[0\.02\],
-  [data-ops] .ring-ink\/10,
-  [data-ops] .ring-ink\/\[0\.06\],
-  [data-ops] .ring-ink\/\[0\.05\],
-  [data-ops] .divide-ink\/10 > * + *,
-  [data-ops] .divide-ink\/\[0\.06\] > * + *,
-  [data-ops] .divide-ink\/\[0\.07\] > * + * {
-    border-color: #e5e7eb !important;
-  }
-  [data-ops] .ring-ink\/10,
-  [data-ops] .ring-ink\/\[0\.06\],
-  [data-ops] .ring-ink\/\[0\.05\],
-  [data-ops] .ring-ink\/\[0\.02\] {
-    --tw-ring-color: #e5e7eb !important;
-  }
-  [data-ops] .shadow-card {
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04) !important;
-  }
-  [data-ops] .shadow-elevated {
-    box-shadow:
-      0 6px 18px -10px rgba(15, 23, 42, 0.08),
-      0 2px 4px -2px rgba(15, 23, 42, 0.05) !important;
-  }
-  [data-ops] .shadow-premium {
-    box-shadow:
-      0 10px 30px -16px rgba(15, 23, 42, 0.12),
-      0 4px 8px -4px rgba(15, 23, 42, 0.06) !important;
+  [data-ops] .hover\:text-zinc-100:hover,
+  [data-ops] .hover\:text-zinc-200:hover,
+  [data-ops] .hover\:text-zinc-300:hover,
+  [data-ops] .hover\:text-white:hover,
+  [data-ops] .hover\:text-\[\#111827\]:hover,
+  [data-ops] .hover\:text-navy-950:hover {
+    color: var(--text-primary) !important;
   }
 
-  /* Inputs / selects / textareas – clean white surface ================ */
+  /* === Vivid semantic text (KPI numbers, status text) → on-dark ====== */
+  [data-ops] .text-blue-600,
+  [data-ops] .text-blue-700,
+  [data-ops] .text-brand-700,
+  [data-ops] .text-brand-800 {
+    color: #60a5fa !important;
+  }
+  [data-ops] .text-orange-600,
+  [data-ops] .text-orange-700 {
+    color: #fb923c !important;
+  }
+  [data-ops] .text-sky-600,
+  [data-ops] .text-sky-700 {
+    color: #38bdf8 !important;
+  }
+  [data-ops] .text-emerald-600,
+  [data-ops] .text-emerald-700,
+  [data-ops] .text-emerald-800,
+  [data-ops] .text-emerald-900,
+  [data-ops] .text-accent-600,
+  [data-ops] .text-accent-700,
+  [data-ops] .text-accent-800,
+  [data-ops] .text-accent-900,
+  [data-ops] .text-\[\#065F46\] {
+    color: var(--brand-strong) !important;
+  }
+  [data-ops] .text-amber-600,
+  [data-ops] .text-amber-700,
+  [data-ops] .text-amber-800,
+  [data-ops] .text-\[\#92400E\] {
+    color: #fbbf24 !important;
+  }
+  [data-ops] .text-red-600,
+  [data-ops] .text-red-700,
+  [data-ops] .text-red-800,
+  [data-ops] .text-\[\#991B1B\] {
+    color: #f87171 !important;
+  }
+  [data-ops] .text-indigo-600,
+  [data-ops] .text-indigo-700,
+  [data-ops] .text-indigo-800 {
+    color: #818cf8 !important;
+  }
+  [data-ops] .text-violet-600,
+  [data-ops] .text-violet-700,
+  [data-ops] .text-violet-800 {
+    color: #c4b5fd !important;
+  }
+  [data-ops] .text-sky-900 {
+    color: #7dd3fc !important;
+  }
+  [data-ops] .text-violet-900 {
+    color: #c4b5fd !important;
+  }
+  [data-ops] .text-amber-900 {
+    color: #fbbf24 !important;
+  }
+  [data-ops] .text-slate-600,
+  [data-ops] .text-slate-700 {
+    color: var(--text-secondary) !important;
+  }
+
+  /* === Soft status pill / icon-tile backgrounds → dark tints ========= */
+  [data-ops] .bg-brand-50,
+  [data-ops] .bg-blue-50,
+  [data-ops] .bg-blue-100 {
+    background-color: rgba(59, 130, 246, 0.14) !important;
+    color: #60a5fa !important;
+  }
+  [data-ops] .bg-accent-50,
+  [data-ops] .bg-emerald-50,
+  [data-ops] .bg-emerald-100 {
+    background-color: var(--brand-soft) !important;
+    color: var(--brand-strong) !important;
+  }
+  [data-ops] .bg-amber-50,
+  [data-ops] .bg-amber-100 {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+    color: #fbbf24 !important;
+  }
+  [data-ops] .bg-orange-50,
+  [data-ops] .bg-orange-100,
+  [data-ops] .bg-orange-500\/10,
+  [data-ops] .bg-orange-500\/\[0\.10\] {
+    background-color: rgba(249, 115, 22, 0.14) !important;
+    color: #fb923c !important;
+  }
+  [data-ops] .bg-red-50,
+  [data-ops] .bg-red-100 {
+    background-color: rgba(239, 68, 68, 0.14) !important;
+    color: #f87171 !important;
+  }
+  [data-ops] .bg-indigo-50,
+  [data-ops] .bg-indigo-100 {
+    background-color: rgba(129, 140, 248, 0.14) !important;
+    color: #a5b4fc !important;
+  }
+  [data-ops] .bg-violet-50,
+  [data-ops] .bg-violet-100 {
+    background-color: rgba(167, 139, 250, 0.14) !important;
+    color: #c4b5fd !important;
+  }
+  [data-ops] .bg-rose-50,
+  [data-ops] .bg-rose-100 {
+    background-color: rgba(244, 63, 94, 0.14) !important;
+    color: #fda4af !important;
+  }
+  [data-ops] .bg-sky-50,
+  [data-ops] .bg-sky-100 {
+    background-color: rgba(56, 189, 248, 0.14) !important;
+    color: #7dd3fc !important;
+  }
+  [data-ops] .bg-slate-100,
+  [data-ops] .bg-slate-200 {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    color: var(--text-secondary) !important;
+  }
+
+  /* Sync pill hardcodes (topbar) → dark tints ------------------------- */
+  [data-ops] .bg-\[\#FEE2E2\] {
+    background-color: rgba(239, 68, 68, 0.14) !important;
+  }
+  [data-ops] .border-\[\#FECACA\] {
+    border-color: rgba(239, 68, 68, 0.34) !important;
+  }
+  [data-ops] .bg-\[\#FEF3C7\] {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+  }
+  [data-ops] .border-\[\#FDE68A\] {
+    border-color: rgba(245, 158, 11, 0.34) !important;
+  }
+  [data-ops] .bg-\[\#ECFDF5\] {
+    background-color: var(--brand-soft) !important;
+  }
+  [data-ops] .border-\[\#A7F3D0\] {
+    border-color: var(--brand-edge) !important;
+  }
+
+  /* Rings / edges on tinted tiles ------------------------------------ */
+  [data-ops] .ring-emerald-100,
+  [data-ops] .ring-emerald-200,
+  [data-ops] .ring-brand-100,
+  [data-ops] .ring-accent-100 {
+    --tw-ring-color: var(--brand-edge) !important;
+  }
+  [data-ops] .ring-sky-100,
+  [data-ops] .ring-sky-200 {
+    --tw-ring-color: rgba(56, 189, 248, 0.3) !important;
+  }
+  [data-ops] .ring-violet-100,
+  [data-ops] .ring-violet-200 {
+    --tw-ring-color: rgba(167, 139, 250, 0.3) !important;
+  }
+  [data-ops] .ring-amber-100,
+  [data-ops] .ring-amber-200 {
+    --tw-ring-color: rgba(245, 158, 11, 0.3) !important;
+  }
+  [data-ops] .hover\:ring-blue-200:hover {
+    --tw-ring-color: rgba(59, 130, 246, 0.3) !important;
+  }
+  [data-ops] .hover\:ring-orange-200:hover {
+    --tw-ring-color: rgba(249, 115, 22, 0.3) !important;
+  }
+  [data-ops] .hover\:ring-sky-200:hover {
+    --tw-ring-color: rgba(56, 189, 248, 0.3) !important;
+  }
+  [data-ops] .hover\:ring-emerald-200:hover {
+    --tw-ring-color: var(--brand-edge) !important;
+  }
+
+  /* Decorative orange accents (old dark theme) → brand green ---------- */
+  [data-ops] .text-orange-200,
+  [data-ops] .text-orange-300,
+  [data-ops] .text-orange-400 {
+    color: var(--brand-strong) !important;
+  }
+  [data-ops] .hover\:text-orange-200:hover,
+  [data-ops] .hover\:text-orange-300:hover {
+    color: #86efac !important;
+  }
+  [data-ops] .from-orange-500,
+  [data-ops] .from-orange-400 {
+    --tw-gradient-from: var(--brand) !important;
+  }
+  [data-ops] .to-orange-600,
+  [data-ops] .to-amber-400,
+  [data-ops] .to-amber-500,
+  [data-ops] .to-orange-400 {
+    --tw-gradient-to: var(--brand-strong) !important;
+  }
+  [data-ops] .border-orange-500\/30 {
+    border-color: var(--brand-edge) !important;
+  }
+
+  /* Brand button tokens inside CRM scope → green --------------------- */
+  [data-ops] .bg-brand-700 {
+    background-color: var(--brand) !important;
+    color: #04140b !important;
+  }
+  [data-ops] .bg-brand-800 {
+    background-color: var(--brand-strong) !important;
+  }
+  [data-ops] .ring-brand-200 {
+    --tw-ring-color: var(--brand-edge) !important;
+  }
+
+  /* Shadows → soft dark elevation ------------------------------------ */
+  [data-ops] .shadow-card {
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+  }
+  [data-ops] .shadow-elevated {
+    box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.7),
+      0 2px 6px -2px rgba(0, 0, 0, 0.4) !important;
+  }
+  [data-ops] .shadow-premium {
+    box-shadow: 0 18px 44px -24px rgba(0, 0, 0, 0.8),
+      0 4px 10px -4px rgba(0, 0, 0, 0.5) !important;
+  }
+
+  /* Inputs / selects / textareas → dark surface ======================= */
   [data-ops] input[type="text"]:not(.ops-input):not([class*="ops-"]),
   [data-ops] input[type="email"]:not(.ops-input):not([class*="ops-"]),
   [data-ops] input[type="tel"]:not(.ops-input):not([class*="ops-"]),
@@ -426,197 +672,225 @@
   [data-ops] input[type="datetime-local"]:not(.ops-input):not([class*="ops-"]),
   [data-ops] input[type="date"]:not(.ops-input):not([class*="ops-"]),
   [data-ops] input[type="number"]:not(.ops-input):not([class*="ops-"]),
+  [data-ops] input[type="password"]:not(.ops-input):not([class*="ops-"]),
   [data-ops] textarea:not(.ops-input):not([class*="ops-"]),
   [data-ops] select:not(.ops-input):not([class*="ops-"]) {
-    background-color: #ffffff !important;
-    color: #111827 !important;
-    border-color: #e5e7eb !important;
+    background-color: var(--surface-2) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-default) !important;
   }
   [data-ops] input::placeholder,
   [data-ops] textarea::placeholder {
-    color: #9ca3af !important;
+    color: var(--text-tertiary) !important;
   }
   [data-ops] input:focus:not(.ops-input):not([class*="ops-"]),
   [data-ops] textarea:focus:not(.ops-input):not([class*="ops-"]),
   [data-ops] select:focus:not(.ops-input):not([class*="ops-"]) {
-    border-color: #16a34a !important;
-    box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15) !important;
+    border-color: var(--brand) !important;
+    box-shadow: 0 0 0 3px var(--brand-soft) !important;
     outline: none !important;
   }
-  /* Hover bleed on light surfaces ===================================== */
-  [data-ops] .hover\:bg-surface-muted:hover,
-  [data-ops] .hover\:bg-surface-subtle:hover,
-  [data-ops] .hover\:bg-white:hover {
-    background-color: #f9fafb !important;
-  }
 
-  /* === Soft status pill backgrounds (kept calm, never neon) =========== */
-  [data-ops] .bg-brand-50 {
-    background-color: #eff6ff !important;
-    color: #1e40af !important;
-  }
-  [data-ops] .bg-accent-50 {
-    background-color: #ecfdf5 !important;
-    color: #065f46 !important;
-  }
-  [data-ops] .bg-amber-50,
-  [data-ops] .bg-amber-100 {
-    background-color: #fef3c7 !important;
-    color: #92400e !important;
-  }
-  [data-ops] .bg-red-50,
-  [data-ops] .bg-red-100 {
-    background-color: #fee2e2 !important;
-    color: #991b1b !important;
-  }
-  [data-ops] .bg-emerald-50,
-  [data-ops] .bg-emerald-100 {
-    background-color: #ecfdf5 !important;
-    color: #065f46 !important;
-  }
-  [data-ops] .bg-indigo-50,
-  [data-ops] .bg-indigo-100 {
-    background-color: #eef2ff !important;
-    color: #3730a3 !important;
-  }
-  [data-ops] .bg-violet-50,
-  [data-ops] .bg-violet-100 {
-    background-color: #f5f3ff !important;
-    color: #5b21b6 !important;
-  }
-  [data-ops] .bg-rose-50,
-  [data-ops] .bg-rose-100 {
-    background-color: #fff1f2 !important;
-    color: #9f1239 !important;
-  }
-  [data-ops] .bg-sky-50,
-  [data-ops] .bg-sky-100 {
-    background-color: #f0f9ff !important;
-    color: #075985 !important;
-  }
-  [data-ops] .bg-slate-100,
-  [data-ops] .bg-slate-200 {
-    background-color: #f3f4f6 !important;
-    color: #374151 !important;
-  }
-
-  /* Make 700/800 text colours WCAG-readable on the matching pills ===== */
-  [data-ops] .text-brand-700,
-  [data-ops] .text-brand-800 {
-    color: #1e40af !important;
-  }
-  [data-ops] .text-accent-700,
-  [data-ops] .text-accent-800,
-  [data-ops] .text-accent-900 {
-    color: #065f46 !important;
-  }
-  [data-ops] .text-amber-700,
-  [data-ops] .text-amber-800 {
-    color: #92400e !important;
-  }
-  [data-ops] .text-red-700,
-  [data-ops] .text-red-800,
-  [data-ops] .text-red-600 {
-    color: #991b1b !important;
-  }
-  [data-ops] .text-emerald-700,
-  [data-ops] .text-emerald-800,
-  [data-ops] .text-emerald-600 {
-    color: #065f46 !important;
-  }
-  [data-ops] .text-indigo-700,
-  [data-ops] .text-indigo-800 {
-    color: #3730a3 !important;
-  }
-  [data-ops] .text-violet-700,
-  [data-ops] .text-violet-800 {
-    color: #5b21b6 !important;
-  }
-  [data-ops] .text-slate-700,
-  [data-ops] .text-slate-600 {
-    color: #374151 !important;
-  }
-  /* Decorative orange accents (used by the previous dark theme) become
-     brand-green so the FairTrain identity stays consistent.            */
-  [data-ops] .text-orange-200,
-  [data-ops] .text-orange-300,
-  [data-ops] .text-orange-400 {
-    color: #16a34a !important;
-  }
-  [data-ops] .hover\:text-orange-200:hover,
-  [data-ops] .hover\:text-orange-300:hover {
-    color: #15803d !important;
-  }
-  [data-ops] .from-orange-500,
-  [data-ops] .from-orange-400 {
-    --tw-gradient-from: #16a34a !important;
-  }
-  [data-ops] .to-orange-600,
-  [data-ops] .to-amber-400,
-  [data-ops] .to-amber-500,
-  [data-ops] .to-orange-400 {
-    --tw-gradient-to: #15803d !important;
-  }
-  [data-ops] .from-orange-700\/70 {
-    --tw-gradient-from: rgba(22, 163, 74, 0.7) !important;
-  }
-  [data-ops] .from-orange-500.to-amber-400,
-  [data-ops] .bg-gradient-to-br.from-orange-500 {
-    --tw-gradient-from: #16a34a !important;
-    --tw-gradient-to: #22c55e !important;
-  }
-  [data-ops] .bg-orange-500\/10,
-  [data-ops] .bg-orange-500\/\[0\.10\] {
-    background-color: #ecfdf5 !important;
-  }
-  [data-ops] .border-orange-500\/30 {
-    border-color: #a7f3d0 !important;
-  }
-  /* Brand-button utility tokens used inside the CRM scope ============= */
-  [data-ops] .bg-brand-700 {
-    background-color: #16a34a !important;
-  }
-  [data-ops] .bg-brand-800 {
-    background-color: #15803d !important;
-  }
-  [data-ops] .ring-brand-200 {
-    --tw-ring-color: rgba(22, 163, 74, 0.30) !important;
-  }
-
-  /* === Tables: clean enterprise rails ================================ */
+  /* === Tables: dark enterprise rails ================================= */
   [data-ops] thead {
-    background-color: #f9fafb !important;
-    border-bottom: 1px solid #e5e7eb !important;
+    background-color: rgba(255, 255, 255, 0.02) !important;
+    border-bottom: 1px solid var(--border-default) !important;
   }
   [data-ops] thead tr {
     background-color: transparent !important;
   }
   [data-ops] thead th {
     background-color: transparent !important;
-    color: #6b7280 !important;
+    color: var(--text-tertiary) !important;
     font-weight: 600 !important;
-    border-color: #e5e7eb !important;
+    border-color: var(--border-default) !important;
   }
   [data-ops] tbody tr {
     background-color: transparent !important;
   }
   [data-ops] tbody tr:hover {
-    background-color: #f9fafb !important;
+    background-color: var(--surface-hover) !important;
   }
   [data-ops] tbody td {
-    border-color: #eef0f3 !important;
-  }
-  [data-ops] .divide-y > * + * {
-    border-color: #eef0f3 !important;
+    border-color: var(--border-subtle) !important;
   }
 
-  /* Marketing gradient classes occasionally bleed into CRM card heads. */
+  /* Marketing gradient classes that bleed into CRM card heads → dark == */
   [data-ops] .from-white,
   [data-ops] .via-surface-subtle\/40,
   [data-ops] .to-surface-subtle\/60,
   [data-ops] .to-surface-subtle {
-    --tw-gradient-from: #ffffff !important;
-    --tw-gradient-to: #f9fafb !important;
-    --tw-gradient-via: #ffffff !important;
+    --tw-gradient-from: var(--surface-1) !important;
+    --tw-gradient-to: var(--surface-2) !important;
+    --tw-gradient-via: var(--surface-1) !important;
+  }
+
+  /* === Supplemental bespoke hardcodes across CRM feature pages ======= */
+  /* (Rückruf-Inbox, Import-Wizard, Unterlagen-Board, WhatsApp-Admin,     */
+  /*  Error) use extra literal hexes — incl. lowercase variants, which    */
+  /*  are distinct CSS classes. Map them onto the same dark token set so  */
+  /*  every surface stays coherent with the flagship dashboard.          */
+
+  /* Neutral surfaces / hovers (lowercase + extra) --------------------- */
+  [data-ops] .bg-\[\#f6f7f9\],
+  [data-ops] .bg-\[\#ffffff\],
+  [data-ops] .bg-\[\#F0FDF4\],
+  [data-ops] .bg-\[\#f0fdf4\] {
+    background-color: var(--surface-1) !important;
+  }
+  [data-ops] .bg-\[\#f3f4f6\] {
+    background-color: var(--surface-2) !important;
+  }
+  [data-ops] .bg-\[\#f9fafb\],
+  [data-ops] .hover\:bg-\[\#f9fafb\]:hover {
+    background-color: var(--surface-hover) !important;
+  }
+  [data-ops] .bg-\[\#eef0f3\] {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  /* Tinted status backgrounds (lowercase + extra) --------------------- */
+  [data-ops] .bg-\[\#FEF2F2\],
+  [data-ops] .bg-\[\#fef2f2\] {
+    background-color: rgba(239, 68, 68, 0.14) !important;
+  }
+  [data-ops] .bg-\[\#DCFCE7\],
+  [data-ops] .bg-\[\#DCF8C6\],
+  [data-ops] .bg-\[\#ecfdf5\] {
+    background-color: var(--brand-soft) !important;
+  }
+  [data-ops] .bg-\[\#FFFBEB\],
+  [data-ops] .bg-\[\#fffbeb\] {
+    background-color: rgba(245, 158, 11, 0.14) !important;
+  }
+  [data-ops] .bg-\[\#eff6ff\] {
+    background-color: rgba(59, 130, 246, 0.14) !important;
+  }
+
+  /* Primary "ink" button / active filter chip → brand green ----------- */
+  [data-ops] .bg-\[\#111827\] {
+    background-color: var(--brand) !important;
+    color: #04140b !important;
+  }
+  [data-ops] .hover\:bg-\[\#1F2937\]:hover {
+    background-color: var(--brand-strong) !important;
+  }
+  [data-ops] .border-\[\#111827\] {
+    border-color: var(--brand-edge) !important;
+  }
+  [data-ops] .focus\:border-\[\#111827\]:focus {
+    border-color: var(--brand) !important;
+  }
+
+  /* Vivid semantic text (lowercase + extra) --------------------------- */
+  [data-ops] .text-\[\#9ca3af\] {
+    color: var(--text-tertiary) !important;
+  }
+  [data-ops] .text-\[\#15803D\],
+  [data-ops] .text-\[\#15803d\],
+  [data-ops] .text-\[\#166534\],
+  [data-ops] .text-\[\#059669\],
+  [data-ops] .text-\[\#065f46\] {
+    color: var(--brand-strong) !important;
+  }
+  [data-ops] .text-\[\#B91C1C\],
+  [data-ops] .text-\[\#991b1b\],
+  [data-ops] .text-\[\#dc2626\] {
+    color: #f87171 !important;
+  }
+  [data-ops] .text-\[\#B45309\],
+  [data-ops] .text-\[\#92400e\],
+  [data-ops] .text-\[\#d97706\] {
+    color: #fbbf24 !important;
+  }
+  [data-ops] .text-\[\#0f766e\] {
+    color: #2dd4bf !important;
+  }
+  [data-ops] .text-\[\#0284c7\] {
+    color: #38bdf8 !important;
+  }
+  [data-ops] .text-\[\#1d4ed8\] {
+    color: #60a5fa !important;
+  }
+
+  /* Borders / rings (lowercase + extra) ------------------------------- */
+  [data-ops] .border-\[\#e5e7eb\],
+  [data-ops] .border-\[\#d1d5db\] {
+    border-color: var(--border-default) !important;
+  }
+  [data-ops] .border-\[\#eef0f3\] {
+    border-color: var(--border-subtle) !important;
+  }
+  [data-ops] .border-\[\#BBF7D0\],
+  [data-ops] .border-\[\#a7f3d0\],
+  [data-ops] .ring-\[\#a7f3d0\] {
+    border-color: var(--brand-edge) !important;
+    --tw-ring-color: var(--brand-edge) !important;
+  }
+  [data-ops] .border-\[\#fecaca\],
+  [data-ops] .ring-\[\#fecaca\] {
+    border-color: rgba(239, 68, 68, 0.34) !important;
+    --tw-ring-color: rgba(239, 68, 68, 0.34) !important;
+  }
+  [data-ops] .border-\[\#fde68a\],
+  [data-ops] .ring-\[\#fde68a\] {
+    border-color: rgba(245, 158, 11, 0.34) !important;
+    --tw-ring-color: rgba(245, 158, 11, 0.34) !important;
+  }
+  [data-ops] .ring-\[\#bfdbfe\] {
+    --tw-ring-color: rgba(59, 130, 246, 0.34) !important;
+  }
+  [data-ops] .divide-\[\#F3F4F6\] > * + *,
+  [data-ops] .divide-\[\#f3f4f6\] > * + * {
+    border-color: var(--border-subtle) !important;
+  }
+
+  /* Dashboard atmospheric hero — restrained dark rail layer. Reuses an
+     approved photo if present at /brand/dashboard-hero.jpg, otherwise a
+     tasteful dark gradient stands in. No external hotlinks. */
+  .ops-hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    border: 1px solid var(--border-subtle);
+    background: radial-gradient(
+        120% 140% at 100% 0%,
+        rgba(34, 197, 94, 0.16) 0%,
+        rgba(34, 197, 94, 0.05) 30%,
+        rgba(11, 16, 14, 0) 62%
+      ),
+      linear-gradient(180deg, #0f1613 0%, #0c120f 100%);
+  }
+  .ops-hero__art {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image: var(--ops-hero-image, none);
+    background-size: cover;
+    background-position: center right;
+    opacity: 0.5;
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.35) 34%,
+      #000 72%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(0, 0, 0, 0.35) 34%,
+      #000 72%
+    );
+  }
+  .ops-hero__art::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      #0c120f 0%,
+      rgba(12, 18, 15, 0.7) 40%,
+      rgba(12, 18, 15, 0.15) 100%
+    );
   }
 }

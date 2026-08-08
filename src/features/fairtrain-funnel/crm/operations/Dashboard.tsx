@@ -221,16 +221,20 @@ export function Dashboard(data: DashboardData) {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-1">
-        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-ink-muted">
+      <header className="ops-hero relative flex flex-col gap-1 rounded-2xl px-6 py-7 sm:px-8 sm:py-9">
+        <span aria-hidden className="ops-hero__art" />
+        <p className="relative text-[11px] font-bold uppercase tracking-[0.16em] text-[#6b776f]">
           Dashboard · Operations Center
         </p>
-        <h1 className="font-display text-[26px] font-bold tracking-tight text-navy-950 sm:text-[30px]">
+        <h1 className="relative mt-1 font-display text-[26px] font-bold tracking-tight text-white sm:text-[32px]">
           Guten Tag, {firstName}
-          <span className="ml-2 text-[16px] font-medium text-ink-muted">
-            {DATE_FMT.format(new Date())}
+          <span aria-hidden className="ml-2 align-middle">
+            👋
           </span>
         </h1>
+        <p className="relative mt-1 text-[14px] font-medium text-[#9aa6a0]">
+          {DATE_FMT.format(new Date())}
+        </p>
       </header>
 
       {/* 1) Hero KPIs */}
@@ -243,7 +247,16 @@ export function Dashboard(data: DashboardData) {
       {/* 2) Heute bearbeiten */}
       <section className="overflow-hidden rounded-2xl border border-ink/[0.07] bg-white shadow-card">
         <header className="flex items-center gap-2.5 border-b border-ink/[0.06] px-5 py-4">
-          <span aria-hidden className="text-[18px]">📋</span>
+          <span
+            aria-hidden
+            className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" />
+              <rect x="9" y="3" width="6" height="4" rx="1" />
+              <path d="m9 14 2 2 4-4" />
+            </svg>
+          </span>
           <h2 className="text-[16px] font-bold tracking-tight text-navy-950">
             Heute bearbeiten
           </h2>
