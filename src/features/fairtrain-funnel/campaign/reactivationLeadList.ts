@@ -55,11 +55,11 @@ export const REACTIVATION_LEAD_STATE_TONE: Record<
   ReactivationLeadState,
   string
 > = {
-  offen: "bg-sky-50 text-sky-700 ring-sky-200",
-  angeschrieben: "bg-amber-50 text-amber-700 ring-amber-200",
-  beantwortet: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  erledigt: "bg-slate-100 text-slate-600 ring-slate-200",
-  fehlgeschlagen: "bg-rose-50 text-rose-700 ring-rose-200",
+  offen: "bg-sky-500/15 text-sky-300 ring-sky-500/25",
+  angeschrieben: "bg-amber-500/15 text-amber-300 ring-amber-500/30",
+  beantwortet: "bg-emerald-500/15 text-emerald-300 ring-emerald-500/25",
+  erledigt: "bg-white/[0.06] text-[#aab4ae] ring-white/[0.1]",
+  fehlgeschlagen: "bg-rose-500/15 text-rose-300 ring-rose-500/30",
 };
 
 /** A UI-safe row for the imported-leads table (no server types leak here). */

@@ -2,8 +2,9 @@
 
 /**
  * Presentational pieces for the Multichat work surface: the conversation list
- * row and the message thread + reply composer. Apple-style: light, glassy,
- * rounded, soft shadows, green accents — no dark surfaces.
+ * row and the message thread + reply composer. Premium dark High-End surface
+ * via the remap-proof `.dash-*` layer (matching the Dashboard). Behaviour is
+ * unchanged — only styling was elevated.
  */
 import { type MultichatConversation } from "@/features/fairtrain-funnel/messaging/types";
 
@@ -35,34 +36,34 @@ export function ConversationRow({
         className={
           "w-full px-3 py-3 text-left transition " +
           (active
-            ? "bg-emerald-50/70 ring-1 ring-inset ring-emerald-200"
-            : "hover:bg-slate-50")
+            ? "bg-emerald-500/10 ring-1 ring-inset ring-emerald-500/25"
+            : "hover:bg-white/[0.03]")
         }
       >
         <div className="flex items-center justify-between gap-2">
           <span className="flex min-w-0 items-center gap-1.5">
-            <span className="shrink-0 rounded-lg bg-slate-900/5 px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums text-slate-500">
+            <span className="shrink-0 rounded-lg bg-white/[0.06] px-1.5 py-0.5 text-[10.5px] font-semibold tabular-nums text-[#9aa6a0]">
               #{convo.seq}
             </span>
-            <span className="truncate font-semibold text-slate-900">
+            <span className="truncate font-semibold text-[#e9efeb]">
               {convo.leadName}
             </span>
           </span>
-          <span className="shrink-0 text-[11px] text-slate-400">
+          <span className="shrink-0 text-[11px] text-[#7f8a83]">
             {relativeTime(convo.lastAt)}
           </span>
         </div>
 
-        <div className="mt-1 flex items-center gap-1.5">
+        <div className="mt-1.5 flex items-center gap-1.5">
           <WorkStatusPill status={convo.workStatus} />
           {convo.unread > 0 ? (
-            <span className="rounded-full bg-emerald-500 px-1.5 py-0.5 text-[10.5px] font-semibold text-white">
+            <span className="rounded-full bg-emerald-400 px-1.5 py-0.5 text-[10.5px] font-bold text-[#052e16]">
               {convo.unread} neu
             </span>
           ) : null}
         </div>
 
-        <p className="mt-1 truncate text-[13px] text-slate-500">
+        <p className="mt-1.5 truncate text-[13px] text-[#9aa6a0]">
           {convo.preview}
         </p>
 
@@ -70,16 +71,16 @@ export function ConversationRow({
           <EmploymentBucketPill bucket={convo.employmentBucket} />
           <FunnelPhasePill phase={convo.funnelPhase} label={convo.funnelPhaseLabel} />
           {convo.leadType === "neu" ? (
-            <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10.5px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10.5px] font-semibold text-emerald-300 ring-1 ring-inset ring-emerald-500/25">
               Funnel-Lead
             </span>
           ) : null}
           {convo.numberLabel ? (
-            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-medium text-slate-500">
+            <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10.5px] font-medium text-[#9aa6a0]">
               {convo.numberLabel}
             </span>
           ) : null}
-          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-slate-500">
+          <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10.5px] font-medium tabular-nums text-[#9aa6a0]">
             {convo.total} Nachr.
           </span>
         </div>
@@ -109,19 +110,19 @@ export function Thread({
 }) {
   return (
     <>
-      <header className="border-b border-black/5 bg-white/60 px-5 py-3.5 backdrop-blur">
+      <header className="border-b border-white/[0.06] bg-white/[0.02] px-5 py-3.5">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <span className="shrink-0 rounded-lg bg-slate-900/5 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-slate-500">
+              <span className="shrink-0 rounded-lg bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#9aa6a0]">
                 #{convo.seq}
               </span>
-              <span className="truncate text-[15px] font-semibold text-slate-900">
+              <span className="truncate text-[15px] font-bold text-white">
                 {convo.leadName}
               </span>
               <WorkStatusPill status={convo.workStatus} />
             </div>
-            <div className="mt-0.5 truncate text-[12px] text-slate-500">
+            <div className="mt-0.5 truncate text-[12px] text-[#9aa6a0]">
               {convo.phone}
               {convo.numberLabel ? ` · via ${convo.numberLabel}` : ""}
               {convo.assignedName ? ` · ${convo.assignedName}` : ""}
@@ -134,15 +135,13 @@ export function Thread({
           </div>
         </div>
         {notice ? (
-          <p className="mt-2.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-[12.5px] text-emerald-700">
-            {notice}
-          </p>
+          <p className="dash-note-ok mt-2.5 px-3 py-1.5 text-[12.5px]">{notice}</p>
         ) : null}
       </header>
 
-      <div className="flex-1 space-y-2 overflow-y-auto bg-gradient-to-b from-slate-50/60 to-white px-5 py-4">
+      <div className="flex-1 space-y-2 overflow-y-auto bg-white/[0.01] px-5 py-4">
         {convo.messages.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-center text-[13px] text-slate-400">
+          <div className="flex h-full items-center justify-center text-center text-[13px] text-[#7f8a83]">
             Noch keine Nachrichten in dieser Unterhaltung.
           </div>
         ) : (
@@ -155,14 +154,12 @@ export function Thread({
             >
               <div
                 className={
-                  "max-w-[78%] rounded-2xl px-3.5 py-2 text-[13.5px] shadow-sm ring-1 ring-inset " +
-                  (m.direction === "OUT"
-                    ? "bg-emerald-50 text-slate-900 ring-emerald-100"
-                    : "bg-white text-slate-900 ring-black/5")
+                  "max-w-[78%] rounded-2xl px-3.5 py-2 text-[13.5px] " +
+                  (m.direction === "OUT" ? "dash-bubble-out" : "dash-bubble-in")
                 }
               >
                 <p className="whitespace-pre-wrap break-words">{m.body}</p>
-                <div className="mt-1 text-right text-[10.5px] text-slate-400">
+                <div className="mt-1 text-right text-[10.5px] opacity-60">
                   {MULTICHAT_TIME.format(new Date(m.createdAt))}
                   {m.direction === "OUT" ? ` · ${statusLabel(m.status)}` : ""}
                   {m.isDemo ? " · Sim" : ""}
@@ -173,20 +170,18 @@ export function Thread({
         )}
       </div>
 
-      <div className="border-t border-black/5 bg-white/60 p-3 backdrop-blur">
+      <div className="border-t border-white/[0.06] bg-white/[0.02] p-3">
         {error ? (
-          <p className="mb-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-[13px] text-rose-700">
-            {error}
-          </p>
+          <p className="dash-note-err mb-2 px-3 py-1.5 text-[13px]">{error}</p>
         ) : null}
         {convo.optOut ? (
-          <p className="mb-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-[13px] font-medium text-rose-700">
+          <p className="dash-note-err mb-2 px-3 py-1.5 text-[13px] font-medium">
             Dieser Lead hat sich per WhatsApp abgemeldet (Opt-out). Es können
             keine WhatsApp-Nachrichten mehr gesendet werden.
           </p>
         ) : null}
         {!live ? (
-          <p className="mb-2 text-[12px] text-amber-700">
+          <p className="mb-2 text-[12px] text-amber-300">
             Simulationsmodus – Nachrichten werden protokolliert, aber nicht real
             versendet.
           </p>
@@ -208,13 +203,13 @@ export function Thread({
                 ? "Lead abgemeldet – Versand deaktiviert"
                 : "Antwort schreiben… (⌘/Strg + Enter zum Senden)"
             }
-            className="min-h-[46px] flex-1 resize-y rounded-2xl border border-black/10 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-50"
+            className="dash-field min-h-[46px] flex-1 resize-y px-3.5 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
           />
           <button
             type="button"
             onClick={onSend}
             disabled={pending || !draft.trim() || convo.optOut}
-            className="h-[46px] shrink-0 rounded-2xl bg-emerald-500 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-600 disabled:opacity-40"
+            className="dash-btn-primary h-[46px] shrink-0 rounded-2xl px-5 text-sm transition disabled:opacity-40"
           >
             {pending ? "Sendet…" : "Senden"}
           </button>

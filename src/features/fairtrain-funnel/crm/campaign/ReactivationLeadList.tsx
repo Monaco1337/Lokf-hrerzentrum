@@ -10,6 +10,9 @@
  * search and pagination all live in the URL, so after a release the sibling
  * ReactivationCampaign's router.refresh() re-renders this list in sync — a lead
  * that was just contacted immediately flips from "Offen" to "Angeschrieben".
+ *
+ * Styled with the remap-proof `.dash-*` layer for the premium dark surface;
+ * behaviour is unchanged.
  */
 import type { Route } from "next";
 import Link from "next/link";
@@ -98,14 +101,14 @@ export function ReactivationLeadList({
     ];
 
   return (
-    <section className="rounded-2xl border border-black/[0.06] bg-white/70 p-5 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_20px_40px_-28px_rgba(15,23,42,0.35)] backdrop-blur">
+    <section className="dash-panel p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h2 className="text-[15px] font-semibold text-slate-900">
+          <h2 className="text-[15px] font-bold text-white">
             Alle importierten Leads
           </h2>
-          <p className="mt-1 text-[13px] text-slate-500">
-            <strong className="text-slate-700">
+          <p className="mt-1 text-[13px] text-[#9aa6a0]">
+            <strong className="text-white">
               {counts.total.toLocaleString("de-DE")}
             </strong>{" "}
             Leads insgesamt. Angeschriebene sind gesperrt und werden nie erneut
@@ -117,13 +120,13 @@ export function ReactivationLeadList({
             value={term}
             onChange={(e) => setTerm(e.target.value)}
             placeholder="Name, Telefon oder E-Mail…"
-            className="w-64 rounded-xl border border-black/[0.08] bg-white/80 px-3.5 py-2 text-[13px] text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+            className="dash-field w-64 px-3.5 py-2 text-[13px]"
           />
           {term ? (
             <button
               type="button"
               onClick={() => setTerm("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full px-1.5 text-[13px] text-slate-400 hover:text-slate-700"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full px-1.5 text-[13px] text-[#7f8a83] hover:text-white"
               aria-label="Suche löschen"
             >
               ×
@@ -152,20 +155,12 @@ export function ReactivationLeadList({
                   p: undefined,
                 })
               }
-              className={[
-                "rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition",
-                activeChip
-                  ? "bg-emerald-600 text-white shadow-sm"
-                  : "border border-black/[0.08] bg-white/70 text-slate-600 hover:bg-white",
-              ].join(" ")}
+              className={`rounded-full px-3.5 py-1.5 text-[12.5px] font-semibold transition ${
+                activeChip ? "dash-pill dash-pill--active" : "dash-pill"
+              }`}
             >
               {c.label}
-              <span
-                className={[
-                  "ml-1.5 rounded-full px-1.5 py-0.5 text-[10.5px] font-semibold",
-                  activeChip ? "bg-white/25" : "bg-slate-100 text-slate-500",
-                ].join(" ")}
-              >
+              <span className="dash-pill__n ml-1.5 px-1.5 py-0.5 text-[10.5px] font-semibold">
                 {c.count.toLocaleString("de-DE")}
               </span>
             </button>
@@ -174,9 +169,9 @@ export function ReactivationLeadList({
       </div>
 
       {/* Table */}
-      <div className="mt-4 overflow-hidden rounded-xl border border-black/[0.05]">
+      <div className="mt-4 overflow-hidden rounded-xl border border-white/[0.06]">
         <table className="w-full text-left text-[13px]">
-          <thead className="bg-slate-50/70 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          <thead className="bg-white/[0.03] text-[11px] font-semibold uppercase tracking-wide text-[#7f8a83]">
             <tr>
               <th className="px-4 py-2.5">Name</th>
               <th className="px-4 py-2.5">Telefon</th>
@@ -188,26 +183,26 @@ export function ReactivationLeadList({
               <th className="px-4 py-2.5 text-right">Aktion</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-black/[0.04]">
+          <tbody className="divide-y divide-white/[0.05]">
             {rows.length === 0 ? (
               <tr>
                 <td
                   colSpan={6}
-                  className="px-4 py-10 text-center text-[13px] text-slate-400"
+                  className="px-4 py-10 text-center text-[13px] text-[#7f8a83]"
                 >
                   Keine Leads für diese Auswahl.
                 </td>
               </tr>
             ) : (
               rows.map((r) => (
-                <tr key={r.id} className="hover:bg-slate-50/60">
-                  <td className="px-4 py-2.5 font-medium text-slate-800">
+                <tr key={r.id} className="transition hover:bg-white/[0.03]">
+                  <td className="px-4 py-2.5 font-medium text-[#e9efeb]">
                     {r.name}
                   </td>
-                  <td className="px-4 py-2.5 text-slate-600">
+                  <td className="px-4 py-2.5 tabular-nums text-[#aab4ae]">
                     {r.phone ?? "—"}
                   </td>
-                  <td className="hidden px-4 py-2.5 text-slate-500 sm:table-cell">
+                  <td className="hidden px-4 py-2.5 text-[#9aa6a0] sm:table-cell">
                     {r.city ?? "—"}
                   </td>
                   <td className="px-4 py-2.5">
@@ -229,13 +224,13 @@ export function ReactivationLeadList({
                       {REACTIVATION_LEAD_STATE_LABEL[r.state]}
                     </span>
                   </td>
-                  <td className="hidden px-4 py-2.5 text-slate-500 md:table-cell">
+                  <td className="hidden px-4 py-2.5 text-[#9aa6a0] md:table-cell">
                     {r.lastActivityAt ? DATE.format(r.lastActivityAt) : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-right">
                     <Link
                       href={`/crm/leads/${r.id}` as Route}
-                      className="rounded-lg border border-black/[0.08] bg-white/70 px-2.5 py-1 text-[12px] font-medium text-slate-700 transition hover:bg-white"
+                      className="dash-soft inline-block px-2.5 py-1 text-[12px] font-medium transition"
                     >
                       Öffnen
                     </Link>
@@ -248,7 +243,7 @@ export function ReactivationLeadList({
       </div>
 
       {/* Pagination */}
-      <div className="mt-3 flex items-center justify-between text-[12.5px] text-slate-500">
+      <div className="mt-3 flex items-center justify-between text-[12.5px] text-[#9aa6a0]">
         <span>
           {from.toLocaleString("de-DE")}–{to.toLocaleString("de-DE")} von{" "}
           {total.toLocaleString("de-DE")}
@@ -258,7 +253,7 @@ export function ReactivationLeadList({
             type="button"
             disabled={pending || page <= 1}
             onClick={() => navigate({ p: page - 1 <= 1 ? undefined : String(page - 1) })}
-            className="rounded-lg border border-black/[0.08] bg-white/70 px-3 py-1.5 font-medium text-slate-700 transition hover:bg-white disabled:opacity-40"
+            className="dash-soft px-3 py-1.5 font-medium transition disabled:opacity-40"
           >
             Zurück
           </button>
@@ -269,7 +264,7 @@ export function ReactivationLeadList({
             type="button"
             disabled={pending || page >= totalPages}
             onClick={() => navigate({ p: String(page + 1) })}
-            className="rounded-lg border border-black/[0.08] bg-white/70 px-3 py-1.5 font-medium text-slate-700 transition hover:bg-white disabled:opacity-40"
+            className="dash-soft px-3 py-1.5 font-medium transition disabled:opacity-40"
           >
             Weiter
           </button>

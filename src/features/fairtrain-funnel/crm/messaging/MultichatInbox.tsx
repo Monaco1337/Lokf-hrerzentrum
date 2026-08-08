@@ -5,8 +5,9 @@
  *
  * A 3-pane layout: filterable conversation list · message thread + reply ·
  * action panel with everything needed to fully handle an Alt-Lead. A live
- * reactivation-funnel overview sits on top. Apple-style: light, glassy,
- * rounded, soft shadows, green accents — no dark surfaces.
+ * reactivation-funnel overview sits on top. Premium dark High-End surface via
+ * the remap-proof `.dash-*` layer (matching the Dashboard). Behaviour is
+ * unchanged — only styling was elevated.
  */
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -103,23 +104,23 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
     <div data-ops className="space-y-4">
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+          <h1 className="text-[21px] font-bold tracking-tight text-white">
             Reaktivierung · Multichat
           </h1>
-          <p className="mt-0.5 text-sm text-slate-500">
+          <p className="mt-1 text-[13px] text-[#9aa6a0]">
             {`${data.totalConversations} Chats · zentrale Arbeitsoberfläche`}
             {totalUnread > 0 ? ` · ${totalUnread} ungelesen` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-full border border-black/5 bg-white/70 p-0.5 shadow-sm backdrop-blur">
+          <div className="inline-flex rounded-full bg-white/[0.05] p-0.5 ring-1 ring-inset ring-white/[0.08]">
             <button
               type="button"
               onClick={() => setTab("alle")}
               className={
                 tab === "alle"
-                  ? "rounded-full bg-emerald-500 px-3.5 py-1.5 text-[13px] font-semibold text-white"
-                  : "rounded-full px-3.5 py-1.5 text-[13px] text-slate-600"
+                  ? "dash-pill dash-pill--active rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
+                  : "rounded-full px-3.5 py-1.5 text-[13px] font-medium text-[#9aa6a0] transition hover:text-white"
               }
             >
               Alle
@@ -129,13 +130,13 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
               onClick={() => setTab("neu")}
               className={
                 tab === "neu"
-                  ? "inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3.5 py-1.5 text-[13px] font-semibold text-white"
-                  : "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] text-slate-600"
+                  ? "dash-pill dash-pill--active inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-semibold"
+                  : "inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium text-[#9aa6a0] transition hover:text-white"
               }
             >
               Neue Antworten
               {newReplies > 0 ? (
-                <span className="rounded-full bg-white/25 px-1.5 text-[10.5px] font-semibold">
+                <span className="rounded-full bg-black/20 px-1.5 text-[10.5px] font-semibold">
                   {newReplies}
                 </span>
               ) : null}
@@ -144,8 +145,8 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
           <span
             className={
               data.whatsappLive
-                ? "rounded-full bg-emerald-50 px-3 py-1.5 text-[12px] font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200"
-                : "rounded-full bg-amber-50 px-3 py-1.5 text-[12px] font-semibold text-amber-700 ring-1 ring-inset ring-amber-200"
+                ? "rounded-full bg-emerald-500/15 px-3 py-1.5 text-[12px] font-semibold text-emerald-300 ring-1 ring-inset ring-emerald-500/25"
+                : "rounded-full bg-amber-500/15 px-3 py-1.5 text-[12px] font-semibold text-amber-300 ring-1 ring-inset ring-amber-500/30"
             }
           >
             {data.whatsappLive ? "Live" : "Simulation"}
@@ -170,13 +171,13 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
 
       <div className="grid gap-4 xl:grid-cols-[340px_1fr_330px]">
         {/* Conversation list */}
-        <aside className="flex max-h-[74vh] flex-col overflow-hidden rounded-3xl border border-black/5 bg-white/70 shadow-[0_8px_30px_rgba(0,0,0,0.06)] backdrop-blur-xl">
-          <div className="space-y-2 border-b border-black/5 p-3">
+        <aside className="dash-panel flex max-h-[74vh] flex-col overflow-hidden">
+          <div className="space-y-2 border-b border-white/[0.06] p-3">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Suchen (Name, Nummer, Vertriebler)…"
-              className="w-full rounded-2xl border border-black/10 bg-white px-3.5 py-2.5 text-sm text-slate-900 outline-none transition focus:border-emerald-400 focus:ring-2 focus:ring-emerald-100"
+              className="dash-field w-full px-3.5 py-2.5 text-sm"
             />
             <div className="flex flex-wrap gap-1.5">
               <Chip
@@ -215,7 +216,7 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
               <select
                 value={numberFilter}
                 onChange={(e) => setNumberFilter(e.target.value)}
-                className="min-w-0 flex-1 rounded-xl border border-black/10 bg-white px-2.5 py-2 text-[13px] text-slate-700 outline-none focus:border-emerald-400"
+                className="dash-field min-w-0 flex-1 px-2.5 py-2 text-[13px]"
               >
                 <option value="">Alle Nummern</option>
                 {data.numbers.map((n) => (
@@ -229,8 +230,8 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
                 onClick={() => setUnreadOnly((v) => !v)}
                 className={
                   unreadOnly
-                    ? "shrink-0 rounded-xl bg-emerald-500 px-3 py-2 text-[13px] font-semibold text-white"
-                    : "shrink-0 rounded-xl border border-black/10 bg-white/80 px-3 py-2 text-[13px] text-slate-700"
+                    ? "dash-pill dash-pill--active shrink-0 rounded-xl px-3 py-2 text-[13px] font-semibold"
+                    : "dash-soft shrink-0 rounded-xl px-3 py-2 text-[13px] font-medium"
                 }
               >
                 Ungelesen
@@ -238,20 +239,20 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
             </div>
           </div>
 
-          <div className="flex items-center justify-between border-b border-black/5 bg-slate-50/60 px-3 py-1.5 text-[11.5px] text-slate-500">
+          <div className="flex items-center justify-between border-b border-white/[0.06] bg-white/[0.02] px-3 py-1.5 text-[11.5px] text-[#7f8a83]">
             <span>
               {filtered.length === data.totalConversations
                 ? `Alle ${data.totalConversations} Chats`
                 : `${filtered.length} von ${data.totalConversations} Chats`}
             </span>
-            <span className={noFilters ? "font-medium text-emerald-600" : "text-slate-400"}>
+            <span className={noFilters ? "font-medium text-emerald-300" : "text-[#6b776f]"}>
               {noFilters ? "vollständig" : "gefiltert"}
             </span>
           </div>
 
-          <ul className="flex-1 divide-y divide-black/5 overflow-y-auto">
+          <ul className="flex-1 divide-y divide-white/[0.05] overflow-y-auto">
             {filtered.length === 0 ? (
-              <li className="px-4 py-10 text-center text-sm text-slate-400">
+              <li className="px-4 py-10 text-center text-sm text-[#7f8a83]">
                 Keine Konversationen.
               </li>
             ) : (
@@ -268,7 +269,7 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
         </aside>
 
         {/* Thread */}
-        <section className="flex max-h-[74vh] min-h-[440px] flex-col overflow-hidden rounded-3xl border border-black/5 bg-white/70 shadow-[0_8px_30px_rgba(0,0,0,0.06)] backdrop-blur-xl">
+        <section className="dash-panel flex max-h-[74vh] min-h-[440px] flex-col overflow-hidden">
           {selected ? (
             <Thread
               convo={selected}
@@ -281,7 +282,7 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
               live={data.whatsappLive}
             />
           ) : (
-            <div className="flex flex-1 items-center justify-center p-8 text-sm text-slate-400">
+            <div className="flex flex-1 items-center justify-center p-8 text-sm text-[#7f8a83]">
               Wähle links eine Konversation.
             </div>
           )}
@@ -296,7 +297,7 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
               templates={data.templates}
             />
           ) : (
-            <div className="rounded-3xl border border-black/5 bg-white/70 p-8 text-center text-sm text-slate-400 shadow-sm">
+            <div className="dash-panel p-8 text-center text-sm text-[#7f8a83]">
               Aktionen erscheinen hier.
             </div>
           )}
@@ -306,13 +307,13 @@ export function MultichatInbox({ data }: { data: MultichatData }) {
   );
 }
 
-const STAT_TONE: Record<string, string> = {
-  slate: "text-slate-700",
-  sky: "text-sky-700",
-  emerald: "text-emerald-700",
-  amber: "text-amber-700",
-  violet: "text-violet-700",
-  blue: "text-blue-700",
+const STAT_DASH: Record<string, string> = {
+  slate: "",
+  sky: "dash-t-cyan",
+  emerald: "dash-t-emerald",
+  amber: "dash-t-amber",
+  violet: "dash-t-violet",
+  blue: "dash-t-blue",
 };
 
 function StatCard({
@@ -322,14 +323,12 @@ function StatCard({
 }: {
   label: string;
   value: number;
-  tone: keyof typeof STAT_TONE;
+  tone: keyof typeof STAT_DASH;
 }) {
   return (
-    <div className="rounded-2xl border border-black/5 bg-white/70 px-3.5 py-3 shadow-sm backdrop-blur">
-      <p className={`text-2xl font-semibold tabular-nums ${STAT_TONE[tone]}`}>
-        {value.toLocaleString("de-DE")}
-      </p>
-      <p className="mt-0.5 text-[11.5px] font-medium text-slate-500">{label}</p>
+    <div className={`dash-card ${STAT_DASH[tone]} px-3.5 py-3`}>
+      <p className="dash-num text-[22px]">{value.toLocaleString("de-DE")}</p>
+      <p className="mt-1 text-[11.5px] font-medium text-[#9aa6a0]">{label}</p>
     </div>
   );
 }
@@ -345,25 +344,17 @@ function Chip({
   count: number;
   onClick: () => void;
 }) {
-  const activeCls = "bg-emerald-500 text-white";
   return (
     <button
       type="button"
       onClick={onClick}
       className={
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-medium transition " +
-        (active
-          ? activeCls
-          : "border border-black/10 bg-white/80 text-slate-600 hover:bg-white")
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[12px] font-semibold transition " +
+        (active ? "dash-pill dash-pill--active" : "dash-pill")
       }
     >
       {label}
-      <span
-        className={
-          "rounded-full px-1.5 text-[10.5px] font-semibold tabular-nums " +
-          (active ? "bg-white/25" : "bg-slate-100 text-slate-500")
-        }
-      >
+      <span className="dash-pill__n px-1.5 text-[10.5px] font-semibold tabular-nums">
         {count}
       </span>
     </button>

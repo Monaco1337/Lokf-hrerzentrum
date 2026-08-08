@@ -1071,4 +1071,118 @@
   [data-ops] .dash-btn-wa:hover {
     background: color-mix(in srgb, #34d399 22%, transparent);
   }
+
+  /* --- Larger work-surface panels (Multichat / Reaktivierung) --------- */
+  [data-ops] .dash-panel {
+    position: relative;
+    border-radius: 20px;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.03),
+        rgba(255, 255, 255, 0) 40%
+      ),
+      #121815;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+      0 20px 44px -30px rgba(0, 0, 0, 0.9);
+  }
+  [data-ops] .dash-subtle {
+    background: rgba(255, 255, 255, 0.025);
+  }
+
+  /* Dark-native form field (search, select, textarea, datetime). */
+  [data-ops] .dash-field {
+    border-radius: 12px;
+    background: #172019;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  [data-ops] .dash-field::placeholder {
+    color: var(--text-tertiary);
+  }
+  [data-ops] .dash-field:focus,
+  [data-ops] .dash-field:focus-visible {
+    outline: none;
+    border-color: color-mix(in srgb, #34d399 55%, transparent);
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.16);
+  }
+
+  /* Segmented / filter pill button. */
+  [data-ops] .dash-pill {
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-secondary);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    transition: background 0.15s ease, color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  [data-ops] .dash-pill:hover {
+    background: rgba(255, 255, 255, 0.09);
+    color: var(--text-primary);
+  }
+  [data-ops] .dash-pill--active {
+    background: linear-gradient(180deg, #34d399, #22c55e);
+    color: #052e16;
+    box-shadow: 0 8px 18px -10px rgba(34, 197, 94, 0.75);
+  }
+  [data-ops] .dash-pill--active:hover {
+    background: linear-gradient(180deg, #34d399, #22c55e);
+    color: #052e16;
+  }
+  /* Count bubble inside a pill. */
+  [data-ops] .dash-pill__n {
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+  [data-ops] .dash-pill--active .dash-pill__n {
+    background: rgba(5, 46, 22, 0.22);
+    color: #052e16;
+  }
+
+  /* Soft ghost control (secondary buttons across the work surfaces). */
+  [data-ops] .dash-soft {
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-primary);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    transition: background 0.15s ease;
+  }
+  [data-ops] .dash-soft:hover {
+    background: rgba(255, 255, 255, 0.09);
+  }
+
+  /* Chat bubbles. */
+  [data-ops] .dash-bubble-out {
+    background: color-mix(in srgb, #34d399 15%, #141c17);
+    color: #eafff3;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #34d399 26%, transparent);
+  }
+  [data-ops] .dash-bubble-in {
+    background: #1b241d;
+    color: #e9efeb;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  }
+
+  /* Inline notices. */
+  [data-ops] .dash-note-ok {
+    border-radius: 12px;
+    background: color-mix(in srgb, #34d399 12%, transparent);
+    color: #6ee7b7;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #34d399 26%, transparent);
+  }
+  [data-ops] .dash-note-err {
+    border-radius: 12px;
+    background: color-mix(in srgb, #fb7185 12%, transparent);
+    color: #fda4af;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #fb7185 28%, transparent);
+  }
+  [data-ops] .dash-note-warn {
+    border-radius: 12px;
+    background: color-mix(in srgb, #fbbf24 12%, transparent);
+    color: #fcd34d;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, #fbbf24 28%, transparent);
+  }
 }
