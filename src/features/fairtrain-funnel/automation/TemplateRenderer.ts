@@ -246,7 +246,7 @@ export function renderEmailHtml(
 <p style="margin:0 0 6px;font-family:${EMAIL_FONT};font-size:15px;font-weight:700;color:#ffffff;">Lokführerzentrum.de</p>
 <p style="margin:0 0 12px;font-family:${EMAIL_FONT};font-size:12px;letter-spacing:0.5px;color:#9fb0c9;text-transform:uppercase;">Dein Einstieg. Deine Zukunft. Dein Weg.</p>
 <p style="margin:0;font-family:${EMAIL_FONT};font-size:12px;line-height:1.7;color:#cbd5e1;">
-<a href="mailto:info@weissleder-immobilien.de" style="color:#cbd5e1;text-decoration:none;">info@weissleder-immobilien.de</a>&nbsp;&bull;&nbsp;<a href="${EMAIL_ORIGIN}" target="_blank" style="color:#cbd5e1;text-decoration:none;">www.lokführerzentrum.de</a>
+<a href="mailto:foerderung@xn--lokfhrerzentrum-2vb.de" style="color:#cbd5e1;text-decoration:none;">foerderung@lokführerzentrum.de</a>&nbsp;&bull;&nbsp;<a href="${EMAIL_ORIGIN}" target="_blank" style="color:#cbd5e1;text-decoration:none;">www.lokführerzentrum.de</a>
 </p>
 <p style="margin:12px 0 0;font-family:${EMAIL_FONT};font-size:11px;line-height:1.6;color:#6b7c98;">Diese E-Mail bezieht sich auf deine Anfrage zur geförderten Lokführer-Weiterbildung. Deine Daten werden ausschließlich hierfür und DSGVO-konform verarbeitet.</p>
 </td></tr>
